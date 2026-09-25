@@ -118,6 +118,10 @@ Vite proxies `/api` to `localhost:8080`.
 | Attendance conflicts | Cannot apply for leave on a day already marked WFO/WFH/COMP_OFF. |
 | Self-approval prevention | An admin cannot approve or reject their own leave/swap-off request. |
 | COMP_OFF balance | Dynamic: base allocation + count of approved swap-off credits for the year. |
+| HPE holiday taken (rule A) | Employee is marked `HPEH` in the roster for the actual holiday date; no entitlement is created. |
+| HPE holiday worked (rule B) | Employee earns one HPEH entitlement (`hpe_entitlements`, unique per employee + holiday) usable within 3 months of the **original** holiday date; it expires afterwards and can never be used twice. Master HPE holiday definitions are stored once and filtered by the employee's location (`ALL` or `PUNE_MUMBAI`). |
+| HPE earning is automatic | A daily scan (`application.hpe.earn-cron`) plus `POST /admin/hpe-holidays/:id/entitlements/sync` award entitlements to every **active** employee recorded as having *worked* on an HPE holiday date. The check reuses the existing attendance sources in order: roster status cell (`attendance_records`: `WFO/WFH/SW WK/WK WRK/WDT/HD/TR` = worked, `HPEH/WO/PL/SL/...` = not worked) → daily `attendance` record → configured week off. A date with **no** recorded status is `UNKNOWN` and never counts as work, so sync is idempotent and never awards by default. |
+| HPE holidays on the calendar | The existing `GET /api/calendar` includes active `HPE_HOLIDAY` definitions, filtered by the caller's location (`ALL` / `PUNE_MUMBAI` / …) and hidden when inactive. They render as normal holiday chips with a small `HPEH` badge and open as **HPE Holiday** in the details modal (`.cal-hpeh-tag`, coloured by `--attendance-hpeh-*` so light/dark stay in sync). Personal earned entitlements are never calendar events. |
 | Excel import | Upload → suggested column mapping → preview with VALID/INVALID/DUPLICATE rows → commit (imports only VALID rows, never overwrites existing attendance). |
 | Notifications | Scheduled hour broadcast upcoming holidays/birthdays; approval requests notify users. |
 
@@ -140,6 +144,8 @@ All endpoints are prefixed with `/api`.
 | Calendar | `GET /calendar` |
 | Holidays / Events | `GET /holidays`, `GET /holidays/upcoming`, `GET /events` |
 | Admin Holidays / Events | CRUD under `/admin/holidays`, `/admin/events` |
+| HPE Holidays | `GET /hpe-holidays` (master HPE holidays applicable to your location), `GET /hpe-holidays/entitlements`, `GET /hpe-holidays/entitlements/all`, `GET /hpe-holidays/entitlements/summary`, `POST /hpe-holidays/entitlements`, `POST /hpe-holidays/entitlements/use` |
+| Admin HPE Holidays | `GET/POST /admin/hpe-holidays`, `PUT/DELETE /admin/hpe-holidays/:id`, `POST /admin/hpe-holidays/:id/entitlements/sync`, `POST /admin/hpe-holidays/entitlements/sync` |
 | Notifications | `GET /notifications`, `GET /notifications/unread-count`, `POST /notifications/:id/read`, `POST /notifications/read-all` |
 | Admin Excel | `POST /admin/excel/upload`, `POST /admin/excel/:id/mapping`, `POST /admin/excel/:id/commit`, `GET /admin/excel/imports` |
 | Dashboards | `GET /dashboard/me`, `GET /admin/dashboard/summary`, `GET /admin/dashboard/charts` |
@@ -184,6 +190,8 @@ Covers: validation schemas, date/leave-day utils, Login form rendering and submi
 | `APP_EXCLUDE_WEEKENDS` | `true` | Whether weekend days count against leave balance |
 | `APP_EXCLUDE_HOLIDAYS` | `true` | Whether public holidays count against leave balance |
 | `APP_WEEKLY_OFFS` | `6,7` | ISO day numbers for weekly off (6=Sat, 7=Sun) |
+| `APP_HPE_EXPIRE_CRON` | `0 30 1 * * *` | Daily sweep that expires overdue HPEH entitlements |
+| `APP_HPE_EARN_CRON` | `0 15 2 * * *` | Daily scan that awards entitlements for HPE holidays that were worked |
 | `FRONTEND_PORT` | `80` | Nginx port mapped to host |
 | `BACKEND_PORT` | `8080` | Backend port mapped to host |
 

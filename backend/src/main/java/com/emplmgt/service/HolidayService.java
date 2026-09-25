@@ -1,6 +1,7 @@
 package com.emplmgt.service;
 
 import com.emplmgt.dto.HolidayDtos;
+import com.emplmgt.entity.ApplicableLocation;
 import com.emplmgt.entity.Department;
 import com.emplmgt.entity.Holiday;
 import com.emplmgt.entity.HolidayType;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -51,6 +53,15 @@ public class HolidayService {
         return holidays.stream().limit(limit).map(this::toResponse).toList();
     }
 
+    /** Master HPE holiday definitions for the admin console (includes inactive definitions). */
+    @Transactional(readOnly = true)
+    public List<HolidayDtos.Response> listHpeHolidays() {
+        return holidayRepository.findByHolidayType(HolidayType.HPE_HOLIDAY).stream()
+                .sorted(Comparator.comparing(Holiday::getHolidayDate))
+                .map(this::toResponse)
+                .toList();
+    }
+
     @Transactional
     public HolidayDtos.Response create(HolidayDtos.HolidayRequest request) {
         ScopeType scope = resolveScope(request.scope());
@@ -61,6 +72,8 @@ public class HolidayService {
                 .country(request.country() == null || request.country().isBlank() ? "US" : request.country())
                 .holidayType(request.holidayType() == null ? HolidayType.PUBLIC : request.holidayType())
                 .description(request.description())
+                .applicableLocations(request.applicableLocations() == null ? ApplicableLocation.ALL : request.applicableLocations())
+                .active(request.active() == null || request.active())
                 .scope(scope)
                 .team(team)
                 .build();
@@ -84,6 +97,12 @@ public class HolidayService {
         holiday.setCountry(request.country() == null || request.country().isBlank() ? "US" : request.country());
         holiday.setHolidayType(request.holidayType() == null ? HolidayType.PUBLIC : request.holidayType());
         holiday.setDescription(request.description());
+        if (request.applicableLocations() != null) {
+            holiday.setApplicableLocations(request.applicableLocations());
+        }
+        if (request.active() != null) {
+            holiday.setActive(request.active());
+        }
         holiday.setScope(scope);
         holiday.setTeam(team);
         Holiday saved = holidayRepository.save(holiday);
@@ -119,6 +138,7 @@ public class HolidayService {
     private HolidayDtos.Response toResponse(Holiday h) {
         return new HolidayDtos.Response(h.getId(), h.getName(), h.getHolidayDate(),
                 h.getCountry(), h.getHolidayType(), h.getDescription(),
+                h.getApplicableLocations(), h.isActive(),
                 h.getScope(), h.getTeam() != null ? h.getTeam().getId() : null);
     }
 }

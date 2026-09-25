@@ -1,6 +1,7 @@
 package com.emplmgt.repository;
 
 import com.emplmgt.entity.Holiday;
+import com.emplmgt.entity.HolidayType;
 import com.emplmgt.entity.ScopeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -35,6 +36,10 @@ public interface HolidayRepository extends JpaRepository<Holiday, Long> {
                                     @Param("scope") ScopeType scope, @Param("teamId") Long teamId);
 
     List<Holiday> findByHolidayDate(LocalDate date);
+
+    List<Holiday> findByHolidayType(HolidayType holidayType);
+
+    List<Holiday> findByHolidayTypeAndActiveTrueOrderByHolidayDate(HolidayType holidayType);
 
     Optional<Holiday> findByHolidayDateAndCountryAndName(LocalDate date, String country, String name);
 

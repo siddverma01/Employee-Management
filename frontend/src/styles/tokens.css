@@ -200,12 +200,35 @@
   --hpe-spacing-md: 24px;
   --hpe-spacing-lg: 48px;
   --hpe-spacing-xl: 96px;
+
+  /* Attendance roster status fills — LIGHT (Excel-style soft fills, dark ink).
+     Referenced as var(--attendance-*) so the values flip the instant the
+     `.dark` class toggles on <html> — no React re-render required. Keep the
+     light values in sync with STATUS_STYLES in constants/rosterStatus.ts. */
+  --attendance-wo-bg: #E5E7EB; --attendance-wo-text: #374151;
+  --attendance-wfo-bg: #86EFAC; --attendance-wfo-text: #166534;
+  --attendance-wfh-bg: #FDE68A; --attendance-wfh-text: #78350F;
+  --attendance-pl-bg: #FDE68A; --attendance-pl-text: #78350F;
+  --attendance-sl-bg: #FEF3C7; --attendance-sl-text: #78350F;
+  --attendance-co-bg: #FEF3C7; --attendance-co-text: #78350F;
+  --attendance-hpeh-bg: #FDE68A; --attendance-hpeh-text: #78350F;
+  --attendance-fl-bg: #FED7AA; --attendance-fl-text: #7C2D12;
+  --attendance-sw-off-bg: #FDE68A; --attendance-sw-off-text: #78350F;
+  --attendance-sw-wk-bg: #86EFAC; --attendance-sw-wk-text: #166534;
+  --attendance-wk-wrk-bg: #86EFAC; --attendance-wk-wrk-text: #166534;
+  --attendance-hd-bg: #FED7AA; --attendance-hd-text: #7C2D12;
+  --attendance-wx-bg: #DDD6FE; --attendance-wx-text: #5B21B6;
+  --attendance-tr-bg: #BFDBFE; --attendance-tr-text: #1E40AF;
+  --attendance-its-bg: #FECACA; --attendance-its-text: #991B1B;
+  --attendance-wdt-bg: #BFDBFE; --attendance-wdt-text: #1E40AF;
+  --attendance-atr-bg: #FECACA; --attendance-atr-text: #991B1B;
+  --attendance-empty-bg: #F7F8FA; --attendance-empty-text: #A6AEBB;
 }
 
-/* DARK mode — layered non-black surfaces:
-   main #0F1117 · sidebar #0B0D12 · top bar #11141B · cards #151821 ·
-   rows #161923 · hover #1B2029 · borders #252A34 ·
-   primary text #E6EAF0 · secondary #9AA3B2 · muted #6F7785 ·
+/* DARK mode — layered SOFT charcoal-slate surfaces (no near-black, no pure
+   white): main #171B20 · sidebar #0E100F · top bar #14171D · cards #1B1E23 ·
+   rows #1A1D25 · hover #1E2325 · borders #1F242D ·
+   primary text #E2E6EE · secondary #8E9794 · muted #71788A ·
    restrained teal accent #00CFA3 */
 .dark {
   /* Brand lifts slightly in Dark so the teal reads on dark surfaces.
@@ -214,24 +237,24 @@
   --hpe-brand-500: 0 207 163; /* #00CFA3 */
   --hpe-brand-600: 0 174 140;
 
-  --hpe-surface-0: 21 24 33; /* #151821 — cards / containers / dropdowns */
-  --hpe-surface-50: 17 17 23; /* #0F1117 — main background */
-  --hpe-surface-100: 27 32 41; /* #1B2029 — hover / active fill */
-  --hpe-surface-200: 37 42 52; /* #252A34 — subtle borders / separators */
-  --hpe-surface-300: 43 50 62; /* input borders */
-  --hpe-surface-400: 111 119 133; /* muted text #6F7785 */
-  --hpe-surface-500: 154 163 178; /* secondary text #9AA3B2 */
-  --hpe-surface-600: 154 163 178; /* secondary text (emphasized) */
-  --hpe-surface-700: 166 175 189; /* body text */
-  --hpe-surface-800: 230 234 240; /* #E6EAF0 — primary text / headings */
-  --hpe-surface-900: 230 234 240;
-  --hpe-surface-950: 230 234 240;
+  --hpe-surface-0: 27 30 35; /* #1B1E23 — cards / containers / dropdowns */
+  --hpe-surface-50: 21 23 27; /* #15171B — main background (soft charcoal) */
+  --hpe-surface-100: 29 34 43; /* #1D222B — hover / active fill */
+  --hpe-surface-200: 31 36 45; /* #1F242D — subtle borders / separators */
+  --hpe-surface-300: 36 43 53; /* #242B35 — input borders */
+  --hpe-surface-400: 113 121 135; /* muted text #717987 */
+  --hpe-surface-500: 152 161 176; /* secondary text #98A1B0 */
+  --hpe-surface-600: 152 161 176; /* secondary text (emphasized) */
+  --hpe-surface-700: 164 173 187; /* body text */
+  --hpe-surface-800: 226 230 238; /* #E2E6EE — primary text / headings (soft) */
+  --hpe-surface-900: 226 230 238;
+  --hpe-surface-950: 226 230 238;
 
-  --hpe-sidebar: 11 13 18; /* #0B0D12 — slightly deeper than main */
-  --hpe-topnav: 17 20 27; /* #11141B — top navigation bar */
-  --hpe-field: 20 23 32; /* #141720 — inputs / dropdowns */
-  --hpe-row: 22 25 35; /* #161923 — table rows */
-  --hpe-row-hover: 27 32 41; /* #1B2029 — table row hover */
+  --hpe-sidebar: 13 16 21; /* #0D1015 — slightly deeper than main */
+  --hpe-topnav: 19 22 29; /* #13161D — top navigation bar */
+  --hpe-field: 24 27 34; /* #181B22 — inputs / dropdowns */
+  --hpe-row: 26 29 37; /* #1A1D25 — table rows */
+  --hpe-row-hover: 30 35 44; /* #1E232C — table row hover */
 
   --hpe-decorative-brand: 0 207 163;
   --hpe-decorative-green: 0 207 163;
@@ -289,4 +312,25 @@
   --hpe-elevation-medium: 0 8px 24px rgba(0, 0, 0, 0.5);
   --hpe-elevation-large: 0 16px 40px rgba(0, 0, 0, 0.6);
   --hpe-hover: rgba(255, 255, 255, 0.06);
+
+  /* Attendance roster status fills — DARK (muted tinted surfaces, soft text).
+     The dark tinted cell borders live in index.css via .dark [data-status="…"]. */
+  --attendance-wo-bg: #272C34; --attendance-wo-text: #C4CAD4;
+  --attendance-wfo-bg: #173D2B; --attendance-wfo-text: #8BE0AE;
+  --attendance-wfh-bg: #4A3A16; --attendance-wfh-text: #EFD180;
+  --attendance-pl-bg: #493A17; --attendance-pl-text: #EDCB68;
+  --attendance-sl-bg: #49301F; --attendance-sl-text: #F1B879;
+  --attendance-co-bg: #443817; --attendance-co-text: #E8CF76;
+  --attendance-hpeh-bg: #463817; --attendance-hpeh-text: #E7CE70;
+  --attendance-fl-bg: #442D20; --attendance-fl-text: #E8AE7D;
+  --attendance-sw-off-bg: #433417; --attendance-sw-off-text: #E7C96D;
+  --attendance-sw-wk-bg: #173D2B; --attendance-sw-wk-text: #8BE0AE;
+  --attendance-wk-wrk-bg: #173D2B; --attendance-wk-wrk-text: #8BE0AE;
+  --attendance-hd-bg: #453020; --attendance-hd-text: #E8B083;
+  --attendance-wx-bg: #33294A; --attendance-wx-text: #C8B5F5;
+  --attendance-tr-bg: #1F3548; --attendance-tr-text: #9CC9EE;
+  --attendance-its-bg: #48272A; --attendance-its-text: #F0A4A8;
+  --attendance-wdt-bg: #1F3548; --attendance-wdt-text: #9CC9EE;
+  --attendance-atr-bg: #48272A; --attendance-atr-text: #F0A4A8;
+  --attendance-empty-bg: #1E2229; --attendance-empty-text: #626A76;
 }

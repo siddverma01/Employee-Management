@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -16,6 +17,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     Optional<Employee> findByUserId(Long userId);
 
     Optional<Employee> findByEmployeeCodeIgnoreCase(String employeeCode);
+
+    List<Employee> findByEmployeeCodeIn(Collection<String> employeeCodes);
 
     Optional<Employee> findByEmailIgnoreCase(String email);
 
@@ -47,4 +50,7 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
 
     @Query("select count(e) from Employee e where e.employmentStatus = com.emplmgt.entity.EmploymentStatus.ACTIVE and e.dateOfJoining is not null")
     long countActiveWithJoiningDate();
+
+    @Query("select e from Employee e left join fetch e.department where (lower(e.fullName) like lower(concat('%', :q, '%')) or lower(e.employeeCode) like lower(concat('%', :q, '%'))) and e.employmentStatus = com.emplmgt.entity.EmploymentStatus.ACTIVE")
+    List<Employee> searchByNameOrCode(@Param("q") String q);
 }

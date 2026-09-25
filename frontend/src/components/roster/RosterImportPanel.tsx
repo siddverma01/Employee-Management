@@ -8,6 +8,7 @@ import { adminApi } from '@/api'
 import { extractMessage } from '@/api/client'
 import { useTeam } from '@/hooks/useTeam'
 import { RosterLegend, monthLabel } from '@/components/roster/RosterLegend'
+import { formatShiftDisplay } from '@/utils/shift'
 import { rosterStatusClass } from '@/constants/rosterStatus'
 import { Button } from '@/components/ui/Button'
 
@@ -184,7 +185,7 @@ export function RosterImportPanel({ initialFile }: { initialFile?: File | null }
                     <td className="td sticky left-[7.5rem] z-0 whitespace-nowrap border-r border-surface-200 bg-surface-0">{r.employeeName || '—'}</td>
                     <td className="td whitespace-nowrap text-xs">{r.email || '—'}</td>
                     <td className="td whitespace-nowrap text-xs">{r.location || '—'}</td>
-                    <td className="td whitespace-nowrap text-xs">{r.shift || '—'}</td>
+                    <td className="td whitespace-nowrap text-xs">{formatShiftDisplay(r.shift)}</td>
                     <td className="td whitespace-nowrap text-xs">{r.weekOff || '—'}</td>
                     {dates.map((d) => (
                       <td key={d} className="px-1 py-1.5 text-center">

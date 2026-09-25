@@ -41,6 +41,7 @@ class LeaveServiceTest {
     @Mock NotificationService notificationService;
     @Mock AuditService auditService;
     @Mock EmployeeService employeeService;
+    @Mock AttendanceRequestIntegrationService attendanceRequestIntegration;
 
     private LeaveService service;
 
@@ -53,7 +54,8 @@ class LeaveServiceTest {
         service = new LeaveService(
                 leaveRequestRepository, employeeRepository, userRepository, holidayRepository,
                 attendanceRepository, leaveBalanceRepository, swapOffRequestRepository,
-                daysCalculator, appClock, notificationService, auditService, employeeService);
+                daysCalculator, appClock, notificationService, auditService, employeeService,
+                attendanceRequestIntegration);
 
         adminUser = User.builder().id(99L).email("admin@x.com").role(Role.ADMIN).build();
         employeeUser = User.builder().id(1L).email("john@x.com").role(Role.EMPLOYEE).build();

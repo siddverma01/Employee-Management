@@ -51,6 +51,27 @@ public final class HistoricalImportDtos {
             String suggested) {
     }
 
+    /**
+     * Temporary diagnostic: unknown statuses grouped by the exact cell value,
+     * with sample locations so the admin can see precisely which cells are
+     * flagged unknown before deciding on aliases/remapping.
+     */
+    public record UnknownValueDetail(
+            String rawValue,
+            String normalizedValue,
+            long count,
+            List<UnknownValueSample> examples) {
+    }
+
+    public record UnknownValueSample(
+            String sheetName,
+            Integer rowNumber,
+            Integer columnNumber,
+            String employeeId,
+            String employeeName,
+            LocalDate date) {
+    }
+
     public record Summary(
             int totalSheets,
             int sheetsImported,
@@ -98,7 +119,8 @@ public final class HistoricalImportDtos {
             List<RowView> rows,
             List<SheetAnalysis> analysis,
             List<ValidationIssue> issues,
-            List<UnknownCodeDetail> unknownCodes) {
+            List<UnknownCodeDetail> unknownCodes,
+            List<UnknownValueDetail> unknownValues) {
     }
 
     public record CommitResponse(

@@ -1,7 +1,7 @@
 import { Link, NavLink } from 'react-router-dom'
 import {
   Home, User, FileText, Plus, CalendarDays, Users, Bell, LogOut,
-  LayoutDashboard, Building2, FileSpreadsheet, ClipboardList, Clock, Table2, History,
+  LayoutDashboard, Building2, FileSpreadsheet, ClipboardList, Clock, Table2, History, Search,
 } from 'lucide-react'
 import { cn } from '@/utils'
 import { useAuth } from '@/hooks/useAuth'
@@ -31,57 +31,82 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/admin/holidays', label: 'Manage holidays', icon: <CalendarDays className="h-5 w-5" />, adminOnly: true },
   { to: '/admin/imports', label: 'Excel import', icon: <FileSpreadsheet className="h-5 w-5" />, adminOnly: true },
   { to: '/admin/historical-import', label: 'Historical attendance', icon: <History className="h-5 w-5" />, adminOnly: true },
-  { to: '/admin/roster', label: 'Attendance Roster', icon: <Table2 className="h-5 w-5" />, adminOnly: true },
+  { to: '/admin/roster', label: 'Attendance Roster', icon: <Table2 className="h-5 w-5" /> },
+  { to: '/admin/attendance-history', label: 'Attendance History', icon: <Search className="h-5 w-5" />, adminOnly: true },
   { to: '/admin/audit-logs', label: 'Audit logs', icon: <ClipboardList className="h-5 w-5" />, adminOnly: true },
 ]
 
 // Active menu item: accent fill pill (rounded-md), 4px brand left-border,
 // primary (white in dark) text. Inactive items: no fill, secondary text.
 // Inactive items keep an invisible 4px border so the pill never shifts.
-const itemClass = ({ isActive }: { isActive: boolean }) =>
+// When collapsed the label is hidden, the icon stays centered and the same
+// active/inactive tinting is preserved so the current page stays identifiable.
+const itemClass = ({ isActive, collapsed }: { isActive: boolean; collapsed?: boolean }) =>
   cn(
     'flex items-center gap-3 rounded-md border-l-4 px-3 py-2 text-sm transition-colors duration-150',
+    collapsed && 'justify-center px-2',
     isActive
       ? 'border-brand bg-surface-100 font-semibold text-surface-800'
       : 'border-transparent text-surface-500 hover:bg-surface-100 hover:text-surface-800',
   )
 
-function Brand() {
+function Brand({ collapsed = false }: { collapsed?: boolean }) {
   return (
-    <div className="flex h-16 shrink-0 items-center gap-3 border-b border-surface-200 px-4">
-      <Link to="/dashboard" className="flex items-center gap-3" aria-label="Employee management home">
+    <div
+      className={cn(
+        'flex h-16 shrink-0 items-center border-b border-surface-200',
+        collapsed ? 'justify-center px-1' : 'px-4',
+      )}
+    >
+      <Link
+        to="/dashboard"
+        className="flex items-center gap-3"
+        aria-label="Employee management home"
+        title={collapsed ? 'Employee management' : undefined}
+      >
         <img src={hpeElement} alt="HPE" className="block h-6 w-auto" />
-        <span className="truncate text-sm font-semibold text-surface-800">Employee management</span>
+        {!collapsed && <span className="truncate text-sm font-semibold text-surface-800">Employee management</span>}
       </Link>
     </div>
   )
 }
 
-export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
+export function Sidebar({ onNavigate, collapsed = false }: { onNavigate?: () => void; collapsed?: boolean }) {
   const { user, logout } = useAuth()
   const isAdmin = user?.role === 'ADMIN'
   const visibleItems = NAV_ITEMS.filter((n) => !n.adminOnly || isAdmin)
 
   return (
     <div className="flex h-full flex-col bg-sidebar">
-      <Brand />
+      <Brand collapsed={collapsed} />
       <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto py-2">
         {visibleItems.map((item) => (
-          <NavLink key={item.to} to={item.to} onClick={onNavigate} className={itemClass}>
+          <NavLink
+            key={item.to}
+            to={item.to}
+            onClick={onNavigate}
+            className={({ isActive }) => itemClass({ isActive, collapsed })}
+            title={collapsed ? item.label : undefined}
+          >
             {item.icon}
-            {item.label}
+            {!collapsed && item.label}
           </NavLink>
         ))}
       </nav>
-      <div className="border-t border-surface-200 p-2">
+      <div className={cn('border-t border-surface-200', collapsed ? 'p-1' : 'p-2')}>
         <button
           onClick={() => {
             logout()
             onNavigate?.()
           }}
-          className="flex w-full items-center gap-3 rounded-md border-l-4 border-transparent px-3 py-2 text-sm text-surface-500 transition-colors hover:bg-surface-100 hover:text-surface-800"
+          className={cn(
+            'flex w-full items-center gap-3 rounded-md border-l-4 border-transparent px-3 py-2 text-sm text-surface-500 transition-colors hover:bg-surface-100 hover:text-surface-800',
+            collapsed && 'justify-center px-2',
+          )}
+          title={collapsed ? 'Log out' : undefined}
         >
-          <LogOut className="h-5 w-5" /> Log out
+          <LogOut className="h-5 w-5" />
+          {!collapsed && 'Log out'}
         </button>
       </div>
     </div>

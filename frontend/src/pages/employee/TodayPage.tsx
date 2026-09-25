@@ -3,6 +3,7 @@ import type { AvailabilityStatus, TeamMemberAvailability, TodayEntry } from '@/t
 import { todayApi } from '@/api'
 import { useTeam } from '@/hooks/useTeam'
 import { cn, formatDayShort } from '@/utils'
+import { formatShiftDisplay } from '@/utils/shift'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Avatar } from '@/components/ui/Avatar'
 import { LoadingState } from '@/components/ui/LoadingState'
@@ -51,7 +52,7 @@ function AvailabilityRow({ m }: { m: TeamMemberAvailability }) {
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-surface-800">{m.fullName}</p>
         <p className="truncate text-xs text-surface-400">
-          {[m.designation, m.shift, m.location, m.weekOff]
+          {[m.designation, m.shift ? formatShiftDisplay(m.shift) : null, m.location, m.weekOff]
             .filter(Boolean)
             .map((s) => (s as string).replace(/_/g, ' '))
             .join(' · ') || m.employeeCode}

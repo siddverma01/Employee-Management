@@ -15,6 +15,7 @@ public final class SwapOffDtos {
     public record ApplyRequest(
             @NotNull(message = "Worked date is required") LocalDate workedDate,
             @NotNull(message = "Requested off date is required") LocalDate requestedOffDate,
+            @NotBlank(message = "Employee worked for is required") String workedForEmployeeCode,
             @NotBlank(message = "Reason is required") String reason,
             String attachment) {
     }
@@ -28,6 +29,9 @@ public final class SwapOffDtos {
             String employeeCode,
             String employeeName,
             String department,
+            Long workedForEmployeeId,
+            String workedForEmployeeCode,
+            String workedForEmployeeName,
             LocalDate workedDate,
             LocalDate requestedOffDate,
             String reason,

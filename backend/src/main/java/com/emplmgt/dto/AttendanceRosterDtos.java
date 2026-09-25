@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +43,12 @@ public final class AttendanceRosterDtos {
                                   int page, int size, long totalElements, int totalPages) {
     }
 
+    public record TodayResponse(LocalDate date, Long teamId, String teamName, String weekday,
+                                boolean weekend, boolean holiday, String holidayName,
+                                List<EmployeeRow> employees, Map<String, Long> counters,
+                                long totalEmployees, long matchedEmployees) {
+    }
+
     public record PageMeta(List<TeamOption> teams, List<String> months, List<String> locations,
                            List<String> shifts, List<StatusOption> statuses) {
     }
@@ -54,5 +61,34 @@ public final class AttendanceRosterDtos {
     }
 
     public record BatchSaveResponse(int saved) {
+    }
+
+    /** Read model shown in the status description popup for any authenticated
+     *  user. Names/dates are null when no description has been written yet.
+     *
+     *  <p>When the roster status comes from an approved Leave / Swap Off
+     *  request, {@code sourceRequestType}/{@code sourceRequestId} are set and
+     *  {@code sourceReason}, {@code submittedByName}, {@code approvedByName}
+     *  and {@code approvedAt} carry the original request's details (resolved
+     *  server-side from the linked request — never from the client). The
+     *  free-text {@code description} is the admin's own manual note and stays
+     *  untouched by approval writes.</p>
+     *
+     *  <p>For Swap Off, additional fields {@code workedForName} and
+     *  {@code workedDate} identify the employee who was worked for and the
+     *  date the requester worked, enabling the full relationship display.</p> */
+    public record StatusDetail(String employeeId, LocalDate date, String statusCode, String statusName,
+                               String description, String createdByName, Instant createdAt,
+                               String updatedByName, Instant updatedAt,
+                               Long sourceRequestId, String sourceRequestType,
+                               String sourceReason, String submittedByName,
+                               String approvedByName, Instant approvedAt,
+                               String workedForName, LocalDate workedDate) {
+    }
+
+    /** Admin-only write: upsert (or clear when description is blank) the free-
+     *  text reason for an employee + date record. */
+    public record DescriptionUpsertRequest(@NotBlank String employeeId, @NotNull LocalDate date,
+                                           String description) {
     }
 }

@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
+import type { CalendarEvent } from '@/types'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -82,4 +83,19 @@ export function attendanceShort(type: string): string {
   if (type === 'ATTRITION') return 'ATR'
   if (type === 'WORK_FROM_OFFICE') return 'WFO'
   return type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+/** Short status label shown on the calendar chip for an HPE holiday. */
+export const HPE_HOLIDAY_BADGE = 'HPEH'
+
+/** Display name shown in the calendar details modal for an HPE holiday. */
+export const HPE_HOLIDAY_LABEL = 'HPE Holiday'
+
+/**
+ * A calendar holiday whose master definition is an HPE holiday (backend
+ * `extra.holidayType === 'HPE_HOLIDAY'`). Personal earned compensatory
+ * entitlements are never calendar events, so they can never match here.
+ */
+export function isHpeHoliday(ev: Pick<CalendarEvent, 'kind' | 'extra'>): boolean {
+  return ev.kind === 'HOLIDAY' && ev.extra?.holidayType === 'HPE_HOLIDAY'
 }

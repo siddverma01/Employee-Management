@@ -33,7 +33,8 @@ import java.time.LocalDate;
         uniqueConstraints = @UniqueConstraint(columnNames = {"employee_id", "attendance_date"}),
         indexes = {
                 @Index(name = "idx_attendance_records_date", columnList = "attendance_date"),
-                @Index(name = "idx_attendance_records_employee", columnList = "employee_id")
+                @Index(name = "idx_attendance_records_employee", columnList = "employee_id"),
+                @Index(name = "idx_attendance_records_date_status", columnList = "attendance_date, status_code")
         })
 @Getter
 @Setter
@@ -84,4 +85,36 @@ public class AttendanceRecord {
     @Column(name = "updated_at", nullable = false)
     @Builder.Default
     private Instant updatedAt = Instant.now();
+
+    /** Free-text reason/description for this employee + date attendance record.
+     *  Belongs to the specific (employee, date) status cell of the roster. */
+    @Column(columnDefinition = "TEXT")
+    private String description;
+
+    @Column(name = "description_created_by")
+    private Long descriptionCreatedBy;
+
+    @Column(name = "description_created_name", length = 255)
+    private String descriptionCreatedName;
+
+    @Column(name = "description_created_at")
+    private Instant descriptionCreatedAt;
+
+    @Column(name = "description_updated_by")
+    private Long descriptionUpdatedBy;
+
+    @Column(name = "description_updated_name", length = 255)
+    private String descriptionUpdatedName;
+
+    @Column(name = "description_updated_at")
+    private Instant descriptionUpdatedAt;
+
+    /** Id of the approved Leave / Swap Off request that produced or backs this
+     *  roster status, paired with {@link #sourceRequestType} (no FK — the id
+     *  may reference leave_requests or swap_off_requests). */
+    @Column(name = "source_request_id")
+    private Long sourceRequestId;
+
+    @Column(name = "source_request_type", length = 20)
+    private String sourceRequestType;
 }

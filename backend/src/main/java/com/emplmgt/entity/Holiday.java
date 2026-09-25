@@ -34,11 +34,21 @@ public class Holiday extends BaseEntity {
     @Builder.Default
     private HolidayType holidayType = HolidayType.PUBLIC;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "applicable_locations", length = 100)
+    @Builder.Default
+    private ApplicableLocation applicableLocations = ApplicableLocation.ALL;
+
+    /** Master-definition switch: inactive HPE holidays are not offered to employees. */
+    @Column(name = "active", nullable = false)
+    @Builder.Default
+    private boolean active = true;
+
     @Column(length = 500)
     private String description;
 
     @Enumerated(EnumType.STRING)
-    @Column(length = 10, nullable = false)
+    @Column(name = "scope", length = 10, nullable = false)
     @Builder.Default
     private ScopeType scope = ScopeType.GLOBAL;
 

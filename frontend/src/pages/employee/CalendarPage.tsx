@@ -8,7 +8,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { LoadingState } from '@/components/ui/LoadingState'
-import { formatDate } from '@/utils'
+import { formatDate, HPE_HOLIDAY_BADGE, HPE_HOLIDAY_LABEL, isHpeHoliday } from '@/utils'
 import type { CalendarEvent } from '@/types'
 
 const KIND_LABELS: Record<string, string> = {
@@ -88,6 +88,10 @@ export function CalendarPage() {
             {label}
           </div>
         ))}
+        <div className="flex items-center gap-2 text-xs text-surface-600">
+          <span className="cal-hpeh-tag">{HPE_HOLIDAY_BADGE}</span>
+          {HPE_HOLIDAY_LABEL}
+        </div>
       </div>
 
       <Modal open={selected !== null} onClose={() => setSelected(null)} title="Event details" size="sm">
@@ -95,12 +99,19 @@ export function CalendarPage() {
           <div className="space-y-3 text-sm">
             <div>
               <p className="text-xs text-surface-400">Title</p>
-              <p className="font-medium text-surface-900">{selected.title}</p>
+              <p className="font-medium text-surface-900">
+                {selected.title}
+                {isHpeHoliday(selected) && (
+                  <span className="cal-hpeh-tag ml-2 align-middle">{HPE_HOLIDAY_BADGE}</span>
+                )}
+              </p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <p className="text-xs text-surface-400">Type</p>
-                <p className="font-medium">{KIND_LABELS[selected.kind] ?? selected.kind}</p>
+                <p className="font-medium">
+                  {isHpeHoliday(selected) ? HPE_HOLIDAY_LABEL : KIND_LABELS[selected.kind] ?? selected.kind}
+                </p>
               </div>
               <div>
                 <p className="text-xs text-surface-400">Date</p>

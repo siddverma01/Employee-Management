@@ -127,6 +127,9 @@ export interface SwapOff {
   employeeCode: string
   employeeName: string
   department: string | null
+  workedForEmployeeId: number
+  workedForEmployeeCode: string
+  workedForEmployeeName: string
   workedDate: string
   requestedOffDate: string
   reason: string | null
@@ -145,7 +148,7 @@ export interface Holiday {
   name: string
   date: string
   country: string
-  holidayType: 'PUBLIC' | 'OPTIONAL' | 'OBSERVED'
+  holidayType: 'PUBLIC' | 'OPTIONAL' | 'OBSERVED' | 'HPE_HOLIDAY'
   description: string | null
   scope: ScopeType
   teamId: number | null
@@ -459,6 +462,20 @@ export interface RosterMonthlyData {
   totalPages: number
 }
 
+export interface RosterTodayData {
+  date: string
+  teamId: number | null
+  teamName: string | null
+  weekday: string
+  weekend: boolean
+  holiday: boolean
+  holidayName: string | null
+  employees: RosterEmployeeRow[]
+  counters: Record<string, number>
+  totalEmployees: number
+  matchedEmployees: number
+}
+
 export interface RosterMetaTeam {
   id: number
   name: string
@@ -482,6 +499,31 @@ export interface RosterCellEdit {
   employeeId: string
   date: string
   statusCode: string
+}
+
+/** Status description (reason) attached to one roster attendance cell. When
+ *  the status comes from an approved Leave / Swap Off request,
+ *  sourceRequestType/sourceReason carry the original reason, submitter and the
+ *  actual approver (resolved server-side — never client supplied).
+ *  For Swap Off, workedForName/workedDate identify the employee worked for and the worked date. */
+export interface RosterStatusDetail {
+  employeeId: string
+  date: string
+  statusCode: string | null
+  statusName: string | null
+  description: string | null
+  createdByName: string | null
+  createdAt: string | null
+  updatedByName: string | null
+  updatedAt: string | null
+  sourceRequestId: number | null
+  sourceRequestType: 'LEAVE' | 'SWAP_OFF' | null
+  sourceReason: string | null
+  submittedByName: string | null
+  approvedByName: string | null
+  approvedAt: string | null
+  workedForName: string | null
+  workedDate: string | null
 }
 
 export interface RosterBatchSaveResult {
@@ -691,4 +733,83 @@ export interface HistoricalRecordsPage {
   total: number
   page: number
   size: number
+}
+
+// ---------------------------------------------------------------- Attendance history (admin)
+
+export interface AttendanceHistoryRecord {
+  date: string
+  employeeId: string
+  employeeName: string | null
+  teamId: number | null
+  teamName: string | null
+  location: string | null
+  shift: string | null
+  statusCode: string
+  statusName: string | null
+  sourceMonth: string | null
+  sourceSheet: string | null
+  sourceFile: string | null
+  sourceRow: number | null
+  importedAt: string | null
+  unknown: boolean
+}
+
+export interface AttendanceHistorySummary {
+  total: number
+  byStatus: Record<string, number>
+}
+
+export interface AttendanceHistoryResponse {
+  records: AttendanceHistoryRecord[]
+  summary: AttendanceHistorySummary
+  page: number
+  size: number
+  totalElements: number
+  totalPages: number
+}
+
+export interface AttendanceHistoryMeta {
+  teams: RosterMetaTeam[]
+  months: string[]
+  years: string[]
+  locations: string[]
+  shifts: string[]
+  statuses: RosterStatusOption[]
+}
+
+// ---------------------------------------------------------------- Historical attendance (employee profile)
+
+export interface EmployeeHistoricalOverview {
+  dateJoined: string
+  totalDays: number
+  byStatus: Record<string, number>
+}
+
+export interface EmployeeHistoricalMonthStat {
+  month: string
+  counts: Record<string, number>
+}
+
+export interface EmployeeHistoricalCalendarDay {
+  date: string
+  statusCode: string | null
+  statusName: string | null
+  unknown: boolean
+  weekend: boolean
+}
+
+export interface EmployeeHistoricalCalendar {
+  month: string
+  days: EmployeeHistoricalCalendarDay[]
+}
+
+export interface EmployeeHistoricalAttendance {
+  found: boolean
+  employeeId: string
+  employeeName: string | null
+  overview: EmployeeHistoricalOverview | null
+  months: string[]
+  monthly: EmployeeHistoricalMonthStat[]
+  calendar: EmployeeHistoricalCalendar | null
 }

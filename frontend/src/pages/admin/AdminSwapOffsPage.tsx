@@ -32,7 +32,7 @@ export function AdminSwapOffsPage() {
   const approveMutation = useMutation({
     mutationFn: adminApi.approveSwapOff,
     onSuccess: () => {
-      toast.success('Swap off approved & CO credited')
+      toast.success('Swap off approved')
       queryClient.invalidateQueries({ queryKey: ['admin', 'swap-offs'] })
     },
     onError: (err) => toast.error(extractMessage(err)),
@@ -52,7 +52,7 @@ export function AdminSwapOffsPage() {
 
   return (
     <div>
-      <PageHeader title="Swap off approvals" subtitle="Review and decide on compensatory off requests" />
+      <PageHeader title="Swap off approvals" subtitle="Review and decide on swap off requests" />
 
       <div className="mb-4 flex gap-3">
         <select className="select w-44" value={status} onChange={(e) => { setStatus(e.target.value); setPage(0); }}>
@@ -73,11 +73,11 @@ export function AdminSwapOffsPage() {
             <table className="w-full min-w-[860px]">
               <thead className="border-b border-surface-200 bg-surface-50">
                 <tr>
-                  <th className="th">Employee</th>
+                  <th className="th">Requester</th>
+                  <th className="th">Worked For</th>
                   <th className="th">Worked Date</th>
                   <th className="th">Requested Off</th>
                   <th className="th">Reason</th>
-                  <th className="th">Comp off</th>
                   <th className="th">Applied</th>
                   <th className="th">Status</th>
                   <th className="th">Actions</th>
@@ -90,16 +90,19 @@ export function AdminSwapOffsPage() {
                       <p className="font-medium text-surface-800">{r.employeeName}</p>
                       <p className="text-xs text-surface-400">{r.employeeCode} · {r.department}</p>
                     </td>
+                    <td className="td">
+                      <p className="font-medium text-surface-800">{r.workedForEmployeeName}</p>
+                      <p className="text-xs text-surface-400">{r.workedForEmployeeCode}</p>
+                    </td>
                     <td className="td text-xs">{formatDate(r.workedDate)}</td>
                     <td className="td text-xs">{formatDate(r.requestedOffDate)}</td>
                     <td className="td max-w-[200px] truncate" title={r.reason ?? ''}>{r.reason}</td>
-                    <td className="td">{r.compOffCredited ? <span className="text-xs font-medium text-emerald-700">Credited</span> : '—'}</td>
                     <td className="td text-xs text-surface-500">{formatDateTime(r.appliedOn)}</td>
                     <td className="td"><StatusBadge status={r.status} /></td>
                     <td className="td">
                       {r.status === 'PENDING' ? (
                         <div className="flex gap-1">
-                          <button title="Approve & credit CO" className="icon-btn text-emerald-600" onClick={() => approveMutation.mutate(r.id)} disabled={approveMutation.isPending}>
+                          <button title="Approve" className="icon-btn text-emerald-600" onClick={() => approveMutation.mutate(r.id)} disabled={approveMutation.isPending}>
                             <Check className="h-4 w-4" />
                           </button>
                           <button title="Reject" className="icon-btn text-red-600" onClick={() => { setRejecting(r); reset({ rejectionReason: '' }); }}>

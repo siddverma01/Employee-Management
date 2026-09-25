@@ -33,24 +33,24 @@
   .roster-status-TR { background:#F3EAFB; color:#7A4BB0; }
   .roster-status-ITS { background:#FCEBF2; color:#B33B70; }
   .roster-status-WDT { background:#FBE7FA; color:#A23D99; }
-  /* dark mode */
-  .dark .roster-status-WO { background:#1B1F27; color:#9AA3B2; }
-  .dark .roster-status-WFO { background:#0D1C19; color:#4FBE9F; }
-  .dark .roster-status-WFH { background:#0D1B26; color:#6BA3D8; }
-  .dark .roster-status-PL { background:#1B1426; color:#B5A0E8; }
-  .dark .roster-status-SL { background:#25141D; color:#E89DB4; }
-  .dark .roster-status-CO { background:#211A0E; color:#DDB467; }
-  .dark .roster-status-FL { background:#241508; color:#E5AF79; }
-  .dark .roster-status-HPEH { background:#0C1C21; color:#63C7D8; }
-  .dark .roster-status-ATR { background:#261214; color:#E98D86; }
-  .dark .roster-status-SW-OFF { background:#16121F; color:#B7A8EC; }
-  .dark .roster-status-SW-WK { background:#0E1D1B; color:#6CCEC2; }
-  .dark .roster-status-WK-WRK { background:#0B1D24; color:#66BFD8; }
-  .dark .roster-status-HD { background:#1E1A0B; color:#E2C569; }
-  .dark .roster-status-WX { background:#181F0D; color:#A9D477; }
-  .dark .roster-status-TR { background:#1F1529; color:#CBABEC; }
-  .dark .roster-status-ITS { background:#25101B; color:#EFA5C8; }
-  .dark .roster-status-WDT { background:#241026; color:#E4A2DC; }
+  /* dark mode — soft translucent tinted chips, pastel ink (no neon) */
+  .dark .roster-status-WO { background:#20242C; color:#9AA3B2; }
+  .dark .roster-status-WFO { background:#12251F; color:#5CB8A0; }
+  .dark .roster-status-WFH { background:#132231; color:#71A5D3; }
+  .dark .roster-status-PL { background:#201A2E; color:#B3A2E8; }
+  .dark .roster-status-SL { background:#2A1A22; color:#E3A2B8; }
+  .dark .roster-status-CO { background:#262014; color:#D8B269; }
+  .dark .roster-status-FL { background:#2A1B0E; color:#DFAE7B; }
+  .dark .roster-status-HPEH { background:#112127; color:#6AC4D4; }
+  .dark .roster-status-ATR { background:#2B1819; color:#E4958F; }
+  .dark .roster-status-SW-OFF { background:#1B1726; color:#B4A6EA; }
+  .dark .roster-status-SW-WK { background:#132521; color:#6FC9BD; }
+  .dark .roster-status-WK-WRK { background:#11222A; color:#6CBBD2; }
+  .dark .roster-status-HD { background:#232011; color:#DFC26B; }
+  .dark .roster-status-WX { background:#1D2412; color:#A7D078; }
+  .dark .roster-status-TR { background:#251A30; color:#C9ACE9; }
+  .dark .roster-status-ITS { background:#2A161F; color:#EBA8CA; }
+  .dark .roster-status-WDT { background:#2A152B; color:#E1A6DB; }
   /* Global focus ring — brand accent */
   :focus-visible {
     outline: 2px solid rgb(var(--hpe-focus));
@@ -111,6 +111,21 @@
   .roster-badge {
     @apply inline-flex h-6 min-w-[2.6rem] items-center justify-center rounded-md px-1.5 text-[11px] font-semibold;
   }
+  /* Calendar HPE holiday tag — the app's HPEH semantic colours (tokens.css),
+     so light/dark contrast flips with the theme instead of being hard-coded. */
+  .cal-hpeh-tag {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    padding: 0 4px;
+    border-radius: 3px;
+    background: var(--attendance-hpeh-bg);
+    color: var(--attendance-hpeh-text);
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 14px;
+    letter-spacing: 0.04em;
+  }
   /* Roster day cell */
   .roster-cell {
     @apply flex h-8 w-full min-w-[2.1rem] cursor-pointer items-center justify-center rounded-md text-[11px] font-semibold transition-colors hover:opacity-85;
@@ -119,6 +134,111 @@
     border: 1px dashed var(--hpe-surface-300);
     color: var(--hpe-surface-400);
   }
+  /* Attendance-roster matrix cell — a flat spreadsheet cell. Background/text is
+     applied inline via getAttendanceCellStyle(); this class handles geometry,
+     gridline border and hover/focus affordance without touching the fill.
+     Every cell is a fixed, controlled container: content is clipped at its own
+     border box so a status like "WK WRK" can never bleed into adjacent cells. */
+  .attendance-cell {
+    @apply flex h-8 w-full max-w-full min-w-[2.1rem] cursor-pointer items-center justify-center whitespace-nowrap text-[11px] font-bold;
+    border: 1px solid var(--hpe-surface-200);
+    border-radius: 2px;
+    box-sizing: border-box;
+    overflow: hidden;
+    transition: box-shadow 120ms ease;
+  }
+  /* Status text inside an attendance cell — constrained to its own box and
+     clipped if it would ever exceed the cell width. Centered by the parent. */
+  .attendance-status {
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: clip;
+  }
+  /* Shift-group visual identity for the employee-information (frozen) section.
+     Employees sharing the same shift get the same VERY subtle tint + accent, so
+     same-shift groups read as one block while the attendance status cells keep
+     their strong colors. Vars resolve per element, so Light/Dark flip with the
+     `.dark` class and hovering just strengthens the tint. */
+  .roster-info-cell {
+    --shift-tint: 255 255 255;
+    --shift-tint-hover: 249 250 252;
+    --shift-accent: 148 163 184;
+    --shift-sep: 222 228 238;
+    background-color: rgb(var(--shift-tint));
+  }
+  .dark .roster-info-cell {
+    --shift-tint: 27 30 35;
+    --shift-tint-hover: 31 35 41;
+    --shift-accent: 148 163 184;
+    --shift-sep: 37 42 50;
+  }
+  /* Thin left accent bar on the row's first info cell (SNO). */
+  .roster-info-cell.shift-accent-bar {
+    border-left: 3px solid rgb(var(--shift-accent));
+  }
+  /* Subtle group-transition separator between different shifts. */
+  tr.shift-group-end .roster-info-cell {
+    border-bottom: 2px solid rgb(var(--shift-sep));
+  }
+  /* Slightly strengthen the tint while hovering the row. */
+  tbody tr:hover .roster-info-cell {
+    background-color: rgb(var(--shift-tint-hover));
+  }
+  /* Longer status codes are set slightly tighter so they fit the compact
+     fixed-width day columns (w-11) without growing the table. Normal codes
+     (WO/WFO/WFH/PL/SL/CO/FL/...) keep the default 11px size. */
+  .attendance-cell[data-status='WK WRK'],
+  .attendance-cell[data-status='SW OFF'],
+  .attendance-cell[data-status='SW WK'],
+  .attendance-cell[data-status='HPEH'] {
+    font-size: 10px;
+    letter-spacing: -0.02em;
+  }
+  .attendance-cell:hover {
+    box-shadow: inset 0 0 0 1.5px rgb(var(--hpe-brand-500) / 0.55);
+  }
+  .attendance-cell:focus-visible {
+    box-shadow: inset 0 0 0 2px rgb(var(--hpe-brand-500) / 0.7);
+  }
+  /* Attendance-roster matrix cell — DARK MODE: softer ink, muted hover/focus
+     rings (no neon glow). The fill is inline var(--attendance-*) and flips
+     with the `.dark` class automatically. */
+  .dark .attendance-cell {
+    font-weight: 600;
+  }
+  .dark .attendance-cell:hover {
+    box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.3);
+  }
+  .dark .attendance-cell:focus-visible {
+    box-shadow: inset 0 0 0 2px rgba(152, 176, 200, 0.38);
+  }
+  /* Edited (unsaved) cell — DARK: soft cool focus ring keeps the status fill
+     visible instead of a bright amber outline. */
+  .dark .attendance-cell.outline {
+    outline-color: rgba(152, 176, 200, 0.4);
+  }
+  /* Roster status cell borders — DARK: subtle per-status tinted edges.
+     Elements carry data-status="{code}" (matrix cells + legend chips), so the
+     border swaps reactively with the theme, exactly as the fills do. */
+  .dark [data-status='WO'] { border-color: #2E333C; }
+  .dark [data-status='WFO'] { border-color: #1E4430; }
+  .dark [data-status='WFH'] { border-color: #4A3D1C; }
+  .dark [data-status='PL'] { border-color: #4A3E1C; }
+  .dark [data-status='SL'] { border-color: #483322; }
+  .dark [data-status='CO'] { border-color: #463D1C; }
+  .dark [data-status='HPEH'] { border-color: #483C1C; }
+  .dark [data-status='FL'] { border-color: #45301F; }
+  .dark [data-status='SW OFF'] { border-color: #443A1A; }
+  .dark [data-status='SW WK'] { border-color: #1E4430; }
+  .dark [data-status='WK WRK'] { border-color: #1E4430; }
+  .dark [data-status='HD'] { border-color: #45311F; }
+  .dark [data-status='WX'] { border-color: #382D4F; }
+  .dark [data-status='TR'] { border-color: #243A4C; }
+  .dark [data-status='ITS'] { border-color: #492A2D; }
+  .dark [data-status='WDT'] { border-color: #243A4C; }
+  .dark [data-status='ATR'] { border-color: #492A2D; }
+  .dark [data-status=''] { border-color: #262B32; }
   /* Inline editor used inside roster table fields */
   .cell-input {
     @apply w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-sm text-surface-700 transition-colors hover:border-surface-200 hover:bg-surface-50 focus:border-brand-500 focus:bg-surface-0 focus:ring-2 focus:ring-brand-500/20;
@@ -135,4 +255,82 @@
 }
 ::-webkit-scrollbar-track {
   @apply bg-transparent;
+}
+/* Status-picker popup scroll area — a subtler, theme-consistent scrollbar so
+   the internal list scrolling stays unobtrusive. */
+.roster-picker-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--hpe-surface-300)) transparent;
+}
+.roster-picker-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.roster-picker-scroll::-webkit-scrollbar-thumb {
+  @apply bg-surface-400/70 rounded-full;
+}
+.roster-picker-scroll::-webkit-scrollbar-thumb:hover {
+  @apply bg-surface-500;
+}
+
+/* Shift-group palette — intentionally OUTSIDE @layer components. Tailwind's JIT
+   prunes rules inside layers whose classes do not appear verbatim in content;
+   `shift-g0..5` are assembled at runtime (shift-g${n}), so they would be dropped
+   and Light Mode would lose its grouping. Unlayered, they are always emitted.
+   Same mapping (g0..g5) in both themes — only intensity changes.
+   Light:   ~11% accent wash (#233...), ~15% on hover.
+   Dark:    ~9% wash over the soft slate surface, ~13% on hover — visible when
+            you look for the group, never the first thing the eye notices. */
+.shift-g0 { --shift-tint: 233 241 254; --shift-tint-hover: 226 236 254; --shift-accent: 59 130 246; --shift-sep: 177 205 251; }
+.shift-g1 { --shift-tint: 229 247 241; --shift-tint-hover: 219 245 236; --shift-accent: 16 185 129; --shift-sep: 159 227 205; }
+.shift-g2 { --shift-tint: 254 244 228; --shift-tint-hover: 254 240 218; --shift-accent: 245 158 11; --shift-sep: 251 216 157; }
+.shift-g3 { --shift-tint: 242 237 254; --shift-tint-hover: 238 231 254; --shift-accent: 139 92 246; --shift-sep: 209 190 251; }
+.shift-g4 { --shift-tint: 228 247 250; --shift-tint-hover: 218 244 249; --shift-accent: 6 182 212; --shift-sep: 155 226 238; }
+.shift-g5 { --shift-tint: 254 234 237; --shift-tint-hover: 253 226 231; --shift-accent: 244 63 94; --shift-sep: 251 178 191; }
+.dark .shift-g0 { --shift-tint: 33 42 54; --shift-tint-hover: 36 48 63; --shift-accent: 96 165 250; --shift-sep: 42 60 82; }
+.dark .shift-g1 { --shift-tint: 29 46 46; --shift-tint-hover: 30 54 50; --shift-accent: 52 211 153; --shift-sep: 33 70 61; }
+.dark .shift-g2 { --shift-tint: 47 44 35; --shift-tint-hover: 56 51 35; --shift-accent: 251 191 36; --shift-sep: 76 65 35; }
+.dark .shift-g3 { --shift-tint: 40 40 54; --shift-tint-hover: 45 44 63; --shift-accent: 167 139 250; --shift-sep: 58 54 82; }
+.dark .shift-g4 { --shift-tint: 28 46 53; --shift-tint-hover: 28 54 61; --shift-accent: 34 211 238; --shift-sep: 29 70 80; }
+.dark .shift-g5 { --shift-tint: 47 37 44; --shift-tint-hover: 56 41 48; --shift-accent: 251 113 133; --shift-sep: 76 48 57; }
+
+/* Frozen employee panel — a separate table layer pinned to the LEFT of the
+   roster scroll container. It never horizontally translates: the day matrix
+   scrolls underneath it. The panel's own opaque theme surface guarantees day
+   statuses can never show through (belt-and-braces behind the per-cell rgb
+   tints). */
+.roster-frozen-panel {
+  background-color: #ffffff;
+  /* FIXED 3px gutter on the panel's right edge. Belongs to the frozen section
+     (the panel is sticky), so it never scrolls away. The panel's own opaque
+     surface fills it, which both matches the card background and blocks any
+     day-status cell from bleeding through it while the matrix scrolls by. */
+  padding-right: 3px;
+}
+.dark .roster-frozen-panel {
+  background-color: #1B1E23;
+}
+/* FIXED vertical boundary — attached to the frozen panel (absolute inside the
+   sticky box), NOT to any day cell, so it stays at the same screen x while the
+   day matrix scrolls. Kept at the panel's content edge (right: 3px, i.e. just
+   past the frozen columns), with the fixed gutter immediately after. A single
+   1px low-opacity hairline, so the frozen area and the day matrix read as one
+   continuous table with a gentle boundary. */
+.roster-frozen-panel::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 3px;
+  bottom: 0;
+  width: 1px;
+  pointer-events: none;
+  background-color: rgba(102, 122, 150, 0.28);
+}
+.dark .roster-frozen-panel::after {
+  background-color: rgba(148, 163, 184, 0.22);
+}
+/* Drop the 1px gridline on the last frozen column (Week Off) so it can't double
+   up with the panel separator. Unlayered, so it beats the layered border-r
+   utility regardless of class order. */
+.roster-frozen-panel .frozen-col-last {
+  border-right: 0;
 }

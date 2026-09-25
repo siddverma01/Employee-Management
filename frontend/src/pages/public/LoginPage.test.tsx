@@ -40,7 +40,7 @@ describe('LoginPage', () => {
 
   it('renders title and demo credentials', () => {
     renderLogin()
-    expect(screen.getByText('Employee Management')).toBeInTheDocument()
+    expect(screen.getByText(/employee management/i)).toBeInTheDocument()
     expect(screen.getByText(/admin@emplmgt.com/i)).toBeInTheDocument()
   })
 

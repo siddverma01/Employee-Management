@@ -13,6 +13,7 @@ import type {
 import { adminApi } from '@/api'
 import { extractMessage } from '@/api/client'
 import { cn, formatDate, formatDateTime } from '@/utils'
+import { formatShiftDisplay } from '@/utils/shift'
 import { useTeam } from '@/hooks/useTeam'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
@@ -381,7 +382,7 @@ function WizardPreviewTable({ rows }: { rows: HistoricalRowView[] }) {
                 <td className="whitespace-nowrap px-4 py-3 text-gray-700">{formatDate(r.attendanceDate) ?? '—'}</td>
                 <td className="px-4 py-3"><StatusPill code={r.incomingStatus} unknown={r.unknown} /></td>
                 <td className="max-w-[160px] truncate px-4 py-3 text-gray-600">{r.location ?? '—'}</td>
-                <td className="max-w-[160px] truncate px-4 py-3 text-gray-600">{r.shift ?? '—'}</td>
+                <td className="max-w-[160px] truncate px-4 py-3 text-gray-600">{formatShiftDisplay(r.shift)}</td>
                 <td className="px-4 py-3 text-gray-600">{r.sheetName}</td>
                 <td className="px-4 py-3 text-gray-600">{r.sourceRow}</td>
               </tr>

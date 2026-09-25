@@ -1,13 +1,13 @@
 import { api } from './client'
 import type {
-  AdminSummary, Attendance, AuditLog, AuthUser, CalendarEvent, ChartData, CompanyEvent, Department,
-  EmployeeDashboard, Holiday, HistoricalCommitResponse, HistoricalHistoryItem,
+  AdminSummary, Attendance, AttendanceHistoryMeta, AttendanceHistoryResponse, AuditLog, AuthUser, CalendarEvent, ChartData, CompanyEvent, Department,
+  EmployeeDashboard, EmployeeHistoricalAttendance, Holiday, HistoricalCommitResponse, HistoricalHistoryItem,
   HistoricalInspectResponse, HistoricalMapStagedRequest, HistoricalMapStagedResponse, HistoricalMapUnknownResponse,
   HistoricalPreviewResponse, HistoricalRecordsPage, HistoricalStatusItem, HistoricalUnknownCode, ImportCommit,
   ImportHistoryItem, ImportPreview, ImportUpload, Leave,
   LeaveBalance, LoginResponse, NotificationItem, PageResponse, Profile, RosterBatchSaveResult,
   RosterCellEdit, RosterImportPreview, RosterMonthData, RosterMonthlyData, RosterPageMeta, RosterRowSave, RosterSaveResult,
-  ScopeType, SwapOff, TeamDashboard, TodayStatus, UpcomingItem,
+  RosterStatusDetail, RosterTodayData, ScopeType, SwapOff, TeamDashboard, TodayStatus, UpcomingItem,
 } from '@/types'
 
 export const authApi = {
@@ -26,6 +26,12 @@ export const employeeApi = {
   me: () => api.get<Profile>('/employees/me').then((r) => r.data),
   upcomingBirthdays: (days = 30) =>
     api.get<UpcomingItem[]>('/employees/birthdays/upcoming', { params: { days } }).then((r) => r.data),
+  search: (q: string) =>
+    api.get<{ id: number; employeeCode: string; fullName: string; department: string | null }[]>('/employees/search', { params: { q } }).then((r) => r.data),
+  rosterSearch: (q: string) =>
+    api.get<{ employeeCode: string; fullName: string; department: string | null }[]>('/employees/roster-search', { params: { q } }).then((r) => r.data),
+  rosterMonthSearch: (month: string, q: string) =>
+    api.get<{ employeeCode: string; fullName: string; department: string | null }[]>('/employees/roster-month-search', { params: { month, q } }).then((r) => r.data),
 }
 
 export const departmentApi = {
@@ -42,7 +48,7 @@ export const leaveApi = {
 
 export const swapOffApi = {
   my: () => api.get<SwapOff[]>('/swap-offs').then((r) => r.data),
-  apply: (payload: { workedDate: string; requestedOffDate: string; reason: string; attachment?: string }) =>
+  apply: (payload: { workedDate: string; requestedOffDate: string; workedForEmployeeId: string; reason: string; attachment?: string }) =>
     api.post<SwapOff>('/swap-offs', payload).then((r) => r.data),
   cancel: (id: number) => api.post<SwapOff>(`/swap-offs/${id}/cancel`).then((r) => r.data),
 }
@@ -172,11 +178,26 @@ export const adminApi = {
   rosterDelete: (id: number) => api.delete(`/admin/roster/${id}`),
 
   rosterMonthly: (params: Record<string, unknown>) =>
-    api.get<RosterMonthlyData>('/admin/roster/monthly', { params }).then((r) => r.data),
+    api.get<RosterMonthlyData>('/roster/monthly', { params }).then((r) => r.data),
   rosterMonthlyMeta: (params: Record<string, unknown>) =>
-    api.get<RosterPageMeta>('/admin/roster/monthly/meta', { params }).then((r) => r.data),
+    api.get<RosterPageMeta>('/roster/monthly/meta', { params }).then((r) => r.data),
   rosterMonthlySave: (changes: RosterCellEdit[]) =>
     api.post<RosterBatchSaveResult>('/admin/roster/monthly/save', { changes }).then((r) => r.data),
+  rosterToday: (params: Record<string, unknown>) =>
+    api.get<RosterTodayData>('/roster/today', { params }).then((r) => r.data),
+
+  rosterStatusDetail: (employeeId: string, date: string) =>
+    api.get<RosterStatusDetail>('/roster/status-detail', { params: { employeeId, date } }).then((r) => r.data),
+  saveRosterStatusDetail: (employeeId: string, date: string, description: string) =>
+    api.post<import('@/types').RosterStatusDetail>('/admin/roster/status-detail', {
+      employeeId,
+      date,
+      description: description || null,
+    }).then((r) => r.data),
+  clearRosterStatusDetail: (employeeId: string, date: string) =>
+    api.delete<import('@/types').RosterStatusDetail>('/admin/roster/status-detail', {
+      params: { employeeId, date },
+    }).then((r) => r.data),
 
   broadcastNotification: (payload: { title: string; body?: string; type: string }) =>
     api.post('/admin/notifications/broadcast', payload),
@@ -210,4 +231,19 @@ export const adminApi = {
     api.post<HistoricalMapUnknownResponse>('/admin/historical/unknown-codes/map', { from, to }).then((r) => r.data),
   historicalRecords: (params: Record<string, unknown>) =>
     api.get<HistoricalRecordsPage>('/admin/historical/records', { params }).then((r) => r.data),
+
+  attendanceHistory: (params: Record<string, unknown>) =>
+    api.get<AttendanceHistoryResponse>('/admin/attendance-history', { params }).then((r) => r.data),
+  attendanceHistoryMeta: () =>
+    api.get<AttendanceHistoryMeta>('/admin/attendance-history/meta').then((r) => r.data),
+  attendanceHistoryExport: (params: Record<string, unknown>, format: 'csv' | 'xlsx') =>
+    api.get<Blob>('/admin/attendance-history/export', {
+      params: { ...params, format },
+      responseType: 'blob',
+    }).then((r) => r.data),
+
+  employeeHistoricalAttendance: (id: number, month?: string) =>
+    api.get<EmployeeHistoricalAttendance>(`/admin/employees/${id}/historical-attendance`, {
+      params: { month: month ?? undefined },
+    }).then((r) => r.data),
 }

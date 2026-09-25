@@ -97,4 +97,14 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
 
     @Query("select l from LeaveRequest l join fetch l.employee e where l.status = 'APPROVED' and not (l.endDate < :from or l.startDate > :to)")
     List<LeaveRequest> findApprovedInRange(@Param("from") LocalDate from, @Param("to") LocalDate to);
+
+    /** Approved leave requests of the given employee code covering a single
+     *  date and matching a leave type — used to resolve the "source request"
+     *  of a roster status cell that was not written by an approval. */
+    @Query("select l from LeaveRequest l join fetch l.employee e where l.status = 'APPROVED' "
+            + "and l.leaveType = :type and e.employeeCode = :employeeCode "
+            + "and l.startDate <= :date and l.endDate >= :date")
+    List<LeaveRequest> findApprovedByCodeAndDate(@Param("type") LeaveType type,
+                                                 @Param("employeeCode") String employeeCode,
+                                                 @Param("date") LocalDate date);
 }

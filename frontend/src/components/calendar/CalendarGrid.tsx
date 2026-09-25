@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useState } from 'react'
 import type { CalendarEvent } from '@/types'
-import { cn } from '@/utils'
+import { cn, HPE_HOLIDAY_BADGE, isHpeHoliday } from '@/utils'
 
 interface CalendarGridProps {
   year: number
@@ -79,6 +79,7 @@ export function CalendarGrid({ year, month, events, onSelectDay, today }: Calend
                       KIND_COLORS[ev.kind] ?? KIND_COLORS.EVENT,
                     )}
                   >
+                    {isHpeHoliday(ev) && <span className="cal-hpeh-tag">{HPE_HOLIDAY_BADGE}</span>}
                     <span className="truncate">{ev.title}</span>
                   </div>
                 ))}

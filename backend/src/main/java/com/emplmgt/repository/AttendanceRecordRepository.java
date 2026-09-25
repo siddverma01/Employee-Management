@@ -73,4 +73,21 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
 
     @Query("select distinct r.attendanceDate from AttendanceRecord r order by r.attendanceDate asc")
     List<LocalDate> findDistinctAttendanceDatesAsc();
+
+    List<AttendanceRecord> findByEmployeeIdAndAttendanceDateBetweenOrderByAttendanceDateAsc(
+            String employeeId, LocalDate from, LocalDate to);
+
+    @Query("""
+            select r.attendanceDate, r.statusCode, count(r) from AttendanceRecord r
+            where r.employeeId = :employeeId
+            group by r.attendanceDate, r.statusCode
+            order by r.attendanceDate asc
+            """)
+    List<Object[]> countByDateAndStatusCode(@Param("employeeId") String employeeId);
+
+    @Query("select distinct r.location from AttendanceRecord r where r.location is not null order by r.location asc")
+    List<String> findDistinctLocations();
+
+    @Query("select distinct r.shift from AttendanceRecord r where r.shift is not null order by r.shift asc")
+    List<String> findDistinctShifts();
 }

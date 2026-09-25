@@ -16,6 +16,8 @@ public interface AttendanceRosterRepository extends JpaRepository<AttendanceRost
 
     List<AttendanceRoster> findByTeamIdAndMonth(Long teamId, String month);
 
+    List<AttendanceRoster> findByMonthAndEmployeeCode(String month, String employeeCode);
+
     List<AttendanceRoster> findByMonth(String month);
 
     List<AttendanceRoster> findByTeamId(Long teamId);

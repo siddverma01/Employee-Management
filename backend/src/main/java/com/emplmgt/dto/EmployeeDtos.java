@@ -109,4 +109,7 @@ public final class EmployeeDtos {
     public record LeaveBalanceDto(String leaveType, String leaveTypeCode, String leaveTypeLabel,
                                   BigDecimal allocated, BigDecimal used, BigDecimal available) {
     }
+
+    public record Simple(Long id, String employeeCode, String fullName, String department) {
+    }
 }

@@ -27,6 +27,7 @@ export const swapOffSchema = z
   .object({
     workedDate: z.string().min(1, 'Worked date is required'),
     requestedOffDate: z.string().min(1, 'Requested off date is required'),
+    workedForEmployeeId: z.string().min(1, 'Working on behalf of is required'),
     reason: z.string().min(3, 'Please provide a reason (min 3 characters)'),
     attachment: z.string().optional().nullable(),
   })

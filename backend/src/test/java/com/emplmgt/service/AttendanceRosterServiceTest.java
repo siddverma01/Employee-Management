@@ -4,12 +4,14 @@ import com.emplmgt.dto.AttendanceRosterDtos;
 import com.emplmgt.entity.AttendanceRecord;
 import com.emplmgt.entity.AttendanceStatus;
 import com.emplmgt.entity.Department;
+import com.emplmgt.entity.Employee;
 import com.emplmgt.entity.Holiday;
 import com.emplmgt.entity.ImportEmployee;
 import com.emplmgt.exception.ApiException;
 import com.emplmgt.repository.AttendanceRecordRepository;
 import com.emplmgt.repository.AttendanceStatusRepository;
 import com.emplmgt.repository.DepartmentRepository;
+import com.emplmgt.repository.EmployeeRepository;
 import com.emplmgt.repository.HolidayRepository;
 import com.emplmgt.repository.ImportEmployeeRepository;
 import com.emplmgt.util.AppClock;
@@ -20,8 +22,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -49,6 +49,7 @@ class AttendanceRosterServiceTest {
 
     @Mock AttendanceRecordRepository recordRepository;
     @Mock ImportEmployeeRepository importEmployeeRepository;
+    @Mock EmployeeRepository employeeRepository;
     @Mock DepartmentRepository departmentRepository;
     @Mock AttendanceStatusRepository statusRepository;
     @Mock HolidayRepository holidayRepository;
@@ -69,21 +70,19 @@ class AttendanceRosterServiceTest {
         when(appClock.now()).thenReturn(NOW);
         when(holidayRepository.findVisibleInRange(any(), any(), any(), any())).thenReturn(List.of());
         service = new AttendanceRosterService(recordRepository, importEmployeeRepository,
-                departmentRepository, statusRepository, holidayRepository, auditService, appClock);
+                employeeRepository, departmentRepository, statusRepository, holidayRepository, auditService, appClock);
     }
 
-    private void stubEmployeePage(List<ImportEmployee> employees, int size) {
-        PageRequest pageable = PageRequest.of(0, size);
-        when(importEmployeeRepository.findRosterEmployeePage(any(), any(), any(), any(),
-                any(), any(), any(), eq(pageable)))
-                .thenReturn(new PageImpl<>(employees, pageable, employees.size()));
+    private void stubStaff(List<ImportEmployee> employees) {
+        when(importEmployeeRepository.findRosterEmployees(any(), any(), any(), any(),
+                any(), any(), any())).thenReturn(employees);
     }
 
     // ------------------------------------------------------------------ monthly
 
     @Test
     void monthlyBuildsGridWithDaysAndCells() {
-        stubEmployeePage(List.of(alice), 25);
+        stubStaff(List.of(alice));
 
         AttendanceRecord r1 = new AttendanceRecord();
         r1.setEmployeeId("E1");
@@ -116,6 +115,7 @@ class AttendanceRosterServiceTest {
         AttendanceRosterDtos.EmployeeRow row = res.employees().get(0);
         assertThat(row.employeeId()).isEqualTo("E1");
         assertThat(row.teamName()).isEqualTo("Voice");
+        assertThat(row.email()).isEqualTo("a@x.com");
         assertThat(row.days())
                 .containsEntry("2025-09-01", "WFO")
                 .containsEntry("2025-09-06", "WO");
@@ -124,6 +124,27 @@ class AttendanceRosterServiceTest {
         assertThat(res.counters().get("PL")).isZero();
         assertThat(res.totalEmployees()).isEqualTo(2L);
         assertThat(res.matchedEmployees()).isEqualTo(2L);
+    }
+
+    @Test
+    void monthlyFallsBackToMasterEmployeeEmailWhenImportEmailMissing() {
+        ImportEmployee bob = ImportEmployee.builder()
+                .employeeId("E2").employeeName("Bob").email(null).location("Pune").build();
+        stubStaff(List.of(bob));
+        when(recordRepository.findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(
+                any(), any(), anyList())).thenReturn(List.of());
+        when(importEmployeeRepository.findFilteredEmployeeIds(any(), any(), any(), any()))
+                .thenReturn(List.of());
+        when(importEmployeeRepository.countEmployeeRows(any(), any(), any(), any(), any(), any()))
+                .thenReturn(1L);
+        Employee master = Employee.builder()
+                .employeeCode("E2").email("bob@hpe.com").build();
+        when(employeeRepository.findByEmployeeCodeIn(any())).thenReturn(List.of(master));
+
+        AttendanceRosterDtos.MonthlyResponse res = service.monthly(null, "2025-09", null, null, null, null, 0, 25);
+
+        assertThat(res.employees()).hasSize(1);
+        assertThat(res.employees().get(0).email()).isEqualTo("bob@hpe.com");
     }
 
     @Test
@@ -136,7 +157,7 @@ class AttendanceRosterServiceTest {
 
     @Test
     void monthlyMarksHolidayColumns() {
-        stubEmployeePage(List.of(alice), 25);
+        stubStaff(List.of(alice));
         when(recordRepository.findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(
                 any(), any(), anyList())).thenReturn(List.of());
         when(importEmployeeRepository.findFilteredEmployeeIds(any(), any(), any(), any()))
@@ -150,6 +171,64 @@ class AttendanceRosterServiceTest {
         AttendanceRosterDtos.DayInfo day = res.days().get(14);
         assertThat(day.holiday()).isTrue();
         assertThat(day.holidayName()).isEqualTo("HPE Foundation Day");
+    }
+
+    @Test
+    void monthlySortsByShiftStartThenNameWithUnknownsLast() {
+        ImportEmployee adam = ImportEmployee.builder().employeeId("E7")
+                .employeeName("Adam").defaultShift("05:30-14:30").build();
+        ImportEmployee cathy = ImportEmployee.builder().employeeId("E3")
+                .employeeName("Cathy").defaultShift("05:30-14:30").build();
+        ImportEmployee bob = ImportEmployee.builder().employeeId("E6")
+                .employeeName("Bob").defaultShift("19:00-04:00").build();
+        ImportEmployee dana = ImportEmployee.builder().employeeId("E4")
+                .employeeName("Dana").defaultShift("21:00-06:00").build();
+        ImportEmployee zoe = ImportEmployee.builder().employeeId("E5")
+                .employeeName("Zoe").defaultShift(null).build();
+        ImportEmployee troy = ImportEmployee.builder().employeeId("E8")
+                .employeeName("Troy").defaultShift("Unknown Band").build();
+        stubStaff(List.of(bob, zoe, cathy, troy, dana, adam));
+
+        when(recordRepository.findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(
+                any(), any(), anyList())).thenReturn(List.of());
+        when(importEmployeeRepository.findFilteredEmployeeIds(any(), any(), any(), any()))
+                .thenReturn(List.of());
+        when(importEmployeeRepository.countEmployeeRows(any(), any(), any(), any(), any(), any()))
+                .thenReturn(6L);
+
+        AttendanceRosterDtos.MonthlyResponse res = service.monthly(null, "2025-09", null, null, null, null, 0, 25);
+
+        assertThat(res.employees()).extracting(AttendanceRosterDtos.EmployeeRow::employeeId)
+                .containsExactly("E7", "E3", "E6", "E4", "E8", "E5");
+    }
+
+    @Test
+    void monthlyPaginatesAfterShiftSort() {
+        List<ImportEmployee> staff = new ArrayList<>();
+        for (int i = 0; i < 4; i++) {
+            staff.add(ImportEmployee.builder().employeeId("N" + i)
+                    .employeeName("Night" + i).defaultShift("21:00-06:00").build());
+            staff.add(ImportEmployee.builder().employeeId("M" + i)
+                    .employeeName("Morning" + i).defaultShift("05:30-14:30").build());
+        }
+        stubStaff(staff);
+
+        when(recordRepository.findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(
+                any(), any(), anyList())).thenReturn(List.of());
+        when(importEmployeeRepository.findFilteredEmployeeIds(any(), any(), any(), any()))
+                .thenReturn(List.of());
+        when(importEmployeeRepository.countEmployeeRows(any(), any(), any(), any(), any(), any()))
+                .thenReturn(8L);
+
+        // Shift grouping survives pagination: page 1 holds the tail of the
+        // morning-shift group before any night-shift row appears.
+        AttendanceRosterDtos.MonthlyResponse res = service.monthly(null, "2025-09", null, null, null, null, 1, 3);
+
+        assertThat(res.employees()).extracting(AttendanceRosterDtos.EmployeeRow::employeeId)
+                .containsExactly("M3", "N0", "N1");
+        assertThat(res.page()).isEqualTo(1);
+        assertThat(res.totalElements()).isEqualTo(8L);
+        assertThat(res.totalPages()).isEqualTo(3);
     }
 
     // ------------------------------------------------------------------ meta

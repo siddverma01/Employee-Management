@@ -43,7 +43,7 @@ public final class HistoricalRosterParser {
      * Unknown statuses are never discarded — they are preserved verbatim and
      * flagged {@code unknown=true}.
      */
-    public record ParsedRecord(int sourceRow, String employeeId, String employeeName, String email,
+    public record ParsedRecord(int sourceRow, int sourceColumn, String employeeId, String employeeName, String email,
                                String location, String manager, String shift, String weekOff,
                                LocalDate attendanceDate, String rawCode, String normalizedCode,
                                String statusCode, String statusName, boolean unknown, String warning) {
@@ -154,7 +154,7 @@ public final class HistoricalRosterParser {
         for (int r = h.dayCellsRow + 1; r < fr.rows; r++) {
             // Section / repeated-header rows (e.g. "Emp ID | Emp Name | 1 | 2 | ..."
             // framing a team block) are NOT employees and must be ignored.
-            if (isSectionHeader(fr, r)) {
+            if (isRepeatedHeader(fr, r)) {
                 sectionRows++;
                 continue;
             }
@@ -185,7 +185,9 @@ public final class HistoricalRosterParser {
             String weekOff = HistoricalImportCodes.normaliseText(fr.text(r, fields.getOrDefault(Field.WEEK_OFF, -1)));
             for (DayColumn dc : days) {
                 String raw = fr.text(r, dc.index);
-                if (raw == null || raw.isBlank()) {
+                String status = HistoricalImportCodes.normalizeAttendanceStatus(raw);
+                if (status == null) {
+                    // Blank / filler / Excel-blank cells carry no attendance entry.
                     emptyCells++;
                     continue;
                 }
@@ -194,13 +196,11 @@ public final class HistoricalRosterParser {
                 if (date == null) {
                     warning = "Day " + raw + " is not valid for month " + month + " — skipped.";
                 }
-                String normalizedCode = HistoricalImportCodes.normaliseRaw(raw);
-                String statusCode = HistoricalImportCodes.resolveStatus(raw);
-                records.add(new ParsedRecord(r + 1, empId, empName, email, location, manager, shift, weekOff,
-                        date, blankToNull(raw), normalizedCode, statusCode,
-                        HistoricalImportCodes.nameOf(statusCode) != null
-                                ? HistoricalImportCodes.nameOf(statusCode) : "Unknown",
-                        !HistoricalImportCodes.isKnown(statusCode), warning));
+                records.add(new ParsedRecord(r + 1, dc.index + 1, empId, empName, email, location, manager, shift, weekOff,
+                        date, blankToNull(raw), HistoricalImportCodes.normaliseRaw(raw), status,
+                        HistoricalImportCodes.nameOf(status) != null
+                                ? HistoricalImportCodes.nameOf(status) : "Unknown",
+                        !HistoricalImportCodes.isKnown(status), warning));
             }
         }
 
@@ -265,8 +265,9 @@ public final class HistoricalRosterParser {
 
     private static boolean hasDayValues(Frame fr, int r, List<DayColumn> days) {
         for (DayColumn dc : days) {
-            String raw = fr.text(r, dc.index);
-            if (raw != null && !raw.isBlank()) return true;
+            if (HistoricalImportCodes.normalizeAttendanceStatus(fr.text(r, dc.index)) != null) {
+                return true;
+            }
         }
         return false;
     }
@@ -440,21 +441,43 @@ public final class HistoricalRosterParser {
     }
 
     /**
-     * Rows below the header that re-state identity labels (e.g. a repeated
-     * "Emp ID | Emp Name | ..." banner framing a team/department section)
-     * are section headers, not employees.
+     * Rows below the header that restate identity labels are banner/section
+     * headers framing a team block, never employees. Two signals:
+     *
+     * <ul>
+     *   <li>the id cell or the name cell carries a header label verbatim
+     *       ("Emp ID", "Employee ID", "EmpID", "Emp Name", ... on the compact,
+     *       case/space/punctuation-free token), or</li>
+     *   <li>two or more cells across columns 0..14 resolve to any metadata
+     *       column label (id, name, email, location, shift, week-off, manager).</li>
+     * </ul>
      */
-    private static boolean isSectionHeader(Frame fr, int r) {
-        int tokens = 0;
+    private static boolean isRepeatedHeader(Frame fr, int r) {
         int cols = Math.min(fr.cols, HEADER_WINDOW_COLS);
+        boolean idCellLabel = false;
+        boolean nameCellLabel = false;
+        int labelCells = 0;
         for (int c = 0; c < cols; c++) {
-            Field f = FIELD_BY_COMPACT.get(HistoricalImportCodes.compactCode(fr.text(r, c)));
-            if (f == Field.EMP_ID || f == Field.EMP_NAME) {
-                tokens++;
+            String compact = HistoricalImportCodes.compactCode(fr.text(r, c));
+            Field f = FIELD_BY_COMPACT.get(compact);
+            if (f == Field.EMP_ID && HEADER_ID_LABELS.contains(compact)) {
+                idCellLabel = true;
+            }
+            if (f == Field.EMP_NAME && HEADER_NAME_LABELS.contains(compact)) {
+                nameCellLabel = true;
+            }
+            if (f != null) {
+                labelCells++;
             }
         }
-        return tokens >= 2;
+        return idCellLabel || nameCellLabel || labelCells >= 2;
     }
+
+    private static final Set<String> HEADER_ID_LABELS = Set.of(
+            "empid", "employeeid", "empcode", "employeecode", "empno", "code", "slno", "sno");
+
+    private static final Set<String> HEADER_NAME_LABELS = Set.of(
+            "empname", "employeename", "name");
 
     private static int countFullDates(Frame fr, int r) {
         int n = 0;

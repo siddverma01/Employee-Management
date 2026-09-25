@@ -3,8 +3,10 @@ package com.emplmgt.service;
 import com.emplmgt.dto.CalendarDtos;
 import com.emplmgt.entity.*;
 import com.emplmgt.repository.*;
+import com.emplmgt.security.SecurityUtils;
 import com.emplmgt.service.TeamAccessService.AccessMode;
 import com.emplmgt.service.TeamAccessService.ResolvedTeam;
+import com.emplmgt.util.HolidayLocationUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +27,7 @@ public class CalendarService {
     private final LeaveRequestRepository leaveRequestRepository;
     private final AttendanceRepository attendanceRepository;
     private final TeamAccessService teamAccessService;
+    private final SecurityUtils securityUtils;
 
     @Transactional(readOnly = true)
     public List<CalendarDtos.CalendarEvent> month(int year, int month, Long teamId) {
@@ -37,14 +40,21 @@ public class CalendarService {
         LocalDate to = ym.atEndOfMonth();
 
         List<CalendarDtos.CalendarEvent> events = new ArrayList<>();
+        String location = currentEmployeeLocation();
 
         for (Holiday h : holidayRepository.findVisibleInRange(from, to, null, scopedTeamId)) {
+            if (!visibleInCalendar(h, location)) {
+                continue;
+            }
+            String holidayType = h.getHolidayType() != null ? h.getHolidayType().name() : "PUBLIC";
             events.add(new CalendarDtos.CalendarEvent(
                     h.getId(), CalendarDtos.EventKind.HOLIDAY.name(), h.getHolidayDate(), h.getHolidayDate(), h.getHolidayDate(),
-                    h.getName(), h.getHolidayType() != null ? h.getHolidayType().name() : "PUBLIC",
+                    h.getName(), holidayType,
                     null, null, null, null, null, null, null,
                     h.getDescription(),
-                    Map.of("country", h.getCountry() == null ? "" : h.getCountry(), "scope", h.getScope().name())));
+                    Map.of("country", h.getCountry() == null ? "" : h.getCountry(),
+                            "scope", h.getScope().name(),
+                            "holidayType", holidayType)));
         }
 
         for (Event e : eventRepository.findVisibleInRange(from, to, scopedTeamId)) {
@@ -130,6 +140,35 @@ public class CalendarService {
         return active.stream()
                 .filter(e -> e.getDepartment() != null && teamId.equals(e.getDepartment().getId()))
                 .toList();
+    }
+
+    /**
+     * A holiday is shown when it is active for its type and applies to the caller's location.
+     *
+     * <p>HPE holidays ({@code HPE_HOLIDAY}) carry a master {@code active} switch and a location
+     * scope, so inactive definitions and regional holidays from other locations are hidden.
+     * Everything else keeps the pre-existing calendar behaviour: a caller without a recorded
+     * location (admin / unprofiled user) sees every holiday, and holidays scoped to a single
+     * region are only filtered once a location is known.</p>
+     */
+    private boolean visibleInCalendar(Holiday holiday, String location) {
+        boolean hpe = holiday.getHolidayType() == HolidayType.HPE_HOLIDAY;
+        if (hpe && !holiday.isActive()) {
+            return false;
+        }
+        if (location == null || location.isBlank()) {
+            return true;
+        }
+        return HolidayLocationUtil.applies(holiday, location);
+    }
+
+    /** Location of the caller's own employee profile, or null when there is none. */
+    private String currentEmployeeLocation() {
+        Long userId = securityUtils.currentUserId();
+        if (userId == null) {
+            return null;
+        }
+        return employeeRepository.findByUserId(userId).map(Employee::getLocation).orElse(null);
     }
 
     private boolean inTeam(Employee e, Long teamId) {

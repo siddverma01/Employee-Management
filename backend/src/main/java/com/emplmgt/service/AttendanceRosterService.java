@@ -3,20 +3,20 @@ package com.emplmgt.service;
 import com.emplmgt.dto.AttendanceRosterDtos;
 import com.emplmgt.entity.AttendanceRecord;
 import com.emplmgt.entity.Department;
+import com.emplmgt.entity.Employee;
 import com.emplmgt.entity.Holiday;
 import com.emplmgt.entity.ImportEmployee;
 import com.emplmgt.exception.ApiException;
 import com.emplmgt.repository.AttendanceRecordRepository;
 import com.emplmgt.repository.AttendanceStatusRepository;
 import com.emplmgt.repository.DepartmentRepository;
+import com.emplmgt.repository.EmployeeRepository;
 import com.emplmgt.repository.HolidayRepository;
 import com.emplmgt.repository.ImportEmployeeRepository;
 import com.emplmgt.util.AppClock;
 import com.emplmgt.util.HistoricalImportCodes;
+import com.emplmgt.util.ShiftTime;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,6 +50,7 @@ public class AttendanceRosterService {
 
     private final AttendanceRecordRepository recordRepository;
     private final ImportEmployeeRepository importEmployeeRepository;
+    private final EmployeeRepository employeeRepository;
     private final DepartmentRepository departmentRepository;
     private final AttendanceStatusRepository statusRepository;
     private final HolidayRepository holidayRepository;
@@ -70,21 +71,46 @@ public class AttendanceRosterService {
         String loc = blankToNull(location);
         String sh = blankToNull(shift);
 
-        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 100)));
-        Page<ImportEmployee> employees = importEmployeeRepository
-                .findRosterEmployeePage(teamId, query, loc, sh, from, to, code, pageable);
+        int safePage = Math.max(0, page);
+        int safeSize = Math.max(1, Math.min(size, 100));
 
-        List<String> pageEmployeeIds = employees.getContent().stream()
+        // Fetch the full filtered set, order it by shift start time ascending
+        // (unknown/invalid shifts last, then employee name A-Z), then slice in
+        // memory so the sort stays consistent across pages.
+        List<ImportEmployee> sorted = importEmployeeRepository
+                .findRosterEmployees(teamId, query, loc, sh, from, to, code)
+                .stream()
+                .sorted(Comparator
+                        .comparing((ImportEmployee e) -> ShiftTime.parseShiftStartTime(e.getDefaultShift()),
+                                Comparator.nullsLast(Comparator.naturalOrder()))
+                        .thenComparing(Comparator.comparing(ImportEmployee::getEmployeeName, String.CASE_INSENSITIVE_ORDER))
+                        .thenComparing(ImportEmployee::getEmployeeId, String.CASE_INSENSITIVE_ORDER))
+                .toList();
+
+        int total = sorted.size();
+        int fromIdx = safePage * safeSize;
+        int toIdx = Math.min(fromIdx + safeSize, total);
+        List<ImportEmployee> pageList = fromIdx >= total
+                ? List.of()
+                : new ArrayList<>(sorted.subList(fromIdx, toIdx));
+
+        List<String> pageEmployeeIds = pageList.stream()
                 .map(ImportEmployee::getEmployeeId).toList();
+
+        Map<String, String> masterEmailsByCode = pageEmployeeIds.isEmpty() ? Map.of()
+                : employeeRepository.findByEmployeeCodeIn(pageEmployeeIds).stream()
+                .filter(e -> e.getEmail() != null && !e.getEmail().isBlank())
+                .collect(Collectors.toMap(Employee::getEmployeeCode, Employee::getEmail, (a, b) -> a));
 
         Map<String, Map<String, String>> cellMap = groupCells(recordRepository
                 .findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(from, to, pageEmployeeIds));
 
-        Map<Long, String> teamNames = teamNames(employees.getContent());
+        Map<Long, String> teamNames = teamNames(pageList);
 
-        List<AttendanceRosterDtos.EmployeeRow> rows = employees.getContent().stream()
+        List<AttendanceRosterDtos.EmployeeRow> rows = pageList.stream()
                 .map(e -> new AttendanceRosterDtos.EmployeeRow(
-                        e.getEmployeeId(), e.getEmployeeName(), e.getEmail(),
+                        e.getEmployeeId(), e.getEmployeeName(),
+                        resolveEmail(e.getEmail(), masterEmailsByCode.get(e.getEmployeeId())),
                         e.getLocation(), e.getDefaultShift(), e.getWeekOff(),
                         e.getTeamId(), e.getTeamId() == null ? null : teamNames.get(e.getTeamId()),
                         cellMap.getOrDefault(e.getEmployeeId(), Map.of())))
@@ -99,8 +125,76 @@ public class AttendanceRosterService {
 
         return new AttendanceRosterDtos.MonthlyResponse(month, teamId, teamName,
                 buildDays(ym, teamId), rows, counters, totalEmployees, matchedEmployees,
-                employees.getNumber(), employees.getSize(), employees.getTotalElements(),
-                employees.getTotalPages());
+                safePage, safeSize, total, (total + safeSize - 1) / safeSize);
+    }
+
+    // ------------------------------------------------------------------ TODAY
+
+    @Transactional(readOnly = true)
+    public AttendanceRosterDtos.TodayResponse today(Long teamId, String q,
+                                                    String status, String location, String shift) {
+        LocalDate today = appClock.today();
+        String query = blankToNull(q);
+        String code = blankToNull(status);
+        String loc = blankToNull(location);
+        String sh = blankToNull(shift);
+
+        // Build single day info
+        DayOfWeek dow = today.getDayOfWeek();
+        boolean weekend = dow == DayOfWeek.SATURDAY || dow == DayOfWeek.SUNDAY;
+        Map<LocalDate, String> holidays = holidayRepository.findVisibleInRange(today, today, null, teamId)
+                .stream().collect(Collectors.toMap(Holiday::getHolidayDate, Holiday::getName));
+        String holidayName = holidays.get(today);
+        boolean holiday = holidayName != null;
+
+        // Fetch the full filtered set for today, ordered by shift start time
+        List<ImportEmployee> sorted = importEmployeeRepository
+                .findRosterEmployees(teamId, query, loc, sh, today, today, code)
+                .stream()
+                .sorted(Comparator
+                        .comparing((ImportEmployee e) -> ShiftTime.parseShiftStartTime(e.getDefaultShift()),
+                                Comparator.nullsLast(Comparator.naturalOrder()))
+                        .thenComparing(Comparator.comparing(ImportEmployee::getEmployeeName, String.CASE_INSENSITIVE_ORDER))
+                        .thenComparing(Comparator.comparing(ImportEmployee::getEmployeeId, String.CASE_INSENSITIVE_ORDER)))
+                .toList();
+
+        int total = sorted.size();
+
+        List<String> pageEmployeeIds = sorted.stream()
+                .map(ImportEmployee::getEmployeeId).toList();
+
+        Map<String, String> masterEmailsByCode = pageEmployeeIds.isEmpty() ? Map.of()
+                : employeeRepository.findByEmployeeCodeIn(pageEmployeeIds).stream()
+                .filter(e -> e.getEmail() != null && !e.getEmail().isBlank())
+                .collect(Collectors.toMap(Employee::getEmployeeCode, Employee::getEmail, (a, b) -> a));
+
+        // Get attendance records for today only
+        Map<String, Map<String, String>> cellMap = groupCells(recordRepository
+                .findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(today, today, pageEmployeeIds));
+
+        Map<Long, String> teamNames = teamNames(sorted);
+
+        List<AttendanceRosterDtos.EmployeeRow> rows = sorted.stream()
+                .map(e -> new AttendanceRosterDtos.EmployeeRow(
+                        e.getEmployeeId(), e.getEmployeeName(),
+                        resolveEmail(e.getEmail(), masterEmailsByCode.get(e.getEmployeeId())),
+                        e.getLocation(), e.getDefaultShift(), e.getWeekOff(),
+                        e.getTeamId(), e.getTeamId() == null ? null : teamNames.get(e.getTeamId()),
+                        cellMap.getOrDefault(e.getEmployeeId(), Map.of())))
+                .toList();
+
+        Map<String, Long> counters = counters(teamId, query, loc, sh, code, today, today);
+        long totalEmployees = importEmployeeRepository.countEmployeeRows(teamId, null, null, null, today, today);
+        long matchedEmployees = importEmployeeRepository.countEmployeeRows(teamId, query, loc, sh, today, today);
+
+        String teamName = teamId == null ? null
+                : departmentRepository.findById(teamId).map(Department::getName).orElse(null);
+
+        return new AttendanceRosterDtos.TodayResponse(
+                today, teamId, teamName,
+                dow.getDisplayName(TextStyle.SHORT, Locale.ENGLISH).toUpperCase(Locale.ROOT),
+                weekend, holiday, holidayName,
+                rows, counters, totalEmployees, matchedEmployees);
     }
 
     // ------------------------------------------------------------------ META
@@ -224,6 +318,15 @@ public class AttendanceRosterService {
                     .put(r.getAttendanceDate().toString(), r.getStatusCode());
         }
         return out;
+    }
+
+    /** Roster email comes from the master employee record (authoritative source)
+     *  when available, else falls back to the import record. */
+    private String resolveEmail(String importEmail, String masterEmail) {
+        if (masterEmail != null && !masterEmail.isBlank()) {
+            return masterEmail;
+        }
+        return importEmail;
     }
 
     private Map<Long, String> teamNames(List<ImportEmployee> employees) {

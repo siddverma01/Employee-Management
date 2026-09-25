@@ -68,7 +68,7 @@ public class DataSeeder implements ApplicationRunner {
                 .build());
 
         List<SeedEmployee> roster = List.of(
-                new SeedEmployee("25106149", "masher.choudhary-ext@hpe.com", "Masher Choudary", "Pune", "05:30-14:30", "Sun-Mon"),
+                new SeedEmployee("25106149", "masher.choudary-ext@hpe.com", "Masher Choudary", "Pune", "05:30-14:30", "Sun-Mon"),
                 new SeedEmployee("25102404", "siddhesh.verma-ext@hpe.com", "Siddhesh Verma", "Pune", "05:30-14:30", "Fri-Sat"),
                 new SeedEmployee("25101553", "pradnya.mane-ext@hpe.com", "Pradnya Mane", "Pune", "05:30-14:30", "Sun-Mon"),
                 new SeedEmployee("60179491", "rutuja.ashish-palaye@hpe.com", "Rutuja Palaye", "Pune", "13:30-22:30", "Sat-Sun"),

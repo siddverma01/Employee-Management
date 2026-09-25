@@ -273,4 +273,59 @@ class HistoricalRosterParserTest {
             assertThat(result.warnings()).anyMatch(w -> w.contains("no employee id"));
         }
     }
+
+    @Test
+    void ignoresRepeatedHeaderRowsInsideSheets() throws Exception {
+        try (XSSFWorkbook wb = new XSSFWorkbook()) {
+            CellStyle ds = dateStyle(wb);
+            Sheet s = wb.createSheet("Sep 2026");
+            Row h = s.createRow(0);
+            text(h, 0, "Emp ID");
+            text(h, 1, "Emp Name");
+            text(h, 2, "Shift");
+            dt(h, 3, LocalDate.of(2026, 9, 1), ds);
+            dt(h, 4, LocalDate.of(2026, 9, 2), ds);
+            dt(h, 5, LocalDate.of(2026, 9, 3), ds);
+
+            // Full repeated header: id + name + shift labels (rule A and B).
+            Row dup = s.createRow(1);
+            text(dup, 0, "Emp ID");
+            text(dup, 1, "Emp Name");
+            text(dup, 2, "Shift");
+            text(dup, 3, "WFO");
+            text(dup, 4, "WFO");
+            text(dup, 5, "WFO");
+
+            // Id cell alone restates the label (rule A).
+            Row idOnly = s.createRow(2);
+            text(idOnly, 0, "Employee ID");
+            text(idOnly, 3, "PL");
+            text(idOnly, 4, "PL");
+            text(idOnly, 5, "PL");
+
+            // No id/name label, but two metadata cells restate labels (rule B).
+            Row metaOnly = s.createRow(3);
+            text(metaOnly, 0, "Location");
+            text(metaOnly, 1, "Shift");
+            text(metaOnly, 3, "WFH");
+            text(metaOnly, 4, "WFH");
+            text(metaOnly, 5, "WFH");
+
+            Row real = s.createRow(4);
+            text(real, 0, "60179401");
+            text(real, 1, "Abhilash Yadav");
+            text(real, 2, "05:30-14:30");
+            text(real, 3, "WFO");
+            text(real, 4, "WFO");
+            text(real, 5, "WO");
+
+            var result = parseWorkbook(wb).get(0);
+            assertThat(result.skipped()).isFalse();
+            assertThat(result.employeeIds()).containsExactly("60179401");
+            assertThat(result.records()).hasSize(3);
+            assertThat(result.records()).allMatch(r -> r.employeeId().equals("60179401"));
+            assertThat(result.warnings())
+                    .anyMatch(w -> w.contains("3 section/header row(s)"));
+        }
+    }
 }

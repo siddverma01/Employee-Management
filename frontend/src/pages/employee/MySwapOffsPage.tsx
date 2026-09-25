@@ -29,13 +29,13 @@ export function MySwapOffsPage() {
     <div>
       <PageHeader
         title="My swap offs"
-        subtitle="Compensatory off requests you have submitted"
+        subtitle="Swap off requests you have submitted"
         actions={<Button><Link to="/swap-off/new">Apply Swap Off</Link></Button>}
       />
 
       <div className="card overflow-hidden">
         {!requests?.length ? (
-          <EmptyState title="No swap off requests yet" description="Worked an extra day? Apply for a comp off." />
+          <EmptyState title="No swap off requests yet" description="Worked on behalf of someone? Apply for a swap off." />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px]">
@@ -43,9 +43,9 @@ export function MySwapOffsPage() {
                 <tr>
                   <th className="th">Worked Date</th>
                   <th className="th">Off Date</th>
+                  <th className="th">Worked For</th>
                   <th className="th">Reason</th>
                   <th className="th">Status</th>
-                  <th className="th">Comp off</th>
                   <th className="th">Applied On</th>
                   <th className="th" />
                 </tr>
@@ -55,9 +55,12 @@ export function MySwapOffsPage() {
                   <tr key={r.id} className="transition-colors duration-150 hover:bg-rowhover">
                     <td className="td">{formatDate(r.workedDate)}</td>
                     <td className="td">{formatDate(r.requestedOffDate)}</td>
+                    <td className="td">
+                      <p className="font-medium text-surface-800">{r.workedForEmployeeName}</p>
+                      <p className="text-xs text-surface-400">{r.workedForEmployeeCode}</p>
+                    </td>
                     <td className="td max-w-[220px] truncate" title={r.reason ?? ''}>{r.reason}</td>
                     <td className="td"><StatusBadge status={r.status} /></td>
-                    <td className="td">{r.compOffCredited ? <span className="text-xs font-medium text-emerald-700">Credited</span> : '—'}</td>
                     <td className="td text-xs text-surface-500">{formatDateTime(r.appliedOn)}</td>
                     <td className="td text-right">
                       {r.status === 'PENDING' && (

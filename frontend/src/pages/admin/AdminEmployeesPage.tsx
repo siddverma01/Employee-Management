@@ -12,6 +12,7 @@ import { employeeSchema, type EmployeeForm } from '@/validations/schemas'
 import { extractMessage } from '@/api/client'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { formatDate } from '@/utils'
+import { formatShiftDisplay, formatShiftTime, to24hShift } from '@/utils/shift'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -118,7 +119,7 @@ function EmployeeFormModal({ open, onClose, employee, departments }: { open: boo
         phone: employee?.phone ?? '',
         designation: employee?.designation ?? '',
         location: employee?.location ?? '',
-        shift: employee?.shift ?? '',
+        shift: employee?.shift ? (formatShiftTime(employee.shift) ?? employee.shift ?? '') : '',
         weekOff: employee?.weekOff ?? '',
         dateOfJoining: employee?.dateOfJoining ? String(employee.dateOfJoining).slice(0, 10) : '',
       })
@@ -143,7 +144,7 @@ function EmployeeFormModal({ open, onClose, employee, departments }: { open: boo
 
   return (
     <Modal open={open} onClose={onClose} title={isEdit ? `Edit ${employee?.fullName}` : 'New employee'} size="lg">
-      <form onSubmit={handleSubmit((v) => mutation.mutate(v))} className="space-y-4">
+      <form onSubmit={handleSubmit((v) => mutation.mutate({ ...v, shift: to24hShift(v.shift) ?? (v.shift ?? '') }))} className="space-y-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input label="Employee Code" placeholder="EMP-010" disabled={isEdit} {...register('employeeCode')} error={errors.employeeCode?.message} />
           <Input label="Full Name" placeholder="Jane Doe" {...register('fullName')} error={errors.fullName?.message} />
@@ -173,7 +174,7 @@ function EmployeeFormModal({ open, onClose, employee, departments }: { open: boo
           <Input label="Location" placeholder="New York" {...register('location')} />
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Input label="Shift" placeholder="05:30-14:30" {...register('shift')} />
+          <Input label="Shift" placeholder="e.g. 05:30 AM - 02:30 PM" {...register('shift')} />
           <Input label="Week Off" placeholder="Sat-Sun" {...register('weekOff')} />
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -312,7 +313,7 @@ export function AdminEmployeesPage() {
                     <td className="td">{e.department ?? '—'}</td>
                     <td className="td">{e.designation ?? '—'}</td>
                     <td className="td">{e.location ?? '—'}</td>
-                    <td className="td">{e.shift ? <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${shiftStyle(e.shift)}`}>{e.shift}</span> : '—'}</td>
+                    <td className="td">{e.shift ? <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${shiftStyle(e.shift)}`}>{formatShiftDisplay(e.shift)}</span> : '—'}</td>
                     <td className="td">{e.weekOff ?? '—'}</td>
                     <td className="td"><span className="text-surface-500">{formatDate(String(e.dateOfJoining))}</span></td>
                     <td className="td">

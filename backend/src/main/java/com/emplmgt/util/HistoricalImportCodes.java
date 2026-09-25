@@ -3,6 +3,7 @@ package com.emplmgt.util;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Canonical attendance status codes used by the historical import.
@@ -46,6 +47,18 @@ public final class HistoricalImportCodes {
                 "Working for Another Team");
         // ATRn handled separately (regex) — ATR, ATR1, ATR2, ...
     }
+
+    /**
+     * Normalised (upper-cased) tokens that mean "this cell carries no
+     * attendance entry": filler punctuation ("." / "-" / "—" / "…" used as
+     * blank markers), numeric zero (Excel's blank numeric cell), and the
+     * Excel zero-date ("1899-12-31"/"1899-12-30") that a blank cell in a
+     * date-formatted column renders as. These are treated as empty, never as
+     * unknown statuses.
+     */
+    private static final Set<String> EMPTY_STATUSES = Set.of(
+            ".", "-", "\u2014", "\u2013", "\u2026", "0",
+            "1899-12-31", "1899-12-30");
 
     private static final Map<String, String> CANONICAL_NAMES = Map.ofEntries(
             Map.entry("WO", "Weekly Off"),
@@ -115,6 +128,29 @@ public final class HistoricalImportCodes {
     }
 
     /**
+     * Central status normaliser for one raw cell value. Returns the canonical
+     * status code when the value matches the dictionary, the normalised value
+     * verbatim when it is an unrecognised real value (never dropped nor
+     * silently converted), or {@code null} when the cell is empty —
+     * {@code null}/blank/whitespace-only, filler punctuation (".", "-", "—"),
+     * numeric zero, or the Excel zero-date that a blank date-formatted cell
+     * renders as ("1899-12-31"). Empty cells mean no attendance entry and are
+     * therefore neither a record nor an unknown code.
+     */
+    public static String normalizeAttendanceStatus(String rawValue) {
+        String text = normaliseText(rawValue);
+        if (text == null) {
+            return null;
+        }
+        String upper = text.toUpperCase(Locale.ROOT);
+        if (EMPTY_STATUSES.contains(upper)) {
+            return null;
+        }
+        String canonical = canonicalOf(upper);
+        return canonical != null ? canonical : upper;
+    }
+
+    /**
      * Compares two text values ignoring case, spacing, punctuation and
      * non-breaking spaces (used for header alias matching).
      */
@@ -140,6 +176,10 @@ public final class HistoricalImportCodes {
         if (compact.matches("atr\\d*")) {
             // Preserve the numeric suffix so "ATR1"/"ATR3" stay distinguishable.
             return "ATR" + normalised.replaceAll("^ATR", "");
+        }
+        if (compact.startsWith("atrn")) {
+            // The roster marks new-joiner attrition as "ATRn" — same code.
+            return "ATR";
         }
         return COMPACT_TO_CANONICAL.get(compact);
     }

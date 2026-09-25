@@ -70,7 +70,6 @@ public class HistoricalImportService {
     private static final String T_MISSING_EMAIL = "MISSING_EMAIL";
     private static final String T_MISSING_MANAGER = "MISSING_MANAGER";
     private static final String T_UNKNOWN_CODE = "UNKNOWN_CODE";
-    private static final String T_EMPTY_CELL = "EMPTY_CELL";
     private static final String T_DUP_EMP = "DUPLICATE_EMPLOYEE_ID";
     private static final String T_INCONSISTENT_NAME = "INCONSISTENT_NAME";
 
@@ -185,7 +184,8 @@ public class HistoricalImportService {
 
         return new HistoricalImportDtos.PreviewResponse(history.getId(), sourceFile, original,
                 history.getStatus(), toSummary(history, analysis), staged.size(), 0, 50,
-                toRowViews(firstPage(staged, 50)), analysis, issues, unknown);
+                toRowViews(firstPage(staged, 50)), analysis, issues, unknown,
+                buildUnknownValues(parsed));
     }
 
     // ------------------------------------------------------------------ helpers
@@ -382,11 +382,6 @@ public class HistoricalImportService {
                 issues.add(new HistoricalImportDtos.ValidationIssue(WARN, "SHEET_WARNING", w,
                         s.sheetName(), null, null, 1));
             }
-            if (s.emptyCellCount() > 0) {
-                issues.add(new HistoricalImportDtos.ValidationIssue(WARN, T_EMPTY_CELL,
-                        s.emptyCellCount() + " empty attendance cell(s) in this sheet",
-                        s.sheetName(), null, null, s.emptyCellCount()));
-            }
         }
 
         // Employee-level aggregate warnings.
@@ -516,6 +511,63 @@ public class HistoricalImportService {
         return out;
     }
 
+    /**
+     * TEMPORARY diagnostic: every unknown cell grouped by the exact value as
+     * written, with up to five sample locations so the exact offending cells
+     * can be reviewed. Used to decide which values need aliases before the
+     * canonicalisation rules are changed.
+     */
+    private static List<HistoricalImportDtos.UnknownValueDetail> buildUnknownValues(
+            HistoricalRosterParser.ParsedWorkbook parsed) {
+        Map<String, long[]> count = new LinkedHashMap<>();
+        Map<String, String> normalized = new LinkedHashMap<>();
+        Map<String, List<HistoricalImportDtos.UnknownValueSample>> examples = new LinkedHashMap<>();
+        for (HistoricalRosterParser.SheetResult s : parsed.sheets()) {
+            if (s.skipped()) {
+                continue;
+            }
+            for (HistoricalRosterParser.ParsedRecord rec : s.records()) {
+                if (!rec.unknown()) {
+                    continue;
+                }
+                String key = rec.rawCode() == null ? "" : rec.rawCode();
+                count.computeIfAbsent(key, k -> new long[]{0})[0]++;
+                normalized.putIfAbsent(key, rec.statusCode());
+                List<HistoricalImportDtos.UnknownValueSample> ex =
+                        examples.computeIfAbsent(key, k -> new ArrayList<>());
+                if (ex.size() < 5) {
+                    ex.add(new HistoricalImportDtos.UnknownValueSample(s.sheetName(), rec.sourceRow(),
+                            rec.sourceColumn(), rec.employeeId(), rec.employeeName(), rec.attendanceDate()));
+                }
+            }
+        }
+        List<HistoricalImportDtos.UnknownValueDetail> out = new ArrayList<>();
+        count.entrySet().stream()
+                .sorted(Map.Entry.<String, long[]>comparingByValue(Comparator.comparingLong(v -> v[0])).reversed())
+                .forEach(e -> out.add(new HistoricalImportDtos.UnknownValueDetail(
+                        e.getKey(), normalized.get(e.getKey()), e.getValue()[0], examples.get(e.getKey()))));
+        return out;
+    }
+
+    /** Lighter diagnostic used when rehydrating a preview from persisted rows. */
+    private static List<HistoricalImportDtos.UnknownValueDetail> unknownValuesFromRows(
+            List<AttendanceImportRow> rows) {
+        Map<String, long[]> count = new LinkedHashMap<>();
+        Map<String, String> normalized = new LinkedHashMap<>();
+        for (AttendanceImportRow r : rows) {
+            if (Boolean.TRUE.equals(r.getIsUnknown()) && r.getIncomingStatus() != null) {
+                count.computeIfAbsent(r.getIncomingStatus(), k -> new long[]{0})[0]++;
+                normalized.putIfAbsent(r.getIncomingStatus(), r.getIncomingStatus());
+            }
+        }
+        List<HistoricalImportDtos.UnknownValueDetail> out = new ArrayList<>();
+        count.entrySet().stream()
+                .sorted(Map.Entry.<String, long[]>comparingByValue(Comparator.comparingLong(v -> v[0])).reversed())
+                .forEach(e -> out.add(new HistoricalImportDtos.UnknownValueDetail(
+                        e.getKey(), normalized.get(e.getKey()), e.getValue()[0], List.of())));
+        return out;
+    }
+
     // ------------------------------------------------------- persisted state
 
     private void persistSnapshot(AttendanceImportHistory h,
@@ -611,7 +663,8 @@ public class HistoricalImportService {
                 rowRepository.findByImportHistoryIdOrderByIdAsc(importId));
         return new HistoricalImportDtos.PreviewResponse(h.getId(), h.getFileName(), h.getOriginalFileName(),
                 h.getStatus(), toSummary(h, snap.analysis()), total, slice.getNumber(), safeSize,
-                toRowViews(slice.getContent()), snap.analysis(), snap.issues(), unknown);
+                toRowViews(slice.getContent()), snap.analysis(), snap.issues(), unknown,
+                unknownValuesFromRows(rowRepository.findByImportHistoryIdOrderByIdAsc(importId)));
     }
 
     private static List<HistoricalImportDtos.UnknownCodeDetail> unknownFromRows(

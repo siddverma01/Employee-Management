@@ -23,6 +23,10 @@ public class SwapOffRequest extends BaseEntity {
     @JoinColumn(name = "employee_id", nullable = false)
     private Employee employee;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "worked_for_employee_id", nullable = false)
+    private Employee workedForEmployee;
+
     @Column(name = "worked_date", nullable = false)
     private LocalDate workedDate;
 

@@ -35,6 +35,7 @@ public class LeaveService {
     private final NotificationService notificationService;
     private final AuditService auditService;
     private final EmployeeService employeeService;
+    private final AttendanceRequestIntegrationService attendanceRequestIntegration;
 
     // ------------------------------------------------------------------ EMPLOYEE
 
@@ -147,6 +148,7 @@ public class LeaveService {
         leave.setDecidedBy(userRepository.findById(adminUserId).orElseThrow());
         leave.setDecidedAt(appClock.now());
         rewriteAttendanceFor(leave);
+        attendanceRequestIntegration.applyLeaveApproval(leave);
         LeaveRequest saved = leaveRequestRepository.save(leave);
 
         notifyEmployee(saved, "Leave Approved",

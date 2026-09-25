@@ -24,6 +24,7 @@ import { AdminHolidaysPage } from '@/pages/admin/AdminHolidaysPage'
 import { AdminImportPage } from '@/pages/admin/AdminImportPage'
 import AdminHistoricalImportPage from '@/pages/admin/AdminHistoricalImportPage'
 import { AdminRosterPage } from '@/pages/admin/AdminRosterPage'
+import { AdminAttendanceHistoryPage } from '@/pages/admin/AdminAttendanceHistoryPage'
 import { AdminAuditLogsPage } from '@/pages/admin/AdminAuditLogsPage'
 import { AdminAttendancePage } from '@/pages/admin/AdminAttendancePage'
 import { Dashboard as ThemeDemo } from '@/pages/demo/Dashboard'
@@ -66,22 +67,25 @@ export default function App() {
           <Route path="/today" element={<TodayPage />} />
           <Route path="/holidays" element={<HolidaysPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
-          <Route path="/attendance" element={<AttendancePage />} />
-
-          <Route element={<AdminOnly><OutletWrapper /></AdminOnly>}>
-            <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
-            <Route path="/admin/employees" element={<AdminEmployeesPage />} />
-            <Route path="/admin/employees/new" element={<AdminEmployeeDetailPage />} />
-            <Route path="/admin/employees/:id" element={<AdminEmployeeDetailPage />} />
-            <Route path="/admin/leaves" element={<AdminLeavesPage />} />
-            <Route path="/admin/swap-offs" element={<AdminSwapOffsPage />} />
-            <Route path="/admin/holidays" element={<AdminHolidaysPage />} />
-            <Route path="/admin/imports" element={<AdminImportPage />} />
-            <Route path="/admin/historical-import" element={<AdminHistoricalImportPage />} />
+<Route path="/attendance" element={<AttendancePage />} />
+            {/* Attendance Roster — viewable by every authenticated user (read-only
+                for employees); changes stay admin-only, enforced server-side. */}
             <Route path="/admin/roster" element={<AdminRosterPage />} />
-            <Route path="/admin/audit-logs" element={<AdminAuditLogsPage />} />
-            <Route path="/admin/attendance" element={<AdminAttendancePage />} />
-          </Route>
+
+            <Route element={<AdminOnly><OutletWrapper /></AdminOnly>}>
+              <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+              <Route path="/admin/employees" element={<AdminEmployeesPage />} />
+              <Route path="/admin/employees/new" element={<AdminEmployeeDetailPage />} />
+              <Route path="/admin/employees/:id" element={<AdminEmployeeDetailPage />} />
+              <Route path="/admin/leaves" element={<AdminLeavesPage />} />
+              <Route path="/admin/swap-offs" element={<AdminSwapOffsPage />} />
+              <Route path="/admin/holidays" element={<AdminHolidaysPage />} />
+              <Route path="/admin/imports" element={<AdminImportPage />} />
+              <Route path="/admin/historical-import" element={<AdminHistoricalImportPage />} />
+              <Route path="/admin/audit-logs" element={<AdminAuditLogsPage />} />
+              <Route path="/admin/attendance" element={<AdminAttendancePage />} />
+              <Route path="/admin/attendance-history" element={<AdminAttendanceHistoryPage />} />
+            </Route>
         </Route>
 
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { calculateLeaveDays } from '@/pages/employee/ApplyLeavePage'
-import { attendanceShort, daysBetween, formatDate, initials, toISODate } from '@/utils'
+import { attendanceShort, daysBetween, formatDate, HPE_HOLIDAY_BADGE, HPE_HOLIDAY_LABEL, initials, isHpeHoliday, toISODate } from '@/utils'
 
 describe('date utilities', () => {
   it('toISODate pads month and day', () => {
@@ -44,5 +44,30 @@ describe('misc utils', () => {
     expect(attendanceShort('WORK_FROM_OFFICE')).toBe('WFO')
     expect(attendanceShort('WORK_FROM_HOME')).toBe('WFH')
     expect(attendanceShort('COMP_OFF')).toBe('CO')
+  })
+})
+
+describe('isHpeHoliday', () => {
+  it('matches a holiday flagged as HPE_HOLIDAY by the backend', () => {
+    expect(
+      isHpeHoliday({ kind: 'HOLIDAY', extra: { holidayType: 'HPE_HOLIDAY', country: 'IN' } }),
+    ).toBe(true)
+  })
+
+  it('ignores regular holidays, leaves, events and birthdays', () => {
+    expect(isHpeHoliday({ kind: 'HOLIDAY', extra: { holidayType: 'PUBLIC' } })).toBe(false)
+    expect(isHpeHoliday({ kind: 'LEAVE', extra: { holidayType: 'HPE_HOLIDAY' } })).toBe(false)
+    expect(isHpeHoliday({ kind: 'EVENT', extra: {} })).toBe(false)
+    expect(isHpeHoliday({ kind: 'BIRTHDAY', extra: {} })).toBe(false)
+  })
+
+  it('never matches on employee/entitlement data - only holiday metadata', () => {
+    expect(isHpeHoliday({ kind: 'HOLIDAY', extra: { entitlement: 'AVAILABLE' } })).toBe(false)
+    expect(isHpeHoliday({ kind: 'COMP_OFF', extra: { holidayType: 'HPE_HOLIDAY' } })).toBe(false)
+  })
+
+  it('exposes the agreed labels', () => {
+    expect(HPE_HOLIDAY_BADGE).toBe('HPEH')
+    expect(HPE_HOLIDAY_LABEL).toBe('HPE Holiday')
   })
 })

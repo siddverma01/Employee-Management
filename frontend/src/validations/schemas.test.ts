@@ -27,10 +27,14 @@ describe('validation schemas', () => {
 
   it('swapOffSchema rejects same worked and off date', () => {
     expect(
-      swapOffSchema.safeParse({ workedDate: '2026-09-20', requestedOffDate: '2026-09-20', reason: 'swap day' }).success,
+      swapOffSchema.safeParse({
+        workedDate: '2026-09-20', requestedOffDate: '2026-09-20', workedForEmployeeId: '12', reason: 'swap day',
+      }).success,
     ).toBe(false)
     expect(
-      swapOffSchema.safeParse({ workedDate: '2026-09-20', requestedOffDate: '2026-09-25', reason: 'swap day' }).success,
+      swapOffSchema.safeParse({
+        workedDate: '2026-09-20', requestedOffDate: '2026-09-25', workedForEmployeeId: '12', reason: 'swap day',
+      }).success,
     ).toBe(true)
   })
 
