@@ -1,0 +1,60 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: empmgmt-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-emp_mgmt}
+      POSTGRES_USER: ${DB_USERNAME:-emp_mgmt}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-emp_mgmt}
+    volumes:
+      - empmgmt_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-emp_mgmt} -d ${DB_NAME:-emp_mgmt}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+
+  backend:
+    build:
+      context: ./backend
+    container_name: empmgmt-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      DB_URL: jdbc:postgresql://db:5432/${DB_NAME:-emp_mgmt}
+      DB_USERNAME: ${DB_USERNAME:-emp_mgmt}
+      DB_PASSWORD: ${DB_PASSWORD:-emp_mgmt}
+      APP_JWT_SECRET: ${APP_JWT_SECRET:?Set APP_JWT_SECRET to a strong secret in your .env}
+      APP_JWT_EXPIRATION_MS: ${APP_JWT_EXPIRATION_MS:-86400000}
+      APP_TIMEZONE: ${APP_TIMEZONE:-UTC}
+      APP_CORS_ORIGINS: ${APP_CORS_ORIGINS:-http://localhost}
+      APP_SEED_ENABLED: ${APP_SEED_ENABLED:-false}
+      APP_IMPORT_DIR: /data/uploads
+      APP_EXCLUDE_WEEKENDS: ${APP_EXCLUDE_WEEKENDS:-true}
+      APP_EXCLUDE_HOLIDAYS: ${APP_EXCLUDE_HOLIDAYS:-true}
+      APP_WEEKLY_OFFS: ${APP_WEEKLY_OFFS:-6,7}
+    volumes:
+      - empmgmt_uploads:/data/uploads
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: empmgmt-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+
+volumes:
+  empmgmt_pgdata:
+  empmgmt_uploads:

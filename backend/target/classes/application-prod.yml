@@ -1,0 +1,10 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+application:
+  seed:
+    enabled: false
+  jwt:
+    secret: ${APP_JWT_SECRET:}

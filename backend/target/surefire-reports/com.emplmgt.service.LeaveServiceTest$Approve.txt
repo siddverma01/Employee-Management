@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.emplmgt.service.LeaveServiceTest$Approve
+-------------------------------------------------------------------------------
+Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.181 s -- in com.emplmgt.service.LeaveServiceTest$Approve

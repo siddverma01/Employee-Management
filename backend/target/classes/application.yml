@@ -1,0 +1,79 @@
+server:
+  port: ${SERVER_PORT:8080}
+  error:
+    include-stacktrace: never
+
+spring:
+  application:
+    name: employee-management-backend
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/emp_mgmt}
+    username: ${DB_USERNAME:emp_mgmt}
+    password: ${DB_PASSWORD:emp_mgmt}
+    hikari:
+      maximum-pool-size: 10
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+        format_sql: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+  jackson:
+    default-property-inclusion: non_null
+    time-zone: UTC
+
+application:
+  # Application timezone used for interpreting date-only values and "today".
+  timezone: ${APP_TIMEZONE:UTC}
+  jwt:
+    # !! Override in production via APP_JWT_SECRET !!
+    secret: ${APP_JWT_SECRET:change-me-development-secret-at-least-32-chars-long}
+    expiration-ms: ${APP_JWT_EXPIRATION_MS:86400000}
+  cors:
+    allowed-origins: ${APP_CORS_ORIGINS:http://localhost:5173,http://localhost:3000}
+  seed:
+    enabled: ${APP_SEED_ENABLED:true}
+  import:
+    upload-dir: ${APP_IMPORT_DIR:./data/uploads}
+  # Business rules
+  leave:
+    # Whether working-weekend / holidays are excluded when computing leave days.
+    exclude-weekends: ${APP_EXCLUDE_WEEKENDS:true}
+    exclude-holidays: ${APP_EXCLUDE_HOLIDAYS:true}
+    # Weekly offs: ISO day numbers (1=Mon .. 7=Sun)
+    weekly-offs: ${APP_WEEKLY_OFFS:6,7}
+  notification:
+    upcoming-holiday-days: 3
+    upcoming-birthday-days: 3
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    com.emplmgt: ${APP_LOG_LEVEL:INFO}
+    org.hibernate.SQL: WARN

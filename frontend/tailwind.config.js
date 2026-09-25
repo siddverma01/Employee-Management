@@ -1,0 +1,303 @@
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  // Light/dark driven by the `.dark` class on <html> (toggled in Header.tsx).
+  darkMode: 'class',
+  theme: {
+    extend: {
+      colors: {
+        /*
+         * HPE v2-Landmark token mappings.
+         * All values dereference CSS custom properties defined in
+         * src/styles/tokens.css (single source of truth — edit there to retheme).
+         */
+        brand: {
+          DEFAULT: 'rgb(var(--hpe-brand-500) / <alpha-value>)',
+          50: 'rgb(var(--hpe-brand-50) / <alpha-value>)',
+          100: 'rgb(var(--hpe-brand-100) / <alpha-value>)',
+          200: 'rgb(var(--hpe-brand-200) / <alpha-value>)',
+          300: 'rgb(var(--hpe-brand-300) / <alpha-value>)',
+          400: 'rgb(var(--hpe-brand-400) / <alpha-value>)',
+          500: 'rgb(var(--hpe-brand-500) / <alpha-value>)',
+          600: 'rgb(var(--hpe-brand-600) / <alpha-value>)',
+          700: 'rgb(var(--hpe-brand-700) / <alpha-value>)',
+          800: 'rgb(var(--hpe-brand-800) / <alpha-value>)',
+          900: 'rgb(var(--hpe-brand-900) / <alpha-value>)',
+          950: 'rgb(var(--hpe-brand-950) / <alpha-value>)',
+        },
+        // Semantic brand aliases (HPE hpe.color.background.primary.*)
+        primary: {
+          DEFAULT: 'rgb(var(--hpe-brand-500) / <alpha-value>)',
+          strong: 'rgb(var(--hpe-brand-500) / <alpha-value>)',
+          hover: 'rgb(var(--hpe-brand-600) / <alpha-value>)',
+          xstrong: 'rgb(var(--hpe-brand-800) / <alpha-value>)',
+        },
+        surface: {
+          0: 'rgb(var(--hpe-surface-0) / <alpha-value>)',
+          50: 'rgb(var(--hpe-surface-50) / <alpha-value>)',
+          100: 'rgb(var(--hpe-surface-100) / <alpha-value>)',
+          200: 'rgb(var(--hpe-surface-200) / <alpha-value>)',
+          300: 'rgb(var(--hpe-surface-300) / <alpha-value>)',
+          400: 'rgb(var(--hpe-surface-400) / <alpha-value>)',
+          500: 'rgb(var(--hpe-surface-500) / <alpha-value>)',
+          600: 'rgb(var(--hpe-surface-600) / <alpha-value>)',
+          700: 'rgb(var(--hpe-surface-700) / <alpha-value>)',
+          800: 'rgb(var(--hpe-surface-800) / <alpha-value>)',
+          900: 'rgb(var(--hpe-surface-900) / <alpha-value>)',
+        },
+        // Distinct layered surfaces — sidebar, top bar, inputs and table rows
+        // each get their own depth so dark mode reads as layered planes.
+        sidebar: 'rgb(var(--hpe-sidebar) / <alpha-value>)',
+        topnav: 'rgb(var(--hpe-topnav) / <alpha-value>)',
+        field: 'rgb(var(--hpe-field) / <alpha-value>)',
+        row: 'rgb(var(--hpe-row) / <alpha-value>)',
+        rowhover: 'rgb(var(--hpe-row-hover) / <alpha-value>)',
+        ok: {
+          50: 'rgb(var(--hpe-success-50) / <alpha-value>)',
+          100: 'rgb(var(--hpe-success-100) / <alpha-value>)',
+          200: 'rgb(var(--hpe-success-200) / <alpha-value>)',
+          500: 'rgb(var(--hpe-success-500) / <alpha-value>)',
+          600: 'rgb(var(--hpe-success-600) / <alpha-value>)',
+          700: 'rgb(var(--hpe-success-700) / <alpha-value>)',
+        },
+        // Status: confirmed / approved / present
+        success: {
+          50: 'rgb(var(--hpe-success-50) / <alpha-value>)',
+          100: 'rgb(var(--hpe-success-100) / <alpha-value>)',
+          200: 'rgb(var(--hpe-success-200) / <alpha-value>)',
+          500: 'rgb(var(--hpe-success-500) / <alpha-value>)',
+          600: 'rgb(var(--hpe-success-600) / <alpha-value>)',
+          700: 'rgb(var(--hpe-success-700) / <alpha-value>)',
+        },
+        // Status: pending / warning
+        warning: {
+          50: 'rgb(var(--hpe-warning-50) / <alpha-value>)',
+          100: 'rgb(var(--hpe-warning-100) / <alpha-value>)',
+          200: 'rgb(var(--hpe-warning-200) / <alpha-value>)',
+          500: 'rgb(var(--hpe-warning-500) / <alpha-value>)',
+          600: 'rgb(var(--hpe-warning-600) / <alpha-value>)',
+          700: 'rgb(var(--hpe-warning-700) / <alpha-value>)',
+        },
+        // Status: rejected / critical / denied
+        error: {
+          50: 'rgb(var(--hpe-error-50) / <alpha-value>)',
+          100: 'rgb(var(--hpe-error-100) / <alpha-value>)',
+          200: 'rgb(var(--hpe-error-200) / <alpha-value>)',
+          500: 'rgb(var(--hpe-error-500) / <alpha-value>)',
+          600: 'rgb(var(--hpe-error-600) / <alpha-value>)',
+          700: 'rgb(var(--hpe-error-700) / <alpha-value>)',
+        },
+        // Status: informational
+        info: {
+          50: 'rgb(var(--hpe-info-50) / <alpha-value>)',
+          100: 'rgb(var(--hpe-info-100) / <alpha-value>)',
+          200: 'rgb(var(--hpe-info-200) / <alpha-value>)',
+          500: 'rgb(var(--hpe-info-500) / <alpha-value>)',
+          600: 'rgb(var(--hpe-info-600) / <alpha-value>)',
+          700: 'rgb(var(--hpe-info-700) / <alpha-value>)',
+        },
+        // Shift badges — semantic categories, theme-aware via tokens.css
+        shift: {
+          'morning-bg': 'rgb(var(--hpe-shift-morning-bg) / <alpha-value>)',
+          'morning-text': 'rgb(var(--hpe-shift-morning-text) / <alpha-value>)',
+          'morning-border': 'rgb(var(--hpe-shift-morning-border) / <alpha-value>)',
+          'afternoon-bg': 'rgb(var(--hpe-shift-afternoon-bg) / <alpha-value>)',
+          'afternoon-text': 'rgb(var(--hpe-shift-afternoon-text) / <alpha-value>)',
+          'afternoon-border': 'rgb(var(--hpe-shift-afternoon-border) / <alpha-value>)',
+          'evening-bg': 'rgb(var(--hpe-shift-evening-bg) / <alpha-value>)',
+          'evening-text': 'rgb(var(--hpe-shift-evening-text) / <alpha-value>)',
+          'evening-border': 'rgb(var(--hpe-shift-evening-border) / <alpha-value>)',
+          'dusk-bg': 'rgb(var(--hpe-shift-dusk-bg) / <alpha-value>)',
+          'dusk-text': 'rgb(var(--hpe-shift-dusk-text) / <alpha-value>)',
+          'dusk-border': 'rgb(var(--hpe-shift-dusk-border) / <alpha-value>)',
+          'night-bg': 'rgb(var(--hpe-shift-night-bg) / <alpha-value>)',
+          'night-text': 'rgb(var(--hpe-shift-night-text) / <alpha-value>)',
+          'night-border': 'rgb(var(--hpe-shift-night-border) / <alpha-value>)',
+          'latenight-bg': 'rgb(var(--hpe-shift-latenight-bg) / <alpha-value>)',
+          'latenight-text': 'rgb(var(--hpe-shift-latenight-text) / <alpha-value>)',
+          'latenight-border': 'rgb(var(--hpe-shift-latenight-border) / <alpha-value>)',
+        },
+        // Status badges — muted teal, theme-aware
+        status: {
+          'active-bg': 'rgb(var(--hpe-status-active-bg) / <alpha-value>)',
+          'active-text': 'rgb(var(--hpe-status-active-text) / <alpha-value>)',
+          'active-border': 'rgb(var(--hpe-status-active-border) / <alpha-value>)',
+          // Live employee status (present / wfh / leave / off shift)
+          'present-bg': 'rgb(var(--hpe-status-present-bg) / <alpha-value>)',
+          'present-text': 'rgb(var(--hpe-status-present-text) / <alpha-value>)',
+          'present-border': 'rgb(var(--hpe-status-present-border) / <alpha-value>)',
+          'wfh-bg': 'rgb(var(--hpe-status-wfh-bg) / <alpha-value>)',
+          'wfh-text': 'rgb(var(--hpe-status-wfh-text) / <alpha-value>)',
+          'wfh-border': 'rgb(var(--hpe-status-wfh-border) / <alpha-value>)',
+          'leave-bg': 'rgb(var(--hpe-status-leave-bg) / <alpha-value>)',
+          'leave-text': 'rgb(var(--hpe-status-leave-text) / <alpha-value>)',
+          'leave-border': 'rgb(var(--hpe-status-leave-border) / <alpha-value>)',
+          'offshift-bg': 'rgb(var(--hpe-status-offshift-bg) / <alpha-value>)',
+          'offshift-text': 'rgb(var(--hpe-status-offshift-text) / <alpha-value>)',
+          'offshift-border': 'rgb(var(--hpe-status-offshift-border) / <alpha-value>)',
+        },
+        // Decorative — HPE palette (non-semantic accents)
+        decorative: {
+          brand: 'rgb(var(--hpe-decorative-brand) / <alpha-value>)',
+          green: 'rgb(var(--hpe-decorative-green) / <alpha-value>)',
+          cyan: 'rgb(var(--hpe-decorative-cyan) / <alpha-value>)',
+          blue: 'rgb(var(--hpe-decorative-blue) / <alpha-value>)',
+          purple: 'rgb(var(--hpe-decorative-purple) / <alpha-value>)',
+          violet: 'rgb(var(--hpe-decorative-violet) / <alpha-value>)',
+          orange: 'rgb(var(--hpe-decorative-orange) / <alpha-value>)',
+          pink: 'rgb(var(--hpe-decorative-pink) / <alpha-value>)',
+          neutral: 'rgb(var(--hpe-decorative-neutral) / <alpha-value>)',
+        },
+        // Data visualization categorical series
+        data: {
+          1: 'rgb(var(--hpe-data-1) / <alpha-value>)',
+          2: 'rgb(var(--hpe-data-2) / <alpha-value>)',
+          3: 'rgb(var(--hpe-data-3) / <alpha-value>)',
+          4: 'rgb(var(--hpe-data-4) / <alpha-value>)',
+          5: 'rgb(var(--hpe-data-5) / <alpha-value>)',
+          6: 'rgb(var(--hpe-data-6) / <alpha-value>)',
+          7: 'rgb(var(--hpe-data-7) / <alpha-value>)',
+          8: 'rgb(var(--hpe-data-8) / <alpha-value>)',
+        },
+        /*
+         * Remap Tailwind default palettes to the HPE theme so no stray
+         * Tailwind colors leak through. Semantic hues route to HPE status
+         * tokens; the remaining hues route to HPE decorative accents.
+         */
+        /*
+         * Dark-mode design-system colors — exact hex codes.
+         * Kept in sync with the layered dark surfaces (tokens.css).
+         */
+        graphite: {
+          DEFAULT: '#151821',
+          active: '#1B2029',
+          border: '#252A34',
+        },
+        ink: {
+          DEFAULT: '#E6EAF0',
+          secondary: '#9AA3B2',
+        },
+        emerald: {
+          50: 'rgb(var(--hpe-success-50) / <alpha-value>)',
+          100: 'rgb(var(--hpe-success-100) / <alpha-value>)',
+          200: 'rgb(var(--hpe-success-200) / <alpha-value>)',
+          300: 'rgb(125 224 177 / <alpha-value>)',
+          400: 'rgb(28 173 120 / <alpha-value>)',
+          500: 'rgb(var(--hpe-success-500) / <alpha-value>)',
+          600: 'rgb(var(--hpe-success-600) / <alpha-value>)',
+          700: 'rgb(var(--hpe-success-700) / <alpha-value>)',
+          800: '#02402c',
+        },
+        amber: {
+          50: 'rgb(var(--hpe-warning-50) / <alpha-value>)',
+          100: 'rgb(var(--hpe-warning-100) / <alpha-value>)',
+          200: 'rgb(var(--hpe-warning-200) / <alpha-value>)',
+          300: 'rgb(252 186 94 / <alpha-value>)',
+          400: 'rgb(215 138 0 / <alpha-value>)',
+          500: 'rgb(var(--hpe-warning-500) / <alpha-value>)',
+          600: 'rgb(var(--hpe-warning-600) / <alpha-value>)',
+          700: 'rgb(var(--hpe-warning-700) / <alpha-value>)',
+          800: '#4f3100',
+        },
+        red: {
+          50: 'rgb(var(--hpe-error-50) / <alpha-value>)',
+          100: 'rgb(var(--hpe-error-100) / <alpha-value>)',
+          200: 'rgb(var(--hpe-error-200) / <alpha-value>)',
+          300: 'rgb(247 168 168 / <alpha-value>)',
+          400: 'rgb(var(--hpe-error-500) / <alpha-value>)',
+          500: 'rgb(var(--hpe-error-500) / <alpha-value>)',
+          600: 'rgb(var(--hpe-error-600) / <alpha-value>)',
+          700: 'rgb(var(--hpe-error-700) / <alpha-value>)',
+          800: '#5c1a1a',
+        },
+        sky: {
+          50: 'rgb(var(--hpe-info-50) / <alpha-value>)',
+          100: 'rgb(var(--hpe-info-100) / <alpha-value>)',
+          200: 'rgb(var(--hpe-info-200) / <alpha-value>)',
+          400: 'rgb(74 155 224 / <alpha-value>)',
+          500: 'rgb(var(--hpe-info-500) / <alpha-value>)',
+          700: 'rgb(var(--hpe-info-700) / <alpha-value>)',
+        },
+        violet: {
+          50: '#f1edfd',
+          100: '#e3daf8',
+          200: '#c9bcf0',
+          400: 'rgb(160 140 255 / <alpha-value>)',
+          500: 'rgb(var(--hpe-decorative-violet) / <alpha-value>)',
+          600: '#6a48c8',
+          700: '#52369e',
+          800: '#402a7d',
+        },
+        purple: {
+          50: '#f1edfd',
+          100: '#e3daf8',
+          200: '#c9bcf0',
+          600: '#6a48c8',
+          700: '#52369e',
+          800: '#402a7d',
+        },
+        pink: {
+          50: '#fdeef6',
+          100: '#faddee',
+          200: '#f7bcdd',
+          500: 'rgb(var(--hpe-decorative-pink) / <alpha-value>)',
+          600: '#c74b8f',
+          700: '#9d3a70',
+          800: '#7d2d59',
+        },
+        rose: {
+          50: '#fceef0',
+          100: '#f9dde1',
+          200: '#f4bcc4',
+          400: 'rgb(244 122 146 / <alpha-value>)',
+          500: 'rgb(232 63 94 / <alpha-value>)',
+          600: '#c13b4a',
+          700: '#972e3a',
+          800: '#74232e',
+        },
+        teal: {
+          50: '#e6f2f1',
+          100: '#cee7e4',
+          200: '#a2d1cc',
+          400: 'rgb(51 181 166 / <alpha-value>)',
+          500: 'rgb(15 145 134 / <alpha-value>)',
+          600: '#0f6f66',
+          700: '#0c5750',
+          800: '#093f3a',
+        },
+        indigo: {
+          50: '#eaeefa',
+          100: '#d8e0f7',
+          200: '#b2c2ef',
+          400: 'rgb(95 122 222 / <alpha-value>)',
+          500: 'rgb(68 96 207 / <alpha-value>)',
+          600: '#3d54b4',
+          700: '#2f428f',
+          800: '#253371',
+        },
+        orange: {
+          50: '#fff2e8',
+          100: '#ffe4cd',
+          200: '#ffc79b',
+          400: 'rgb(240 138 60 / <alpha-value>)',
+          500: 'rgb(217 110 34 / <alpha-value>)',
+          600: '#a4551a',
+          700: '#7f4115',
+          800: '#63320f',
+        },
+      },
+      fontFamily: {
+        sans: ['Metric', 'Arial', 'sans-serif'],
+        display: ['Metric', 'Arial', 'sans-serif'],
+      },
+      boxShadow: {
+        'hpe-xs': '0 1px 2px rgba(0, 0, 0, 0.04)',
+        'hpe-sm': '0 1px 2px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.03)',
+        'hpe-md': 'var(--hpe-elevation-medium)',
+        'hpe-lg': 'var(--hpe-elevation-large)',
+        'hpe-teal': '0 8px 20px -12px rgba(0, 207, 163, 0.55)',
+      },
+    },
+  },
+  plugins: [],
+}

@@ -1,0 +1,292 @@
+/*
+ * Theme tokens — Light / Dark mode
+ * Single source of truth: :root carries the Light palette, `.dark` (applied to
+ * <html> by the theme toggle) overrides the neutral ramp for Dark mode.
+ * Tailwind utilities dereference these Custom Properties via
+ * rgb(var(--hpe-*) / <alpha-value>), so theme swaps need no class edits.
+ */
+
+:root {
+  --hpe-brand-50: 232 248 244;
+  --hpe-brand-100: 211 241 235;
+  --hpe-brand-200: 170 226 216;
+  --hpe-brand-300: 114 205 186;
+  --hpe-brand-400: 0 201 163;
+  --hpe-brand-500: 0 184 148; /* #00B894 — restrained light accent */
+  --hpe-brand-600: 0 156 126; /* hover — darkens #00B894 */
+  --hpe-brand-700: 0 130 106;
+  --hpe-brand-800: 0 104 86;
+  --hpe-brand-900: 0 78 65;
+  --hpe-brand-950: 0 56 47;
+
+  /*
+   * Primary strong pair — hpe.color.background.primary.* (accessible button
+   * greens, also used for selected/strong surfaces).
+   *   strong #068667 · strong.hover #006750 · xstrong #093d32
+   */
+  --hpe-primary-strong: 6 134 103;
+  --hpe-primary-strong-hover: 0 103 80;
+  --hpe-primary-xstrong: 9 61 50;
+
+  /*
+   * Neutral ramp — semantic, flips per theme:
+   * surface-0/50 → main background & card surfaces
+   * surface-100  → active menu / hover background
+   * surface-200  → borders (drawn instead of shadows in Dark mode)
+   * surface-300  → input borders
+   * surface-400  → placeholder / faint text
+   * surface-500  → secondary text
+   * surface-700  → body text
+   * surface-800/900 → primary text (headings)
+   */
+
+  /* LIGHT mode — clean neutral #F8F9FB base, white cards */
+  --hpe-surface-0: 255 255 255; /* cards / containers / dropdowns */
+  --hpe-surface-50: 248 249 251; /* main background #F8F9FB */
+  --hpe-surface-100: 243 245 248; /* active menu / hover background */
+  --hpe-surface-200: 227 230 235; /* borders #E3E6EB */
+  --hpe-surface-300: 214 219 226; /* input borders */
+  --hpe-surface-400: 122 130 144; /* muted text #7A8290 */
+  --hpe-surface-500: 85 93 107; /* secondary text #555D6B */
+  --hpe-surface-600: 71 78 91; /* secondary text (emphasized) */
+  --hpe-surface-700: 60 68 80; /* body text */
+  --hpe-surface-800: 26 29 35; /* primary text #1A1D23 */
+  --hpe-surface-900: 26 29 35;
+  --hpe-surface-950: 26 29 35;
+
+  /* Distinct app surfaces — the Layered surfaces decouple sidebar / top bar /
+     cards / inputs / table rows so each can sit at its own depth in Dark mode. */
+  --hpe-sidebar: 255 255 255;
+  --hpe-topnav: 255 255 255;
+  --hpe-field: 250 251 252;
+  --hpe-row: 255 255 255;
+  --hpe-row-hover: 243 245 248;
+
+  /*
+   * Semantic status colors — kept constant in both themes so status chips stay
+   * legible: light tinted backgrounds with dark ink text.
+   */
+  --hpe-success-50: 209 255 238; /* hpe.color.background.ok #d1ffee */
+  --hpe-success-100: 196 245 225;
+  --hpe-success-200: 144 234 202;
+  --hpe-success-500: 16 132 94;
+  --hpe-success-600: 11 108 77;
+  --hpe-success-700: 8 86 61;
+
+  --hpe-warning-50: 255 248 234;
+  --hpe-warning-100: 255 239 210;
+  --hpe-warning-200: 255 218 150;
+  --hpe-warning-500: 178 109 0;
+  --hpe-warning-600: 142 87 0;
+  --hpe-warning-700: 113 69 0;
+
+  --hpe-error-50: 255 236 236; /* hpe.color.background.critical #ffecec */
+  --hpe-error-100: 254 217 217;
+  --hpe-error-200: 251 178 178;
+  --hpe-error-500: 190 46 46;
+  --hpe-error-600: 161 37 37;
+  --hpe-error-700: 130 30 30;
+
+  --hpe-info-50: 227 241 255; /* hpe.color.background.info #e3f1ff */
+  --hpe-info-100: 214 235 255;
+  --hpe-info-200: 174 215 252;
+  --hpe-info-500: 28 100 178;
+  --hpe-info-600: 22 80 143;
+  --hpe-info-700: 17 64 114;
+
+  /*
+   * Shift badges — SEMANTIC, theme-aware. Each shift timing gets its own hue;
+   * the actual bg/text/border adapt via the `.dark` overrides below.
+   * LIGHT: soft muted pastel tints, desaturated, low contrast.
+   *   morning teal · afternoon blue · evening violet · dusk amber ·
+   *   night rose · late-night indigo
+   */
+  --hpe-shift-morning-bg: 228 246 243;
+  --hpe-shift-morning-text: 13 111 95;
+  --hpe-shift-morning-border: 178 223 215;
+
+  --hpe-shift-afternoon-bg: 229 242 250;
+  --hpe-shift-afternoon-text: 21 101 158;
+  --hpe-shift-afternoon-border: 176 215 240;
+
+  --hpe-shift-evening-bg: 243 240 250;
+  --hpe-shift-evening-text: 98 74 163;
+  --hpe-shift-evening-border: 222 213 242;
+
+  --hpe-shift-dusk-bg: 250 244 230;
+  --hpe-shift-dusk-text: 140 98 24;
+  --hpe-shift-dusk-border: 240 224 186;
+
+  --hpe-shift-night-bg: 248 238 242;
+  --hpe-shift-night-text: 152 71 99;
+  --hpe-shift-night-border: 233 216 224;
+
+  --hpe-shift-latenight-bg: 234 238 250;
+  --hpe-shift-latenight-text: 59 71 160;
+  --hpe-shift-latenight-border: 210 218 243;
+
+  /* Status badges (employment status) — muted teal, same philosophy */
+  --hpe-status-active-bg: 228 246 243;
+  --hpe-status-active-text: 13 111 95;
+  --hpe-status-active-border: 178 223 215;
+
+  /*
+   * Live employee status (employees table) — SEMANTIC, theme-aware.
+   * LIGHT: soft pastel tints.   present → teal · wfh → blue ·
+   * leave → amber · off shift → muted gray.
+   */
+  --hpe-status-present-bg: 228 246 243;
+  --hpe-status-present-text: 13 111 95;
+  --hpe-status-present-border: 178 223 215;
+
+  --hpe-status-wfh-bg: 230 241 250;
+  --hpe-status-wfh-text: 26 98 156;
+  --hpe-status-wfh-border: 178 214 242;
+
+  --hpe-status-leave-bg: 250 244 230;
+  --hpe-status-leave-text: 140 98 24;
+  --hpe-status-leave-border: 240 224 186;
+
+  --hpe-status-offshift-bg: 242 243 247;
+  --hpe-status-offshift-text: 122 130 144;
+  --hpe-status-offshift-border: 224 227 234;
+
+  /* Decorative — hpe.color.decorative.* (non-status accents) */
+  --hpe-decorative-brand: 0 184 148; /* #00B894 */
+  --hpe-decorative-green: 0 184 148; /* #00B894 */
+  --hpe-decorative-cyan: 98 229 246; /* #62e5f6 */
+  --hpe-decorative-blue: 0 112 248; /* #0070f8 */
+  --hpe-decorative-purple: 119 100 252; /* #7764fc */
+  --hpe-decorative-violet: 119 100 252; /* #7764fc (alias) */
+  --hpe-decorative-orange: 255 141 109;
+  --hpe-decorative-pink: 244 113 184;
+  --hpe-decorative-neutral: 125 138 146; /* #7d8a92 */
+  --hpe-decorative-neutral-hover: 96 106 112; /* #606a70 */
+
+  /* Data visualization categorical — hpe.color.dataVis.categorical (.10–.80) */
+  --hpe-data-1: 0 112 248; /* #0070f8 */
+  --hpe-data-2: 0 154 113; /* #009a71 */
+  --hpe-data-3: 119 100 252; /* #7764fc */
+  --hpe-data-4: 0 60 174; /* #003cae */
+  --hpe-data-5: 204 84 164; /* #cc54a4 */
+  --hpe-data-6: 4 144 157; /* #04909d */
+  --hpe-data-7: 108 43 124; /* #6c2b7c */
+  --hpe-data-8: 210 95 75; /* #d25f4b */
+
+  /* Focus indicator — global accent */
+  --hpe-focus: 0 184 148;
+
+  /* Typography — Metric primary, Open Sans / Arial / sans-serif fallbacks */
+  --hpe-font-primary: 'Metric', Arial, sans-serif;
+
+  /* Radius */
+  --hpe-radius-small: 4px;
+  --hpe-radius-medium: 6px;
+  --hpe-radius-large: 10px;
+  --hpe-radius-xlarge: 16px;
+
+  /* Elevation — subtle shadows in Light; Dark mode cards use borders instead */
+  --hpe-elevation-background: 255 255 255;
+  --hpe-elevation-small: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --hpe-elevation-medium: 0 6px 18px rgba(0, 0, 0, 0.08);
+  --hpe-elevation-large: 0 16px 40px rgba(0, 0, 0, 0.14);
+  --hpe-overlay: rgba(0, 0, 0, 0.12); /* hpe.color.background.screenOverlay */
+  --hpe-hover: rgba(0, 0, 0, 0.04);
+
+  /* Spacing semantic helpers */
+  --hpe-spacing-xxs: 2px;
+  --hpe-spacing-xs: 6px;
+  --hpe-spacing-sm: 12px;
+  --hpe-spacing-md: 24px;
+  --hpe-spacing-lg: 48px;
+  --hpe-spacing-xl: 96px;
+}
+
+/* DARK mode — layered non-black surfaces:
+   main #0F1117 · sidebar #0B0D12 · top bar #11141B · cards #151821 ·
+   rows #161923 · hover #1B2029 · borders #252A34 ·
+   primary text #E6EAF0 · secondary #9AA3B2 · muted #6F7785 ·
+   restrained teal accent #00CFA3 */
+.dark {
+  /* Brand lifts slightly in Dark so the teal reads on dark surfaces.
+     #00CFA3 — restrained dark accent */
+  --hpe-brand-400: 0 226 185;
+  --hpe-brand-500: 0 207 163; /* #00CFA3 */
+  --hpe-brand-600: 0 174 140;
+
+  --hpe-surface-0: 21 24 33; /* #151821 — cards / containers / dropdowns */
+  --hpe-surface-50: 17 17 23; /* #0F1117 — main background */
+  --hpe-surface-100: 27 32 41; /* #1B2029 — hover / active fill */
+  --hpe-surface-200: 37 42 52; /* #252A34 — subtle borders / separators */
+  --hpe-surface-300: 43 50 62; /* input borders */
+  --hpe-surface-400: 111 119 133; /* muted text #6F7785 */
+  --hpe-surface-500: 154 163 178; /* secondary text #9AA3B2 */
+  --hpe-surface-600: 154 163 178; /* secondary text (emphasized) */
+  --hpe-surface-700: 166 175 189; /* body text */
+  --hpe-surface-800: 230 234 240; /* #E6EAF0 — primary text / headings */
+  --hpe-surface-900: 230 234 240;
+  --hpe-surface-950: 230 234 240;
+
+  --hpe-sidebar: 11 13 18; /* #0B0D12 — slightly deeper than main */
+  --hpe-topnav: 17 20 27; /* #11141B — top navigation bar */
+  --hpe-field: 20 23 32; /* #141720 — inputs / dropdowns */
+  --hpe-row: 22 25 35; /* #161923 — table rows */
+  --hpe-row-hover: 27 32 41; /* #1B2029 — table row hover */
+
+  --hpe-decorative-brand: 0 207 163;
+  --hpe-decorative-green: 0 207 163;
+  --hpe-focus: 0 207 163;
+
+  /* Shift badges — DARK: translucent tinted surfaces + soft accent text +
+     very subtle borders. Deeper, calm, integrated — no neon. */
+  --hpe-shift-morning-bg: 11 27 24;
+  --hpe-shift-morning-text: 111 216 192;
+  --hpe-shift-morning-border: 30 56 48;
+
+  --hpe-shift-afternoon-bg: 11 23 32;
+  --hpe-shift-afternoon-text: 124 176 222;
+  --hpe-shift-afternoon-border: 28 45 62;
+
+  --hpe-shift-evening-bg: 26 20 38;
+  --hpe-shift-evening-text: 190 168 242;
+  --hpe-shift-evening-border: 49 37 68;
+
+  --hpe-shift-dusk-bg: 32 27 17;
+  --hpe-shift-dusk-text: 224 184 120;
+  --hpe-shift-dusk-border: 57 46 29;
+
+  --hpe-shift-night-bg: 33 21 27;
+  --hpe-shift-night-text: 230 158 182;
+  --hpe-shift-night-border: 57 35 47;
+
+  --hpe-shift-latenight-bg: 18 21 34;
+  --hpe-shift-latenight-text: 158 172 235;
+  --hpe-shift-latenight-border: 34 40 62;
+
+  /* Status badges — DARK: dark teal tinted surface + soft teal text */
+  --hpe-status-active-bg: 11 27 24;
+  --hpe-status-active-text: 111 216 192;
+  --hpe-status-active-border: 30 56 48;
+
+  /* Live employee status — DARK: translucent tinted surfaces */
+  --hpe-status-present-bg: 11 27 24;
+  --hpe-status-present-text: 111 216 192;
+  --hpe-status-present-border: 30 56 48;
+
+  --hpe-status-wfh-bg: 11 23 32;
+  --hpe-status-wfh-text: 124 176 222;
+  --hpe-status-wfh-border: 28 45 62;
+
+  --hpe-status-leave-bg: 32 27 17;
+  --hpe-status-leave-text: 224 184 120;
+  --hpe-status-leave-border: 57 46 29;
+
+  --hpe-status-offshift-bg: 25 27 33;
+  --hpe-status-offshift-text: 128 136 150;
+  --hpe-status-offshift-border: 41 46 56;
+
+  --hpe-elevation-background: 21 24 33;
+  --hpe-elevation-medium: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --hpe-elevation-large: 0 16px 40px rgba(0, 0, 0, 0.6);
+  --hpe-hover: rgba(255, 255, 255, 0.06);
+}
