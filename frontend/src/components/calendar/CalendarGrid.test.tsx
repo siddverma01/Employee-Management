@@ -26,11 +26,13 @@ function makeEvent(overrides: Partial<CalendarEvent> = {}): CalendarEvent {
 
 function chipFor(title: string): HTMLElement {
   const el = screen.getByText(title)
-  return el.closest('div') as HTMLElement
+  const chip = el.closest('.event-chip')
+  if (!chip) throw new Error(`no .event-chip ancestor for "${title}"`)
+  return chip as HTMLElement
 }
 
 describe('CalendarGrid HPE holidays', () => {
-  it('shows an HPEH badge and keeps the existing holiday chip styling', () => {
+  it('shows an HPEH badge and keeps the holiday chip styling', () => {
     render(
       <CalendarGrid
         year={2026}
@@ -42,16 +44,23 @@ describe('CalendarGrid HPE holidays', () => {
     )
 
     const badge = screen.getByText('HPEH')
-    expect(badge.className).toContain('cal-hpeh-tag')
+    expect(badge.className).toContain('text-[9px]')
+    expect(badge.className).toContain('font-bold')
+    expect(badge.className).toContain('uppercase')
+    // light + dark emerald tint, matching the Stitch Company Holiday chip
+    expect(badge.className).toContain('bg-emerald-200/80')
+    expect(badge.className).toContain('dark:bg-emerald-800/80')
 
     const chip = chipFor('Ganesh Chaturthi')
     expect(chip.className).toContain('bg-emerald-50')
-    expect(chip.className).toContain('text-emerald-700')
+    expect(chip.className).toContain('text-emerald-900')
+    expect(chip.className).toContain('border-emerald-200')
+    expect(chip.className).toContain('dark:bg-emerald-950/70')
     expect(chip.textContent).toContain('HPEH')
     expect(chip.textContent).toContain('Ganesh Chaturthi')
   })
 
-  it('does not badge a regular public holiday', () => {
+  it('badges a regular public holiday as US rather than HPEH', () => {
     render(
       <CalendarGrid
         year={2026}
@@ -70,7 +79,12 @@ describe('CalendarGrid HPE holidays', () => {
     )
 
     expect(screen.queryByText('HPEH')).toBeNull()
-    expect(chipFor('Company Day').className).toContain('bg-emerald-50')
+    expect(screen.getByText('US')).toBeInTheDocument()
+
+    const chip = chipFor('Company Day')
+    expect(chip.className).toContain('bg-blue-50')
+    expect(chip.className).toContain('text-blue-900')
+    expect(chip.className).toContain('border-blue-200')
   })
 
   it('does not badge leave, event or birthday entries', () => {

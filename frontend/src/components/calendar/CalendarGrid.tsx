@@ -63,6 +63,12 @@ const CHIP_BADGE_TEXT = {
   US: 'US',
 } as const
 
+/** Full region name, so the compact badge's meaning survives in the tooltip. */
+const CHIP_LABELS = {
+  HPE_HOLIDAY: 'HPE Holiday',
+  US: 'US Holiday',
+} as const
+
 type ChipKey = keyof typeof CHIP_COLORS
 
 /** Town Hall reads as the headline item, so it gets a heavier weight. */
@@ -194,7 +200,11 @@ export function CalendarGrid({ year, month, events, onSelectDay, today }: Calend
                   return (
                     <span
                       key={`${ev.kind}-${ev.id}-${ev.date}`}
-                      title={ev.title}
+                      title={
+                        isHoliday
+                          ? `${CHIP_LABELS[key as 'HPE_HOLIDAY' | 'US']} ${ev.title}`
+                          : ev.title
+                      }
                       className={cn(
                         'event-chip px-2 py-1 rounded border text-[11px] font-medium shadow-sm',
                         CHIP_COLORS[key],

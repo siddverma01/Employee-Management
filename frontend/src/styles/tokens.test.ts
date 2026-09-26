@@ -12,15 +12,15 @@ const darkTheme = tokens.slice(tokens.indexOf('.dark {'))
 
 describe('calendar HPE holiday tag theming', () => {
   it('has readable HPEH colours in light mode', () => {
-    expect(lightTheme).toMatch(/--attendance-hpeh-bg:\s*#FDE68A/)
-    expect(lightTheme).toMatch(/--attendance-hpeh-text:\s*#78350F/)
+    expect(lightTheme).toMatch(/--attendance-hpeh-bg:\s*#F0FDF4/)
+    expect(lightTheme).toMatch(/--attendance-hpeh-text:\s*#166534/)
   })
 
   it('has muted, higher-contrast HPEH colours in dark mode', () => {
-    expect(darkTheme).toMatch(/--attendance-hpeh-bg:\s*#463817/)
-    expect(darkTheme).toMatch(/--attendance-hpeh-text:\s*#E7CE70/)
-    // the dark fill is a dark tone, never the bright light-mode amber
-    expect(darkTheme).not.toMatch(/--attendance-hpeh-bg:\s*#FDE68A/)
+    expect(darkTheme).toMatch(/--attendance-hpeh-bg:\s*#173D2B/)
+    expect(darkTheme).toMatch(/--attendance-hpeh-text:\s*#8BE0AE/)
+    // the dark fill is a dark tone, never the bright light-mode fill
+    expect(darkTheme).not.toMatch(/--attendance-hpeh-bg:\s*#F0FDF4/)
   })
 
   it('renders the tag from theme tokens instead of hard-coded colours', () => {

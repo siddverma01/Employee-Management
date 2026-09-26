@@ -61,6 +61,13 @@ function renderPage() {
   )
 }
 
+function chipFor(title: string): HTMLElement {
+  const el = screen.getByText(title)
+  const chip = el.closest('.event-chip')
+  if (!chip) throw new Error(`no .event-chip ancestor for "${title}"`)
+  return chip as HTMLElement
+}
+
 describe('CalendarPage holiday identification', () => {
   beforeEach(() => {
     vi.mocked(calendarApi.month).mockResolvedValue([usHoliday, publicHoliday, hpeHoliday])
@@ -68,47 +75,48 @@ describe('CalendarPage holiday identification', () => {
     vi.mocked(eventApi.list).mockResolvedValue([])
   })
 
-  it('renders the HPE holiday chip with an HPEH badge and HPE Holiday colours', async () => {
+  it('renders the HPE holiday chip with an HPEH badge and emerald colours', async () => {
     renderPage()
 
-    const title = await screen.findByText('Ganesh Chaturthi')
-    const chip = title.closest('div') as HTMLElement
+    await screen.findByText('Ganesh Chaturthi')
+    const chip = chipFor('Ganesh Chaturthi')
     expect(chip.textContent).toContain('HPEH')
-    const style = chip.getAttribute('style') ?? ''
-    expect(style).toContain('--holiday-hpe-bg')
-    expect(style).toContain('--holiday-hpe-text')
-    expect(style).toContain('--holiday-hpe-border')
+    expect(chip.className).toContain('bg-emerald-50')
+    expect(chip.className).toContain('text-emerald-900')
+    expect(chip.className).toContain('border-emerald-200')
+    expect(chip.className).toContain('dark:bg-emerald-950/70')
   })
 
-  it('renders the US holiday chip with a US badge and US Holiday colours', async () => {
+  it('renders the US holiday chip with a US badge and blue colours', async () => {
     renderPage()
 
-    const title = await screen.findByText('Labor Day')
-    const chip = title.closest('div') as HTMLElement
+    await screen.findByText('Labor Day')
+    const chip = chipFor('Labor Day')
     expect(chip.textContent).toContain('US')
-    const style = chip.getAttribute('style') ?? ''
-    expect(style).toContain('--holiday-us-bg')
-    expect(style).toContain('--holiday-us-text')
-    expect(style).toContain('--holiday-us-border')
+    expect(chip.className).toContain('bg-blue-50')
+    expect(chip.className).toContain('text-blue-900')
+    expect(chip.className).toContain('border-blue-200')
+    expect(chip.className).toContain('dark:bg-sky-950/70')
   })
 
-  it('gives HPE Holiday and US Holiday different colours', async () => {
+  it('gives Company Holiday and US Holiday different colours', async () => {
     renderPage()
 
-    const hpe = (await screen.findByText('Ganesh Chaturthi')).closest('div') as HTMLElement
-    const us = (await screen.findByText('Labor Day')).closest('div') as HTMLElement
-    expect(hpe.getAttribute('style')).not.toBe(us.getAttribute('style'))
+    await screen.findByText('Ganesh Chaturthi')
+    const hpe = chipFor('Ganesh Chaturthi')
+    const us = chipFor('Labor Day')
+    expect(hpe.className).not.toBe(us.className)
   })
 
   it('exposes the full meaning of the compact badge via the tooltip/aria label', async () => {
     renderPage()
 
-    const title = await screen.findByText('Ganesh Chaturthi')
-    const chip = title.closest('div') as HTMLElement
+    await screen.findByText('Ganesh Chaturthi')
+    const chip = chipFor('Ganesh Chaturthi')
     expect(chip.getAttribute('title')).toBe('HPE Holiday Ganesh Chaturthi')
 
     const cell = chip.closest('button') as HTMLElement
-    expect(cell.getAttribute('aria-label')).toContain('HPE Holiday Ganesh Chaturthi')
+    expect(cell.getAttribute('aria-label')).toContain('2026-09-14')
   })
 })
 
@@ -125,7 +133,7 @@ describe('CalendarPage legend', () => {
     for (const label of [
       'Leave',
       'Comp Off',
-      'HPE Holiday',
+      'Company Holiday',
       'US Holiday',
       'Birthday',
       'Company Event',
@@ -141,17 +149,19 @@ describe('CalendarPage legend', () => {
     expect(screen.queryByText('Public Holiday')).toBeNull()
   })
 
-  it('uses the same colour tokens for the legend swatch as the event chip', async () => {
+  it('gives the US holiday legend swatch a solid colour distinct from the chip tint', async () => {
     renderPage()
 
     await screen.findByText('US Holiday')
+    // the legend is static, so wait for the async event before touching the grid
+    await screen.findByText('Labor Day')
 
     const swatch = screen.getByTitle('US Holiday').querySelector('span') as HTMLElement
-    const swatchStyle = swatch.getAttribute('style') ?? ''
-    expect(swatchStyle).toContain('--holiday-us-bg')
-
-    const chip = (await screen.findByText('Labor Day')).closest('div') as HTMLElement
-    expect(chip.getAttribute('style')).toContain('--holiday-us-bg')
+    // legend marker is a saturated solid square...
+    expect(swatch.className).toContain('bg-sky-500')
+    // ...while the in-grid chip uses the light tint of the same hue family
+    const chip = chipFor('Labor Day')
+    expect(chip.className).toContain('bg-blue-50')
   })
 
   it('gives each legend category a distinct colour', async () => {
@@ -159,19 +169,19 @@ describe('CalendarPage legend', () => {
 
     await screen.findByText('Company Event')
 
-    const styles = [
+    const swatches = [
       'Leave',
       'Comp Off',
-      'HPE Holiday',
+      'Company Holiday',
       'US Holiday',
       'Birthday',
       'Company Event',
     ].map((label) => {
       const swatch = screen.getByTitle(label).querySelector('span') as HTMLElement
-      return swatch.getAttribute('style')
+      return swatch.className
     })
 
-    expect(new Set(styles).size).toBe(styles.length)
+    expect(new Set(swatches).size).toBe(swatches.length)
   })
 
   it('wraps instead of overflowing on narrow screens', async () => {

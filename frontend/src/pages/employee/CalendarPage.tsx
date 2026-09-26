@@ -7,7 +7,7 @@ import { CalendarGrid } from '@/components/calendar/CalendarGrid'
 import { Modal } from '@/components/ui/Modal'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { formatDate } from '@/utils'
-import { getHolidayDisplayInfo } from '@/constants/holidayStatus'
+import { getHolidayDisplayInfo, resolveHolidayDisplayType } from '@/constants/holidayStatus'
 import {
   CALENDAR_CATEGORIES,
   calendarEventKindLabel,
@@ -320,14 +320,17 @@ export function CalendarPage() {
             <p className="text-xs text-slate-500 dark:text-slate-400">Title</p>
             <p className="font-medium text-slate-900 dark:text-white">
               {selected.title}
-              {selected.kind === 'HOLIDAY' && selected.extra?.holidayType === 'HPE_HOLIDAY' && (
-                <span
-                  className="ml-2 inline-flex items-center gap-1 rounded px-1.5 py-0.5 align-middle text-[10px] font-semibold"
-                  style={getHolidayDisplayInfo(selected).style}
-                >
-                  {getHolidayDisplayInfo(selected).compactLabel}
-                </span>
-              )}
+              {selected.kind === 'HOLIDAY' &&
+                ['HPE_HOLIDAY', 'US'].includes(
+                  resolveHolidayDisplayType(selected.extra as { holidayType?: string; country?: string }),
+                ) && (
+                  <span
+                    className="ml-2 inline-flex items-center gap-1 rounded px-1.5 py-0.5 align-middle text-[10px] font-semibold"
+                    style={getHolidayDisplayInfo(selected).style}
+                  >
+                    {getHolidayDisplayInfo(selected).compactLabel}
+                  </span>
+                )}
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3">
