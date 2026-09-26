@@ -63,6 +63,19 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
 
     long countByEmployeeIdAndStatus(Long employeeId, LeaveStatus status);
 
+    /**
+     * True when the entitlement is already attached to a live (PENDING or APPROVED) request,
+     * so one earned HPE Holiday can never back two compensatory off requests. Checked before a
+     * new request is inserted, so the row cannot be the one being created.
+     */
+    @Query("""
+        select case when count(l) > 0 then true else false end
+        from LeaveRequest l
+        where l.hpeEntitlement.id = :hpeEntitlementId
+          and l.status in ('PENDING', 'APPROVED')
+        """)
+    boolean existsActiveRequestForEntitlement(@Param("hpeEntitlementId") Long hpeEntitlementId);
+
     List<LeaveRequest> findByEmployeeIdAndStatus(Long employeeId, LeaveStatus status);
 
     @Query("select coalesce(sum(l.days), 0) from LeaveRequest l " +

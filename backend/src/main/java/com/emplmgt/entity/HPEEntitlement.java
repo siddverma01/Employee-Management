@@ -45,6 +45,24 @@ public class HPEEntitlement extends BaseEntity {
     @Column(name = "used_request_id")
     private Long usedRequestId;
 
+    /**
+     * The compensatory-off day this entitlement was actually spent on, captured when the
+     * leave request is approved. Deliberately distinct from {@link #usedDate}, which is the
+     * date the entitlement was consumed (the approval date) - the two are usually different
+     * because the employee picks the off date themselves within the 3-month window.
+     * {@code null} until the entitlement is consumed.
+     */
+    @Column(name = "used_off_date")
+    private LocalDate usedOffDate;
+
+    /**
+     * The PENDING leave request currently holding this entitlement. Set while status is
+     * {@link HPEEntitlementStatus#RESERVED} and cleared once the request is approved
+     * (entitlement becomes USED) or rejected/cancelled (entitlement returns to AVAILABLE).
+     */
+    @Column(name = "reserved_request_id")
+    private Long reservedRequestId;
+
     @Column(name = "notes", length = 500)
     private String notes;
 }

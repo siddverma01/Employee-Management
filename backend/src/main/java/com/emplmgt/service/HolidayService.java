@@ -3,12 +3,15 @@ package com.emplmgt.service;
 import com.emplmgt.dto.HolidayDtos;
 import com.emplmgt.entity.ApplicableLocation;
 import com.emplmgt.entity.Department;
+import com.emplmgt.entity.Employee;
 import com.emplmgt.entity.Holiday;
 import com.emplmgt.entity.HolidayType;
 import com.emplmgt.entity.ScopeType;
 import com.emplmgt.exception.ApiException;
 import com.emplmgt.repository.DepartmentRepository;
+import com.emplmgt.repository.EmployeeRepository;
 import com.emplmgt.repository.HolidayRepository;
+import com.emplmgt.util.HolidayLocationUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +27,7 @@ public class HolidayService {
 
     private final HolidayRepository holidayRepository;
     private final DepartmentRepository departmentRepository;
+    private final EmployeeRepository employeeRepository;
     private final AuditService auditService;
 
     @Transactional(readOnly = true)
@@ -51,6 +55,23 @@ public class HolidayService {
                 ? holidayRepository.findVisibleInRange(today, today.plusYears(1), null, teamId)
                 : holidayRepository.findByHolidayDateBetweenOrderByHolidayDate(today, today.plusYears(1));
         return holidays.stream().limit(limit).map(this::toResponse).toList();
+    }
+
+    /**
+     * Holidays applicable to a specific employee based on their location.
+     * Uses the same location-matching logic as HPE holidays ({@link HolidayLocationUtil}).
+     */
+    @Transactional(readOnly = true)
+    public List<HolidayDtos.Response> listForEmployee(Long employeeId, LocalDate from, LocalDate to) {
+        Employee employee = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> ApiException.notFound("Employee not found: " + employeeId));
+        LocalDate start = from == null ? LocalDate.of(2000, 1, 1) : from;
+        LocalDate end = to == null ? LocalDate.of(2100, 12, 31) : to;
+        List<Holiday> allHolidays = holidayRepository.findByHolidayDateBetweenOrderByHolidayDate(start, end);
+        return allHolidays.stream()
+                .filter(h -> h.isActive() && HolidayLocationUtil.applies(h, employee.getLocation()))
+                .map(this::toResponse)
+                .toList();
     }
 
     /** Master HPE holiday definitions for the admin console (includes inactive definitions). */

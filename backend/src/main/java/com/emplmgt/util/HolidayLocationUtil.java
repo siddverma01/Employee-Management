@@ -29,6 +29,9 @@ public final class HolidayLocationUtil {
         if (applicable == ApplicableLocation.PUNE_MUMBAI) {
             return location.contains("PUNE") || location.contains("MUMBAI");
         }
+        if (applicable == ApplicableLocation.US) {
+            return location.contains("US") || location.contains("USA") || location.contains("UNITED STATES");
+        }
         return location.contains(applicable.name()) || location.contains(applicable.name().replace('_', ' '));
     }
 }

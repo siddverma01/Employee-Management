@@ -54,7 +54,8 @@ public class CalendarService {
                     h.getDescription(),
                     Map.of("country", h.getCountry() == null ? "" : h.getCountry(),
                             "scope", h.getScope().name(),
-                            "holidayType", holidayType)));
+                            "holidayType", holidayType,
+                            "applicableLocations", h.getApplicableLocations() == null ? "" : h.getApplicableLocations().name())));
         }
 
         for (Event e : eventRepository.findVisibleInRange(from, to, scopedTeamId)) {

@@ -57,4 +57,14 @@ public class LeaveRequest extends BaseEntity {
 
     @Column(name = "decided_at")
     private Instant decidedAt;
+
+    /**
+     * The earned HPE Holiday entitlement this request consumes. Set only for
+     * {@link LeaveType#COMP_OFF} requests that are backed by an HPE Holiday.
+     * The compensatory off date is chosen independently and is not tied to the
+     * original HPE Holiday date.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "hpe_entitlement_id")
+    private HPEEntitlement hpeEntitlement;
 }

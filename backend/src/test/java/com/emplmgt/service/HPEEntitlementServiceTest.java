@@ -503,6 +503,308 @@ class HPEEntitlementServiceTest {
         }
     }
 
+    /**
+     * Reservation lifecycle driven by the leave approval flow: submission reserves, approval
+     * consumes, rejection/cancellation releases. Submitting must never mark an entitlement USED.
+     *
+     * <p>reserve / consume / release all go through {@code findByIdForUpdate}
+     * ({@code SELECT ... FOR UPDATE}), which is what serialises two concurrent approvals or two
+     * concurrent applications for the same entitlement.</p>
+     */
+    @Nested
+    class Reservation {
+
+        private Holiday holiday;
+
+        /** The compensatory-off day an approved request would grant. */
+        private static final LocalDate OFF_DATE = LocalDate.of(2026, 6, 10);
+        private static final Long APPROVER = 900L;
+
+        @BeforeEach
+        void holiday() {
+            holiday = hpeHoliday(7L, LocalDate.of(2026, 5, 1), ApplicableLocation.PUNE_MUMBAI);
+        }
+
+        @Test
+        void reservingDoesNotConsumeTheEntitlement() {
+            HPEEntitlement entitlement = entitlement(holiday, HPEEntitlementStatus.AVAILABLE, LocalDate.of(2026, 8, 1));
+            when(entitlementRepository.findByIdForUpdate(500L)).thenReturn(Optional.of(entitlement));
+            when(appClock.today()).thenReturn(LocalDate.of(2026, 5, 15));
+            when(entitlementRepository.save(any(HPEEntitlement.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            HolidayDtos.HPEEntitlementResponse response = service.reserveForRequest(10L, 500L, 77L);
+
+            assertThat(response.status()).isEqualTo("RESERVED");
+            assertThat(response.reservedRequestId()).isEqualTo(77L);
+            // Not consumed: no used marker is written at submission time.
+            assertThat(response.usedRequestId()).isNull();
+            assertThat(response.usedDate()).isNull();
+            assertThat(response.usedOffDate()).isNull();
+        }
+
+        @Test
+        void reservingTakesTheRowLockSoConcurrentApplicationsSerialise() {
+            HPEEntitlement entitlement = entitlement(holiday, HPEEntitlementStatus.AVAILABLE, LocalDate.of(2026, 8, 1));
+            when(entitlementRepository.findByIdForUpdate(500L)).thenReturn(Optional.of(entitlement));
+            when(appClock.today()).thenReturn(LocalDate.of(2026, 5, 15));
+            when(entitlementRepository.save(any(HPEEntitlement.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            service.reserveForRequest(10L, 500L, 77L);
+
+            // The unlocked findById is never used on the write path - the reservation is
+            // always read FOR UPDATE, so the check-then-write cannot interleave.
+            verify(entitlementRepository).findByIdForUpdate(500L);
+            verify(entitlementRepository, never()).findById(500L);
+        }
+
+        @Test
+        void reservedEntitlementsAreNotOfferedAsAvailable() {
+            when(employeeRepository.findById(10L)).thenReturn(Optional.of(puneEmployee));
+            when(appClock.today()).thenReturn(LocalDate.of(2026, 5, 15));
+            // The AVAILABLE-only query can never return a RESERVED row.
+            when(entitlementRepository.findAvailableByEmployeeId(10L, LocalDate.of(2026, 5, 15)))
+                    .thenReturn(List.of());
+
+            assertThat(service.getAvailableHpeEntitlements(10L)).isEmpty();
+        }
+
+        @Test
+        void approvalConsumesTheEntitlementAndStampsTheRequestAndOffDate() {
+            HPEEntitlement entitlement = entitlement(holiday, HPEEntitlementStatus.RESERVED, LocalDate.of(2026, 8, 1));
+            entitlement.setReservedRequestId(77L);
+            when(entitlementRepository.findByIdForUpdate(500L)).thenReturn(Optional.of(entitlement));
+            when(appClock.today()).thenReturn(LocalDate.of(2026, 5, 20));
+            when(entitlementRepository.save(any(HPEEntitlement.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            service.consumeReservation(500L, 77L, OFF_DATE, APPROVER);
+
+            assertThat(entitlement.getStatus()).isEqualTo(HPEEntitlementStatus.USED);
+            // usedDate is the consumption/approval date...
+            assertThat(entitlement.getUsedDate()).isEqualTo(LocalDate.of(2026, 5, 20));
+            // ...while usedOffDate is the day the employee actually gets off, which is a
+            // separate, independently chosen value and may well be a different day.
+            assertThat(entitlement.getUsedOffDate()).isEqualTo(OFF_DATE);
+            assertThat(entitlement.getUsedRequestId()).isEqualTo(77L);
+            assertThat(entitlement.getReservedRequestId()).isNull();
+        }
+
+        @Test
+        void approvalIsIdempotentForAnAlreadyConsumedEntitlement() {
+            HPEEntitlement entitlement = entitlement(holiday, HPEEntitlementStatus.USED, LocalDate.of(2026, 8, 1));
+            entitlement.setUsedRequestId(77L);
+            when(entitlementRepository.findByIdForUpdate(500L)).thenReturn(Optional.of(entitlement));
+
+            service.consumeReservation(500L, 77L, OFF_DATE, APPROVER);
+
+            verify(entitlementRepository, never()).save(any(HPEEntitlement.class));
+        }
+
+        @Test
+        void approvalRefusesToConsumeAnEntitlementAlreadySpentByAnotherRequest() {
+            HPEEntitlement entitlement = entitlement(holiday, HPEEntitlementStatus.USED, LocalDate.of(2026, 8, 1));
+            entitlement.setUsedRequestId(99L);
+            when(entitlementRepository.findByIdForUpdate(500L)).thenReturn(Optional.of(entitlement));
+
+            // Same entitlement, different request: this would double-spend the entitlement.
+            assertThatThrownBy(() -> service.consumeReservation(500L, 77L, OFF_DATE, APPROVER))
+                    .isInstanceOf(ApiException.class)
+                    .hasMessageContaining("already been consumed by another request");
+
+            verify(entitlementRepository, never()).save(any(HPEEntitlement.class));
+        }
+
+        @Test
+        void approvalRefusesToConsumeAnEntitlementReservedForADifferentRequest() {
+            HPEEntitlement entitlement = entitlement(holiday, HPEEntitlementStatus.RESERVED, LocalDate.of(2026, 8, 1));
+            entitlement.setReservedRequestId(99L);
+            when(entitlementRepository.findByIdForUpdate(500L)).thenReturn(Optional.of(entitlement));
+
+            assertThatThrownBy(() -> service.consumeReservation(500L, 77L, OFF_DATE, APPROVER))
+                    .isInstanceOf(ApiException.class)
+                    .hasMessageContaining("not reserved for this request");
+
+            // The entitlement is left exactly as it was - never marked USED.
+            assertThat(entitlement.getStatus()).isEqualTo(HPEEntitlementStatus.RESERVED);
+            assertThat(entitlement.getUsedDate()).isNull();
+            assertThat(entitlement.getUsedOffDate()).isNull();
+            assertThat(entitlement.getUsedRequestId()).isNull();
+            verify(entitlementRepository, never()).save(any(HPEEntitlement.class));
+        }
+
+        @Test
+        void approvalRefusesToConsumeAnUnreservedAvailableEntitlement() {
+            // Nothing reserved it for this request, so consuming it would mark an entitlement
+            // USED that this request never legitimately held.
+            HPEEntitlement entitlement = entitlement(holiday, HPEEntitlementStatus.AVAILABLE, LocalDate.of(2026, 8, 1));
+            when(entitlementRepository.findByIdForUpdate(500L)).thenReturn(Optional.of(entitlement));
+
+            assertThatThrownBy(() -> service.consumeReservation(500L, 77L, OFF_DATE, APPROVER))
+                    .isInstanceOf(ApiException.class)
+                    .hasMessageContaining("not reserved for this request");
+
+            assertThat(entitlement.getStatus()).isEqualTo(HPEEntitlementStatus.AVAILABLE);
+            verify(entitlementRepository, never()).save(any(HPEEntitlement.class));
+        }
+
+        @Test
+        void approvalRefusesWhenTheEntitlementExpiredBeforeItWasDecided() {
+            HPEEntitlement entitlement = entitlement(holiday, HPEEntitlementStatus.EXPIRED, LocalDate.of(2026, 5, 1));
+            when(entitlementRepository.findByIdForUpdate(500L)).thenReturn(Optional.of(entitlement));
+
+            assertThatThrownBy(() -> service.consumeReservation(500L, 77L, OFF_DATE, APPROVER))
+                    .isInstanceOf(ApiException.class)
+                    .hasMessageContaining("expired on 2026-05-01");
+
+            assertThat(entitlement.getStatus()).isEqualTo(HPEEntitlementStatus.EXPIRED);
+            verify(entitlementRepository, never()).save(any(HPEEntitlement.class));
+        }
+
+        @Test
+        void approvalAbortsWhenTheLinkedEntitlementNoLongerExists() {
+            when(entitlementRepository.findByIdForUpdate(500L)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> service.consumeReservation(500L, 77L, OFF_DATE, APPROVER))
+                    .isInstanceOf(ApiException.class)
+                    .hasMessageContaining("no longer exists");
+        }
+
+        @Test
+        void approvalOfANonCompOffRequestConsumesNothing() {
+            // A privilege/sick leave has no linked entitlement; approval must be a no-op.
+            service.consumeReservation(null, 77L, OFF_DATE, APPROVER);
+
+            verify(entitlementRepository, never()).findByIdForUpdate(any());
+            verify(entitlementRepository, never()).save(any(HPEEntitlement.class));
+        }
+
+        @Test
+        void rejectionReturnsTheEntitlementToAvailable() {
+            HPEEntitlement entitlement = entitlement(holiday, HPEEntitlementStatus.RESERVED, LocalDate.of(2026, 8, 1));
+            entitlement.setReservedRequestId(77L);
+            when(entitlementRepository.findByIdForUpdate(500L)).thenReturn(Optional.of(entitlement));
+            when(appClock.today()).thenReturn(LocalDate.of(2026, 5, 20));
+            when(entitlementRepository.save(any(HPEEntitlement.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            service.releaseReservation(500L, 77L);
+
+            assertThat(entitlement.getStatus()).isEqualTo(HPEEntitlementStatus.AVAILABLE);
+            assertThat(entitlement.getReservedRequestId()).isNull();
+            // Never consumed, so it carries no used marker.
+            assertThat(entitlement.getUsedRequestId()).isNull();
+            assertThat(entitlement.getUsedDate()).isNull();
+            assertThat(entitlement.getUsedOffDate()).isNull();
+        }
+
+        @Test
+        void cancellingAnApprovedRequestNeverResurrectsASpentEntitlement() {
+            // An approved request already granted the day off and spent the entitlement.
+            // Cancelling it must not hand the entitlement back for a second spend.
+            HPEEntitlement entitlement = entitlement(holiday, HPEEntitlementStatus.USED, LocalDate.of(2026, 8, 1));
+            entitlement.setUsedRequestId(77L);
+            entitlement.setUsedDate(LocalDate.of(2026, 5, 20));
+            entitlement.setUsedOffDate(OFF_DATE);
+            when(entitlementRepository.findByIdForUpdate(500L)).thenReturn(Optional.of(entitlement));
+
+            service.releaseReservation(500L, 77L);
+
+            assertThat(entitlement.getStatus()).isEqualTo(HPEEntitlementStatus.USED);
+            assertThat(entitlement.getUsedRequestId()).isEqualTo(77L);
+            verify(entitlementRepository, never()).save(any(HPEEntitlement.class));
+        }
+
+        @Test
+        void cancellationDoesNotStealAnEntitlementHeldByAnotherRequest() {
+            HPEEntitlement entitlement = entitlement(holiday, HPEEntitlementStatus.RESERVED, LocalDate.of(2026, 8, 1));
+            entitlement.setReservedRequestId(99L);
+            when(entitlementRepository.findByIdForUpdate(500L)).thenReturn(Optional.of(entitlement));
+
+            service.releaseReservation(500L, 77L);
+
+            assertThat(entitlement.getStatus()).isEqualTo(HPEEntitlementStatus.RESERVED);
+            assertThat(entitlement.getReservedRequestId()).isEqualTo(99L);
+            verify(entitlementRepository, never()).save(any(HPEEntitlement.class));
+        }
+
+        @Test
+        void releasingAnEntitlementWhoseWindowClosedExpiresRatherThanRevivesIt() {
+            HPEEntitlement entitlement = entitlement(holiday, HPEEntitlementStatus.RESERVED, LocalDate.of(2026, 5, 1));
+            entitlement.setReservedRequestId(77L);
+            when(entitlementRepository.findByIdForUpdate(500L)).thenReturn(Optional.of(entitlement));
+            when(appClock.today()).thenReturn(LocalDate.of(2026, 6, 1));
+            when(entitlementRepository.save(any(HPEEntitlement.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            service.releaseReservation(500L, 77L);
+
+            assertThat(entitlement.getStatus()).isEqualTo(HPEEntitlementStatus.EXPIRED);
+        }
+
+        @Test
+        void reservedEntitlementsCannotBeConsumedOutOfBand() {
+            HPEEntitlement entitlement = entitlement(holiday, HPEEntitlementStatus.RESERVED, LocalDate.of(2026, 8, 1));
+            when(entitlementRepository.findById(500L)).thenReturn(Optional.of(entitlement));
+
+            assertThatThrownBy(() -> service.useHpeEntitlement(10L, 500L, 88L))
+                    .isInstanceOf(ApiException.class)
+                    .hasMessageContaining("reserved by a pending request");
+
+            verify(entitlementRepository, never()).save(any(HPEEntitlement.class));
+        }
+
+        @Test
+        void aSecondRequestCannotReserveTheSameEntitlement() {
+            HPEEntitlement entitlement = entitlement(holiday, HPEEntitlementStatus.RESERVED, LocalDate.of(2026, 8, 1));
+            when(entitlementRepository.findByIdForUpdate(500L)).thenReturn(Optional.of(entitlement));
+
+            assertThatThrownBy(() -> service.reserveForRequest(10L, 500L, 88L))
+                    .isInstanceOf(ApiException.class)
+                    .hasMessageContaining("already attached to another pending request");
+
+            verify(entitlementRepository, never()).save(any(HPEEntitlement.class));
+        }
+
+        @Test
+        void reservingRejectsAnExpiredEntitlement() {
+            HPEEntitlement entitlement = entitlement(holiday, HPEEntitlementStatus.AVAILABLE, LocalDate.of(2026, 5, 1));
+            when(entitlementRepository.findByIdForUpdate(500L)).thenReturn(Optional.of(entitlement));
+            when(appClock.today()).thenReturn(LocalDate.of(2026, 6, 1));
+
+            assertThatThrownBy(() -> service.reserveForRequest(10L, 500L, 88L))
+                    .isInstanceOf(ApiException.class)
+                    .hasMessageContaining("expired on 2026-05-01");
+
+            verify(entitlementRepository, never()).save(any(HPEEntitlement.class));
+        }
+
+        @Test
+        void reservingRejectsAnEntitlementBelongingToAnotherEmployee() {
+            HPEEntitlement entitlement = entitlement(holiday, HPEEntitlementStatus.AVAILABLE, LocalDate.of(2026, 8, 1));
+            when(entitlementRepository.findByIdForUpdate(500L)).thenReturn(Optional.of(entitlement));
+
+            assertThatThrownBy(() -> service.reserveForRequest(11L, 500L, 88L))
+                    .isInstanceOf(ApiException.class)
+                    .hasMessageContaining("another employee");
+
+            verify(entitlementRepository, never()).save(any(HPEEntitlement.class));
+        }
+
+        @Test
+        void summaryReportsReservedSeparatelyFromAvailable() {
+            HPEEntitlement fresh = entitlement(holiday, HPEEntitlementStatus.AVAILABLE, LocalDate.of(2026, 8, 1));
+            HPEEntitlement held = entitlement(holiday, HPEEntitlementStatus.RESERVED, LocalDate.of(2026, 8, 1));
+            when(employeeRepository.findById(10L)).thenReturn(Optional.of(puneEmployee));
+            when(appClock.today()).thenReturn(LocalDate.of(2026, 5, 15));
+            when(entitlementRepository.findByEmployeeIdOrderByCreatedAtDesc(10L))
+                    .thenReturn(List.of(held, fresh));
+
+            HolidayDtos.EntitlementStatusSummary summary = service.getEntitlementStatusSummary(10L);
+
+            assertThat(summary.available()).isEqualTo(1);
+            assertThat(summary.reserved()).isEqualTo(1);
+            assertThat(summary.used()).isZero();
+            assertThat(summary.expired()).isZero();
+        }
+    }
+
     @Nested
     class Expire {
 

@@ -168,6 +168,8 @@ private AttendanceRosterDtos.StatusDetail toDetail(AttendanceRecord rec,
                 source == null ? null : source.approvedByName(),
                 source == null ? null : source.approvedAt(),
                 source == null ? null : source.workedForName(),
-                source == null ? null : source.workedDate());
+                source == null ? null : source.workedDate(),
+                source == null ? null : source.hpeHolidayName(),
+                source == null ? null : source.hpeHolidayDate());
     }
 }

@@ -143,10 +143,15 @@ public class AttendanceRequestIntegrationService {
     // ------------------------------------------------------------------ READ
 
     /** Expanded source-request details for a roster cell, or null when the cell
-     *  is not backed by an approved leave / swap-off request. */
+     *  is not backed by an approved leave / swap-off request.
+     *
+     *  <p>{@code hpeHolidayName} / {@code hpeHolidayDate} are resolved from the
+     *  leave request's linked HPE entitlement and are null for every other
+     *  request type (including Swap Off) and for non-HPE compensatory off.</p> */
     public record SourceDetail(Long requestId, String requestType, String reason,
                                String submittedByName, String approvedByName, Instant approvedAt,
-                               String workedForName, LocalDate workedDate) {
+                               String workedForName, LocalDate workedDate,
+                               String hpeHolidayName, LocalDate hpeHolidayDate) {
     }
 
     /** Resolve the approved source request behind a roster status cell. Prefers
@@ -223,12 +228,14 @@ public class AttendanceRequestIntegrationService {
     }
 
     private SourceDetail toSource(LeaveRequest leave) {
+        Holiday holiday = leave.getHpeEntitlement() == null ? null : leave.getHpeEntitlement().getHoliday();
         return new SourceDetail(leave.getId(), SOURCE_TYPE_LEAVE,
                 nonBlank(leave.getReason()),
                 employeeName(leave.getEmployee()),
                 displayNameOf(leave.getDecidedBy()),
                 leave.getDecidedAt(),
-                null, null);
+                null, null,
+                holidayName(holiday), holiday == null ? null : holiday.getHolidayDate());
     }
 
     private SourceDetail toSource(SwapOffRequest swap) {
@@ -238,7 +245,12 @@ public class AttendanceRequestIntegrationService {
                 displayNameOf(swap.getDecidedBy()),
                 swap.getDecidedAt(),
                 employeeName(swap.getWorkedForEmployee()),
-                swap.getWorkedDate());
+                swap.getWorkedDate(),
+                null, null);
+    }
+
+    private String holidayName(Holiday holiday) {
+        return holiday == null ? null : nonBlank(holiday.getName());
     }
 
     private String employeeName(Employee employee) {

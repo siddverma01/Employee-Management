@@ -82,6 +82,8 @@ public final class HolidayDtos {
             String status,
             LocalDate usedDate,
             Long usedRequestId,
+            Long reservedRequestId,
+            LocalDate usedOffDate,
             String notes) {
     }
 
@@ -96,6 +98,7 @@ public final class HolidayDtos {
 
     public record EntitlementStatusSummary(
             long available,
+            long reserved,
             long used,
             long expired) {
     }

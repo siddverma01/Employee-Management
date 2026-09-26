@@ -1,7 +1,11 @@
 package com.emplmgt.controller;
 
 import com.emplmgt.dto.HolidayDtos;
+import com.emplmgt.entity.Employee;
 import com.emplmgt.entity.ScopeType;
+import com.emplmgt.exception.ApiException;
+import com.emplmgt.repository.EmployeeRepository;
+import com.emplmgt.security.SecurityUtils;
 import com.emplmgt.service.HolidayService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +20,23 @@ import java.util.List;
 public class HolidayController {
 
     private final HolidayService holidayService;
+    private final SecurityUtils securityUtils;
+    private final EmployeeRepository employeeRepository;
+
+    @GetMapping("/my")
+    public ResponseEntity<List<HolidayDtos.Response>> myHolidays(
+            @RequestParam(required = false) LocalDate from,
+            @RequestParam(required = false) LocalDate to) {
+        Long employeeId = getEmployeeId();
+        return ResponseEntity.ok(holidayService.listForEmployee(employeeId, from, to));
+    }
+
+    private Long getEmployeeId() {
+        Long userId = securityUtils.currentUserId();
+        Employee employee = employeeRepository.findByUserId(userId)
+                .orElseThrow(() -> ApiException.notFound("Employee profile not found for the current user"));
+        return employee.getId();
+    }
 
     @GetMapping
     public ResponseEntity<List<HolidayDtos.Response>> list(

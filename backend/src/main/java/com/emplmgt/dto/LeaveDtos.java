@@ -20,7 +20,12 @@ public final class LeaveDtos {
             @NotNull(message = "Start date is required") LocalDate startDate,
             @NotNull(message = "End date is required") LocalDate endDate,
             @NotBlank(message = "Reason is required") String reason,
-            String attachment) {
+            String attachment,
+            /**
+             * Required for {@code COMP_OFF}: the earned HPE Holiday entitlement being consumed.
+             * The off date is chosen separately and need not match the original HPE Holiday date.
+             */
+            Long hpeEntitlementId) {
     }
 
     public record DecideRequest(@NotBlank(message = "Rejection reason is required") String rejectionReason) {
@@ -43,6 +48,10 @@ public final class LeaveDtos {
             LeaveStatus status,
             String rejectionReason,
             Instant appliedOn,
-            Instant decidedAt) {
+            Instant decidedAt,
+            Long hpeEntitlementId,
+            String hpeHolidayName,
+            LocalDate hpeHolidayDate,
+            LocalDate hpeEntitlementExpiryDate) {
     }
 }

@@ -76,14 +76,20 @@ public final class AttendanceRosterDtos {
      *
      *  <p>For Swap Off, additional fields {@code workedForName} and
      *  {@code workedDate} identify the employee who was worked for and the
-     *  date the requester worked, enabling the full relationship display.</p> */
+     *  date the requester worked, enabling the full relationship display.</p>
+     *
+     *  <p>For HPE-backed Compensatory Off, {@code hpeHolidayName} and
+     *  {@code hpeHolidayDate} identify the holiday the entitlement was earned
+     *  against, so the popup can explain why the off was taken. They are null
+     *  for every other status/request type.</p> */
     public record StatusDetail(String employeeId, LocalDate date, String statusCode, String statusName,
                                String description, String createdByName, Instant createdAt,
                                String updatedByName, Instant updatedAt,
                                Long sourceRequestId, String sourceRequestType,
                                String sourceReason, String submittedByName,
                                String approvedByName, Instant approvedAt,
-                               String workedForName, LocalDate workedDate) {
+                               String workedForName, LocalDate workedDate,
+                               String hpeHolidayName, LocalDate hpeHolidayDate) {
     }
 
     /** Admin-only write: upsert (or clear when description is blank) the free-

@@ -1,6 +1,7 @@
 package com.emplmgt.service;
 
 import com.emplmgt.dto.EmployeeDtos;
+import com.emplmgt.dto.HolidayDtos;
 import com.emplmgt.dto.LeaveDtos;
 import com.emplmgt.entity.*;
 import com.emplmgt.exception.ApiException;
@@ -15,9 +16,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -36,6 +42,7 @@ public class LeaveService {
     private final AuditService auditService;
     private final EmployeeService employeeService;
     private final AttendanceRequestIntegrationService attendanceRequestIntegration;
+    private final HPEEntitlementService hpeEntitlementService;
 
     // ------------------------------------------------------------------ EMPLOYEE
 
@@ -63,6 +70,17 @@ public class LeaveService {
         if (hasConflictingAttendance(employee, request.startDate(), request.endDate())) {
             throw ApiException.conflict("You have a scheduled work-from-* or comp-off record overlapping these dates");
         }
+
+        // Resolve and validate the earned HPE Holiday entitlement before the balance check so an
+        // unavailable/unowned entitlement fails with a precise reason rather than a generic
+        // "insufficient balance". Validation only - nothing is reserved yet.
+        if (request.leaveType() != LeaveType.COMP_OFF && request.hpeEntitlementId() != null) {
+            throw ApiException.badRequest("An HPE Holiday can only be applied to Compensatory Off");
+        }
+        HPEEntitlement entitlement = request.leaveType() == LeaveType.COMP_OFF
+                ? resolveCompOffEntitlement(employee, request.hpeEntitlementId())
+                : null;
+
         validateBalance(employee, request.leaveType(), BigDecimal.valueOf(days));
 
         LeaveRequest leave = LeaveRequest.builder()
@@ -74,28 +92,39 @@ public class LeaveService {
                 .reason(request.reason())
                 .attachment(request.attachment())
                 .status(LeaveStatus.PENDING)
+                .hpeEntitlement(entitlement)
                 .build();
         LeaveRequest saved = leaveRequestRepository.save(leave);
+
+        // Submission only reserves the entitlement. It stays RESERVED (not USED) until an
+        // admin approves, so a rejected or cancelled request releases it untouched.
+        if (entitlement != null) {
+            hpeEntitlementService.reserveForRequest(employee.getId(), entitlement.getId(), saved.getId());
+        }
 
         notificationService.notifyAdmins(
                 "New Leave Request",
                 employee.getFullName() + " (" + employee.getEmployeeCode() + ") applied for "
                         + request.leaveType().getLabel() + " from " + request.startDate() + " to " + request.endDate()
-                        + " (" + days + " day(s)).",
+                        + " (" + days + " day(s))."
+                        + (entitlement == null ? "" : " Using HPE Holiday: " + entitlement.getHoliday().getName()
+                        + " (" + entitlement.getHoliday().getHolidayDate() + ")."),
                 NotificationType.LEAVE, "/admin/leaves");
 
         auditService.record("LEAVE_APPLIED", "LeaveRequest", String.valueOf(saved.getId()),
                 null, Map.of("employee", employee.getFullName(), "type", request.leaveType().name(),
-                        "from", request.startDate().toString(), "to", request.endDate().toString(), "days", days));
+                        "from", request.startDate().toString(), "to", request.endDate().toString(), "days", days,
+                        "hpeEntitlementId", String.valueOf(entitlement == null ? null : entitlement.getId())));
 
-        return toResponse(saved);
+        return toResponse(saved, entitlementIndex(List.of(saved)));
     }
 
     @Transactional(readOnly = true)
     public List<LeaveDtos.Response> myLeaves(Long userId) {
         Employee employee = employeeFor(userId);
-        return leaveRequestRepository.findByEmployeeIdOrderByCreatedAtDesc(employee.getId())
-                .stream().map(this::toResponse).toList();
+        List<LeaveRequest> leaves = leaveRequestRepository.findByEmployeeIdOrderByCreatedAtDesc(employee.getId());
+        Map<Long, HolidayDtos.HPEEntitlementResponse> entitlements = entitlementIndex(leaves);
+        return leaves.stream().map(l -> toResponse(l, entitlements)).toList();
     }
 
     @Transactional(readOnly = true)
@@ -104,8 +133,7 @@ public class LeaveService {
         int year = appClock.today().getYear();
         return employeeService.balancesFor(employee, year).stream().map(b -> {
             if ("COMP_OFF".equals(b.leaveType())) {
-                long credits = swapOffRequestRepository.countApprovedCredits(employee.getId(), year);
-                BigDecimal allocated = b.allocated().add(BigDecimal.valueOf(credits));
+                BigDecimal allocated = b.allocated().add(coCredits(employee, year));
                 return new EmployeeDtos.LeaveBalanceDto(b.leaveType(), b.leaveTypeCode(), b.leaveTypeLabel(),
                         allocated, b.used(), allocated.subtract(b.used()));
             }
@@ -122,13 +150,21 @@ public class LeaveService {
             throw ApiException.forbidden("Cannot cancel another employee's leave");
         }
         if (leave.getStatus() == LeaveStatus.APPROVED || leave.getStatus() == LeaveStatus.REJECTED) {
+            // Existing cancellation rules only allow PENDING requests to be cancelled. An
+            // APPROVED request has already granted the day (roster CO + attendance row) and,
+            // for a Compensatory Off backed by an HPE entitlement, already spent that
+            // entitlement - so it is correctly not cancellable here and the entitlement
+            // correctly stays USED. releaseReservation is additionally a no-op unless the
+            // entitlement is still RESERVED, so a consumed one can never be handed back.
             throw ApiException.badRequest("Only pending leaves can be cancelled");
         }
         leave.setStatus(LeaveStatus.CANCELLED);
         LeaveRequest saved = leaveRequestRepository.save(leave);
+        // A cancelled request never consumed the entitlement - hand it back to the pool.
+        hpeEntitlementService.releaseReservation(entitlementIdOf(saved), saved.getId());
         auditService.record("LEAVE_CANCELLED", "LeaveRequest", String.valueOf(saved.getId()),
                 Map.of("status", "PENDING"), Map.of("status", "CANCELLED"));
-        return toResponse(saved);
+        return toResponse(saved, entitlementIndex(List.of(saved)));
     }
 
     // ------------------------------------------------------------------ ADMIN
@@ -136,8 +172,11 @@ public class LeaveService {
     @Transactional(readOnly = true)
     public Page<LeaveDtos.Response> search(LeaveStatus status, LeaveType leaveType, Long employeeId, Long departmentId,
                                            LocalDate from, LocalDate to, String search, Pageable pageable) {
-        return leaveRequestRepository.search(status, leaveType, employeeId, departmentId, from, to, search, pageable)
-                .map(this::toResponse);
+        Page<LeaveRequest> page = leaveRequestRepository.search(status, leaveType, employeeId, departmentId,
+                from, to, search, pageable);
+        Map<Long, HolidayDtos.HPEEntitlementResponse> entitlements =
+                entitlementIndex(page.getContent());
+        return page.map(l -> toResponse(l, entitlements));
     }
 
     @Transactional
@@ -151,12 +190,30 @@ public class LeaveService {
         attendanceRequestIntegration.applyLeaveApproval(leave);
         LeaveRequest saved = leaveRequestRepository.save(leave);
 
+        // Approval is the only point at which the earned HPE Holiday is actually spent.
+        // This runs inside the same transaction as the roster (attendanceRequestIntegration,
+        // which writes the "CO" roster status) and the attendance rows above, so either the
+        // leave is approved AND the entitlement is consumed AND the roster shows CO, or
+        // nothing happens at all - an entitlement is never left USED for a rolled-back
+        // approval. The off date is recorded on the entitlement so the spend is auditable
+        // without joining back to this request.
+        Long entitlementId = entitlementIdOf(saved);
+        if (entitlementId != null) {
+            hpeEntitlementService.consumeReservation(entitlementId, saved.getId(),
+                    saved.getStartDate(), adminUserId);
+        }
+
         notifyEmployee(saved, "Leave Approved",
                 "Your " + saved.getLeaveType().getLabel() + " request (" + saved.getStartDate() + " to "
-                        + saved.getEndDate() + ") has been approved.", NotificationType.LEAVE, "/leaves");
+                        + saved.getEndDate() + ") has been approved."
+                        + (saved.getHpeEntitlement() == null ? "" : " Your HPE Holiday entitlement "
+                        + saved.getHpeEntitlement().getHoliday().getName() + " has been used."),
+                NotificationType.LEAVE, "/leaves");
         auditService.record("LEAVE_APPROVED", "LeaveRequest", String.valueOf(saved.getId()),
-                Map.of("status", "PENDING"), Map.of("status", "APPROVED", "days", saved.getDays()));
-        return toResponse(saved);
+                Map.of("status", "PENDING"), Map.of("status", "APPROVED", "days", saved.getDays(),
+                        "approvedByUserId", String.valueOf(adminUserId),
+                        "hpeEntitlementId", String.valueOf(entitlementId)));
+        return toResponse(saved, entitlementIndex(List.of(saved)));
     }
 
     @Transactional
@@ -170,6 +227,9 @@ public class LeaveService {
         removeLeaveAttendanceFor(leave);
         LeaveRequest saved = leaveRequestRepository.save(leave);
 
+        // Rejected request never spent the entitlement - return it to AVAILABLE.
+        hpeEntitlementService.releaseReservation(entitlementIdOf(saved), saved.getId());
+
         notifyEmployee(saved, "Leave Rejected",
                 "Your " + saved.getLeaveType().getLabel() + " request (" + saved.getStartDate() + " to "
                         + saved.getEndDate() + ") was rejected."
@@ -177,7 +237,7 @@ public class LeaveService {
                 NotificationType.LEAVE, "/leaves");
         auditService.record("LEAVE_REJECTED", "LeaveRequest", String.valueOf(saved.getId()),
                 Map.of("status", "PENDING"), Map.of("status", "REJECTED", "reason", rejectionReason));
-        return toResponse(saved);
+        return toResponse(saved, entitlementIndex(List.of(saved)));
     }
 
     // ------------------------------------------------------------------ HELPERS
@@ -204,14 +264,35 @@ public class LeaveService {
         return leave;
     }
 
+    /**
+     * Validates the HPE Holiday entitlement chosen for a Compensatory Off request.
+     *
+     * <p>Rejects: a missing selection, an entitlement belonging to someone else, one that is
+     * already USED, one already reserved by another pending request, and one whose 3-month
+     * availing window has closed. Purely a read - the entitlement is only reserved once the
+     * request has been persisted.</p>
+     */
+    private HPEEntitlement resolveCompOffEntitlement(Employee employee, Long hpeEntitlementId) {
+        if (hpeEntitlementId == null) {
+            throw ApiException.badRequest("Select the HPE Holiday you want to use for this Compensatory Off");
+        }
+        HPEEntitlement entitlement = hpeEntitlementService.requireUsableForRequest(employee.getId(), hpeEntitlementId);
+        if (leaveRequestRepository.existsActiveRequestForEntitlement(hpeEntitlementId)) {
+            throw ApiException.conflict("This HPE Holiday is already attached to another pending or approved request");
+        }
+        return entitlement;
+    }
+
+    private Long entitlementIdOf(LeaveRequest leave) {
+        return leave.getHpeEntitlement() == null ? null : leave.getHpeEntitlement().getId();
+    }
+
     private void validateBalance(Employee employee, LeaveType type, BigDecimal requestedDays) {
         int year = appClock.today().getYear();
         BigDecimal available;
         if (type == LeaveType.COMP_OFF) {
-            long credits = swapOffRequestRepository.countApprovedCredits(employee.getId(), year);
-            BigDecimal allocated = coAllocated(employee, year).add(BigDecimal.valueOf(credits));
             BigDecimal used = leaveRequestRepository.sumApprovedDays(employee.getId(), LeaveType.COMP_OFF);
-            available = allocated.subtract(used);
+            available = coAllocated(employee, year).add(coCredits(employee, year)).subtract(used);
         } else {
             available = employeeService.balancesFor(employee, year).stream()
                     .filter(b -> type.name().equals(b.leaveType()))
@@ -221,6 +302,17 @@ public class LeaveService {
         if (available.compareTo(requestedDays) < 0) {
             throw ApiException.badRequest("Insufficient " + type.getLabel() + " balance");
         }
+    }
+
+    /**
+     * Compensatory off credits: approved swap-offs plus one day per still-usable earned
+     * HPE Holiday entitlement. Without the entitlement term an employee holding a valid
+     * earned entitlement would always be told they have zero Compensatory Off balance.
+     */
+    private BigDecimal coCredits(Employee employee, int year) {
+        long swapOffCredits = swapOffRequestRepository.countApprovedCredits(employee.getId(), year);
+        long hpeEntitlements = hpeEntitlementService.countUsableEntitlements(employee.getId());
+        return BigDecimal.valueOf(swapOffCredits + hpeEntitlements);
     }
 
     private BigDecimal coAllocated(Employee employee, int year) {
@@ -279,7 +371,31 @@ public class LeaveService {
                 .orElseThrow(() -> ApiException.notFound("Employee profile not found"));
     }
 
+    /**
+     * Resolves the HPE Holiday details for a page of leaves in a single query, so listing
+     * leaves does not trigger one lookup per row.
+     */
+    private Map<Long, HolidayDtos.HPEEntitlementResponse> entitlementIndex(List<LeaveRequest> leaves) {
+        Set<Long> ids = leaves.stream()
+                .map(this::entitlementIdOf)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        return hpeEntitlementService.findEntitlementsByIds(ids).stream()
+                .collect(Collectors.toMap(HolidayDtos.HPEEntitlementResponse::id, Function.identity(),
+                        (a, b) -> a, LinkedHashMap::new));
+    }
+
     public LeaveDtos.Response toResponse(LeaveRequest l) {
+        return toResponse(l, entitlementIndex(List.of(l)));
+    }
+
+    private LeaveDtos.Response toResponse(LeaveRequest l, Map<Long, HolidayDtos.HPEEntitlementResponse> entitlements) {
+        HolidayDtos.HPEEntitlementResponse hpe = l.getHpeEntitlement() == null
+                ? null
+                : entitlements.get(l.getHpeEntitlement().getId());
         return new LeaveDtos.Response(
                 l.getId(),
                 l.getEmployee() != null ? l.getEmployee().getId() : null,
@@ -297,6 +413,10 @@ public class LeaveService {
                 l.getStatus(),
                 l.getRejectionReason(),
                 l.getCreatedAt(),
-                l.getDecidedAt());
+                l.getDecidedAt(),
+                l.getHpeEntitlement() != null ? l.getHpeEntitlement().getId() : null,
+                hpe != null ? hpe.holidayName() : null,
+                hpe != null ? hpe.holidayDate() : null,
+                hpe != null ? hpe.expiryDate() : null);
     }
 }

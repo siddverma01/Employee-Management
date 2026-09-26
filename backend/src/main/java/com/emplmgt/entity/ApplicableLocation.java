@@ -7,5 +7,6 @@ public enum ApplicableLocation {
     DELHI,
     HYDERABAD,
     CHENNAI,
-    KOLKATA
+    KOLKATA,
+    US
 }
