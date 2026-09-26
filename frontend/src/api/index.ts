@@ -3,7 +3,7 @@ import type {
   AdminSummary, Attendance, AttendanceHistoryMeta, AttendanceHistoryResponse, AuditLog, AuthUser, CalendarEvent, ChartData, CompanyEvent, Department,
   EmployeeDashboard, EmployeeHistoricalAttendance, Holiday, HistoricalCommitResponse, HistoricalHistoryItem,
   HistoricalInspectResponse, HistoricalMapStagedRequest, HistoricalMapStagedResponse, HistoricalMapUnknownResponse,
-  HistoricalPreviewResponse, HistoricalRecordsPage, HistoricalStatusItem, HistoricalUnknownCode, ImportCommit,
+  HistoricalPreviewResponse, HistoricalRecordsPage, HistoricalStatusItem, HistoricalUnknownCode, HPEEntitlement, ImportCommit,
   ImportHistoryItem, ImportPreview, ImportUpload, Leave,
   LeaveBalance, LoginResponse, NotificationItem, PageResponse, Profile, RosterBatchSaveResult,
   RosterCellEdit, RosterImportPreview, RosterMonthData, RosterMonthlyData, RosterPageMeta, RosterRowSave, RosterSaveResult,
@@ -41,9 +41,20 @@ export const departmentApi = {
 export const leaveApi = {
   my: () => api.get<Leave[]>('/leaves').then((r) => r.data),
   balances: () => api.get<LeaveBalance[]>('/leaves/balances').then((r) => r.data),
-  apply: (payload: { leaveType: string; startDate: string; endDate: string; reason: string; attachment?: string }) =>
+  apply: (payload: { leaveType: string; startDate: string; endDate: string; reason: string; attachment?: string; hpeEntitlementId?: number | string }) =>
     api.post<Leave>('/leaves', payload).then((r) => r.data),
   cancel: (id: number) => api.post<Leave>(`/leaves/${id}/cancel`).then((r) => r.data),
+}
+
+/** HPE holidays and the entitlements earned by working on them. */
+export const hpeHolidayApi = {
+  /** Entitlements the current employee can still avail: AVAILABLE and not past expiry. */
+  availableEntitlements: () => api.get<HPEEntitlement[]>('/hpe-holidays/entitlements').then((r) => r.data),
+  allEntitlements: () => api.get<HPEEntitlement[]>('/hpe-holidays/entitlements/all').then((r) => r.data),
+  summary: () =>
+    api
+      .get<{ available: number; reserved: number; used: number; expired: number }>('/hpe-holidays/entitlements/summary')
+      .then((r) => r.data),
 }
 
 export const swapOffApi = {
@@ -68,6 +79,8 @@ export const calendarApi = {
 export const holidayApi = {
   list: (params?: { from?: string; to?: string; country?: string; scope?: ScopeType; teamId?: number }) =>
     api.get<Holiday[]>('/holidays', { params }).then((r) => r.data),
+  myHolidays: (params?: { from?: string; to?: string }) =>
+    api.get<Holiday[]>('/holidays/my', { params }).then((r) => r.data),
   upcoming: (limit = 10, teamId?: number) =>
     api.get<Holiday[]>('/holidays/upcoming', { params: { limit, teamId: teamId ?? undefined } }).then((r) => r.data),
 }

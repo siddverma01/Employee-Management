@@ -20,7 +20,18 @@ import { StatusBadge } from '@/components/ui/StatusBadge'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { EmptyState } from '@/components/ui/EmptyState'
 
-const STATUS_LABELS: Record<string, string> = { PUBLIC: 'PUBLIC', OPTIONAL: 'OPTIONAL', OBSERVED: 'OBSERVED' }
+const STATUS_LABELS: Record<string, string> = { PUBLIC: 'PUBLIC', OPTIONAL: 'OPTIONAL', OBSERVED: 'OBSERVED', HPE_HOLIDAY: 'HPE Holiday' }
+
+const APPLICABLE_LOCATIONS = [
+  { value: 'ALL', label: 'All Locations' },
+  { value: 'PUNE_MUMBAI', label: 'Pune / Mumbai' },
+  { value: 'BANGALORE', label: 'Bangalore' },
+  { value: 'DELHI', label: 'Delhi' },
+  { value: 'HYDERABAD', label: 'Hyderabad' },
+  { value: 'CHENNAI', label: 'Chennai' },
+  { value: 'KOLKATA', label: 'Kolkata' },
+  { value: 'US', label: 'US' },
+]
 
 function ScopeBadge({ scope, team }: { scope: string; team?: string }) {
   return (
@@ -85,8 +96,8 @@ export function AdminHolidaysPage() {
     setHolidayModal({ open: true, holiday: h })
     holidayForm.reset(
       h
-        ? { name: h.name, date: String(h.date).slice(0, 10), country: h.country, holidayType: h.holidayType as HolidayForm['holidayType'], description: h.description ?? '', scope: h.scope, teamId: h.teamId ?? undefined }
-        : { name: '', date: '', country: 'US', holidayType: 'PUBLIC', description: '', scope: 'GLOBAL', teamId: undefined },
+        ? { name: h.name, date: String(h.date).slice(0, 10), country: h.country, holidayType: h.holidayType as HolidayForm['holidayType'], applicableLocations: (h.applicableLocations ?? 'ALL') as HolidayForm['applicableLocations'], description: h.description ?? '', scope: h.scope, teamId: h.teamId ?? undefined }
+        : { name: '', date: '', country: 'US', holidayType: 'PUBLIC', applicableLocations: 'ALL', description: '', scope: 'GLOBAL', teamId: undefined },
     )
   }
   const openEventModal = (e: CompanyEvent | null) => {
@@ -139,6 +150,7 @@ export function AdminHolidaysPage() {
                     <th className="th">Date</th>
                     <th className="th">Type</th>
                     <th className="th">Country</th>
+                    <th className="th">Applicable To</th>
                     <th className="th">Scope</th>
                     <th className="th" />
                   </tr>
@@ -150,6 +162,7 @@ export function AdminHolidaysPage() {
                       <td className="td">{formatDate(h.date)}</td>
                       <td className="td"><StatusBadge status={h.holidayType} /></td>
                       <td className="td text-xs text-surface-500">{h.country || '—'}</td>
+                      <td className="td text-xs text-surface-500">{h.applicableLocations || 'ALL'}</td>
                       <td className="td text-xs">
                         <ScopeBadge scope={h.scope} team={departments.find((d) => d.id === h.teamId)?.name} />
                       </td>
@@ -218,7 +231,11 @@ export function AdminHolidaysPage() {
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input label="Country" placeholder="US" {...holidayForm.register('country')} />
+            <Select label="Applicable Locations" options={APPLICABLE_LOCATIONS} {...holidayForm.register('applicableLocations')} />
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input label="Description" placeholder="Optional" {...holidayForm.register('description')} />
+            <div />
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Select

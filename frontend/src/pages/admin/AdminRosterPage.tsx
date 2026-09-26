@@ -287,7 +287,7 @@ function StatusDetailPopup({
   const stored = detail?.description ?? ''
   const changed = text.trim() !== stored.trim()
 
-  const sourceActive = !!detail?.sourceRequestType && !!detail?.sourceReason
+  const sourceActive = !!detail?.sourceRequestType && (!!detail?.sourceReason || !!detail?.hpeHolidayName)
   const sourceTypeLabel = detail?.sourceRequestType === 'SWAP_OFF' ? 'Swap Off' : 'Leave'
 
   const save = async () => {
@@ -434,13 +434,23 @@ function StatusDetailPopup({
                     <div className="font-medium text-right">{detail.approvedAt ? formatDateTime(detail.approvedAt) : '—'}</div>
                   </div>
                 </div>
-              ) : (
-                <div className="mt-2.5 space-y-0.5 border-t border-surface-200/70 pt-2 text-[11px] text-surface-500 dark:border-white/[0.06] dark:text-[#8B95A3]">
-                  {detail?.submittedByName ? <p className="truncate">Submitted by: {detail.submittedByName}</p> : null}
-                  {detail?.approvedByName ? <p className="truncate">Approved by: {detail.approvedByName}</p> : null}
-                  {detail?.approvedAt ? <p className="truncate">Approved on: {formatDateTime(detail.approvedAt)}</p> : null}
-                </div>
-              )}
+            ) : (
+              <div className="mt-2.5 space-y-0.5 border-t border-surface-200/70 pt-2 text-[11px] text-surface-500 dark:border-white/[0.06] dark:text-[#8B95A3]">
+                {detail?.statusName || detail?.statusCode ? (
+                  <p className="truncate">Status: {detail.statusName ?? detail.statusCode}</p>
+                ) : null}
+                {detail?.hpeHolidayName || detail?.hpeHolidayDate ? (
+                  <p className="truncate">
+                    HPE Holiday:{' '}
+                    {detail.hpeHolidayName ?? '—'}
+                    {detail.hpeHolidayDate ? `, ${formatDate(detail.hpeHolidayDate)}` : ''}
+                  </p>
+                ) : null}
+                {detail?.submittedByName ? <p className="truncate">Submitted by: {detail.submittedByName}</p> : null}
+                {detail?.approvedByName ? <p className="truncate">Approved by: {detail.approvedByName}</p> : null}
+                {detail?.approvedAt ? <p className="truncate">Approved on: {formatDateTime(detail.approvedAt)}</p> : null}
+              </div>
+            )}
             </>
           ) : (
             <>

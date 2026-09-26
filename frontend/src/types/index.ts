@@ -119,6 +119,32 @@ export interface Leave {
   rejectionReason: string | null
   appliedOn: string
   decidedAt: string | null
+  /** Earned HPE Holiday this Compensatory Off request consumes. */
+  hpeEntitlementId?: number | null
+  hpeHolidayName?: string | null
+  hpeHolidayDate?: string | null
+  hpeEntitlementExpiryDate?: string | null
+}
+
+export type HPEEntitlementStatus = 'AVAILABLE' | 'RESERVED' | 'USED' | 'EXPIRED'
+
+/** An HPE Holiday entitlement earned by working on an HPE holiday. */
+export interface HPEEntitlement {
+  id: number
+  employeeId: number
+  employeeName: string
+  holidayId: number
+  holidayName: string
+  holidayDate: string
+  earnedDate: string
+  expiryDate: string
+  status: HPEEntitlementStatus
+  usedDate: string | null
+  usedRequestId: number | null
+  /** Compensatory-off day this entitlement was spent on; set when the leave is approved. */
+  usedOffDate?: string | null
+  reservedRequestId?: number | null
+  notes: string | null
 }
 
 export interface SwapOff {
@@ -149,6 +175,7 @@ export interface Holiday {
   date: string
   country: string
   holidayType: 'PUBLIC' | 'OPTIONAL' | 'OBSERVED' | 'HPE_HOLIDAY'
+  applicableLocations: string
   description: string | null
   scope: ScopeType
   teamId: number | null
@@ -524,6 +551,8 @@ export interface RosterStatusDetail {
   approvedAt: string | null
   workedForName: string | null
   workedDate: string | null
+  hpeHolidayName: string | null
+  hpeHolidayDate: string | null
 }
 
 export interface RosterBatchSaveResult {

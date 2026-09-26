@@ -35,6 +35,8 @@ export function AdminLeavesPage() {
     onSuccess: () => {
       toast.success('Leave approved')
       queryClient.invalidateQueries({ queryKey: ['admin', 'leaves'] })
+      // Approval writes the status (e.g. CO) into the attendance roster.
+      queryClient.invalidateQueries({ queryKey: ['admin', 'roster'] })
     },
     onError: (err) => toast.error(extractMessage(err)),
   })
@@ -99,6 +101,11 @@ export function AdminLeavesPage() {
                     </td>
                     <td className="td">
                       <span className="text-xs font-semibold text-surface-700">{l.leaveTypeCode}</span>
+                      {l.hpeEntitlementId && l.hpeHolidayName && (
+                        <p className="text-xs text-surface-400" title={`Entitlement expires ${formatDate(l.hpeEntitlementExpiryDate)}`}>
+                          {l.hpeHolidayName} · {formatDate(l.hpeHolidayDate)}
+                        </p>
+                      )}
                     </td>
                     <td className="td text-xs">
                       {formatDate(l.startDate)} → {formatDate(l.endDate)}

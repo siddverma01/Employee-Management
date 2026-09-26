@@ -10,6 +10,7 @@ import { ApplyLeavePage } from '@/pages/employee/ApplyLeavePage'
 import { MyLeavesPage } from '@/pages/employee/MyLeavesPage'
 import { ApplySwapOffPage } from '@/pages/employee/ApplySwapOffPage'
 import { MySwapOffsPage } from '@/pages/employee/MySwapOffsPage'
+import { LeavePage } from '@/pages/employee/LeavePage'
 import { CalendarPage } from '@/pages/employee/CalendarPage'
 import { TodayPage } from '@/pages/employee/TodayPage'
 import { HolidaysPage } from '@/pages/employee/HolidaysPage'
@@ -59,10 +60,10 @@ export default function App() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/demo" element={<ThemeDemo />} />
           <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/leaves/new" element={<ApplyLeavePage />} />
-          <Route path="/leaves" element={<MyLeavesPage />} />
-          <Route path="/swap-off/new" element={<ApplySwapOffPage />} />
-          <Route path="/swap-off" element={<MySwapOffsPage />} />
+<Route path="/leaves" element={<LeavePage />} />
+<Route path="/leaves/new" element={<ApplyLeavePage />} />
+<Route path="/swap-off/new" element={<ApplySwapOffPage />} />
+<Route path="/swap-off" element={<MySwapOffsPage />} />
           <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/today" element={<TodayPage />} />
           <Route path="/holidays" element={<HolidaysPage />} />

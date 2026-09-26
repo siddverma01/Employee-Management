@@ -15,10 +15,24 @@ export const leaveSchema = z
     endDate: z.string().min(1, 'End date is required'),
     reason: z.string().min(3, 'Please provide a reason (min 3 characters)'),
     attachment: z.string().optional().nullable(),
+    /** Only meaningful for COMP_OFF: the earned HPE Holiday entitlement being consumed. */
+    hpeEntitlementId: z.string().optional(),
   })
   .refine((v) => !v.startDate || !v.endDate || v.startDate <= v.endDate, {
     message: 'Start date cannot be after end date',
     path: ['endDate'],
+  })
+  .superRefine((v, ctx) => {
+    if (v.leaveType === 'COMP_OFF' && !v.hpeEntitlementId) {
+      ctx.addIssue({ code: 'custom', message: 'Select the HPE Holiday to use', path: ['hpeEntitlementId'] })
+    }
+    if (v.leaveType !== 'COMP_OFF' && v.hpeEntitlementId) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'An HPE Holiday can only be applied to Compensatory Off',
+        path: ['hpeEntitlementId'],
+      })
+    }
   })
 
 export type LeaveForm = z.infer<typeof leaveSchema>
@@ -61,7 +75,8 @@ export const holidaySchema = z.object({
   name: z.string().min(2, 'Holiday name is required'),
   date: z.string().min(1, 'Date is required'),
   country: z.string().default('US'),
-  holidayType: z.enum(['PUBLIC', 'OPTIONAL', 'OBSERVED']).default('PUBLIC'),
+  holidayType: z.enum(['PUBLIC', 'OPTIONAL', 'OBSERVED', 'HPE_HOLIDAY']).default('PUBLIC'),
+  applicableLocations: z.enum(['ALL', 'PUNE_MUMBAI', 'BANGALORE', 'DELHI', 'HYDERABAD', 'CHENNAI', 'KOLKATA', 'US']).default('ALL'),
   description: z.string().optional().nullable(),
   scope: z.enum(['GLOBAL', 'TEAM']).default('GLOBAL'),
   teamId: z.preprocess((v) => (v === '' || v == null ? undefined : Number(v)), z.number().optional()),

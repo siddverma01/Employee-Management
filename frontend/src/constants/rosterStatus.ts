@@ -57,6 +57,8 @@ export function rosterStatusClass(code: string | null | undefined): string {
 export interface AttendanceCellStyle {
   backgroundColor: string
   color: string
+  /** Optional subtle 1px border; omitted for flat roster fills. */
+  borderColor?: string
 }
 
 /**

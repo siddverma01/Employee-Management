@@ -8,6 +8,8 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { StatCard } from '@/components/ui/StatCard'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { Button } from '@/components/ui/Button'
+import { StatusBadge } from '@/components/ui/StatusBadge'
+import { resolveHolidayDisplayType } from '@/constants/holidayStatus'
 import { ATTENDANCE_TYPE_LABELS, cn, formatDayShort } from '@/utils'
 import type { AttendanceType } from '@/types'
 
@@ -57,13 +59,23 @@ function UpcomingList() {
         {holidays?.map((h) => (
           <div key={h.id} className="flex items-center gap-3">
             <span className="w-24 shrink-0 text-xs text-surface-400">{formatDayShort(h.date)}</span>
-            <span className="text-surface-700">{h.name}</span>
+            <span className="min-w-0 flex-1 truncate text-surface-700">{h.name}</span>
+            <StatusBadge
+              status={resolveHolidayDisplayType(h)}
+              className="shrink-0 px-2 py-0.5 text-[10px] font-semibold"
+            />
           </div>
         ))}
         {me?.upcomingBirthdays.map((b) => (
           <div key={b.name + b.date} className="flex items-center gap-3">
             <span className="w-24 shrink-0 text-xs text-surface-400">{formatDayShort(b.date)}</span>
-            <span className="text-surface-700">Birthday: {b.name}</span>
+            <span className="min-w-0 flex-1 truncate text-surface-700">Birthday: {b.name}</span>
+            <span
+              className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+              style={{ backgroundColor: 'var(--attendance-wx-bg)', color: 'var(--attendance-wx-text)' }}
+            >
+              Birthday
+            </span>
           </div>
         ))}
       </div>

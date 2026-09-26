@@ -57,6 +57,11 @@ export function MyLeavesPage() {
                     <td className="td">
                       <span className="font-medium text-surface-800">{l.leaveTypeCode}</span>
                       <span className="ml-1 text-xs text-surface-400">{l.leaveTypeLabel}</span>
+                      {l.hpeEntitlementId && l.hpeHolidayName && (
+                        <p className="text-xs text-surface-400">
+                          {l.hpeHolidayName} · {formatDate(l.hpeHolidayDate)}
+                        </p>
+                      )}
                     </td>
                     <td className="td">{formatDate(l.startDate)}</td>
                     <td className="td">{formatDate(l.endDate)}</td>

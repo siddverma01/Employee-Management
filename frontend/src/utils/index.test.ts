@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { calculateLeaveDays } from '@/pages/employee/ApplyLeavePage'
-import { attendanceShort, daysBetween, formatDate, HPE_HOLIDAY_BADGE, HPE_HOLIDAY_LABEL, initials, isHpeHoliday, toISODate } from '@/utils'
+import { attendanceShort, daysBetween, formatDate, initials, toISODate } from '@/utils'
+import { holidayLabel, holidayCompactLabel, resolveHolidayDisplayType, getHolidayDisplayInfo } from '@/constants/holidayStatus'
 
 describe('date utilities', () => {
   it('toISODate pads month and day', () => {
@@ -47,27 +48,42 @@ describe('misc utils', () => {
   })
 })
 
-describe('isHpeHoliday', () => {
-  it('matches a holiday flagged as HPE_HOLIDAY by the backend', () => {
-    expect(
-      isHpeHoliday({ kind: 'HOLIDAY', extra: { holidayType: 'HPE_HOLIDAY', country: 'IN' } }),
-    ).toBe(true)
+describe('holidayStatus', () => {
+  it('resolves HPE Holiday from backend extra', () => {
+    expect(resolveHolidayDisplayType({ holidayType: 'HPE_HOLIDAY', country: 'IN' })).toBe('HPE_HOLIDAY')
+    expect(resolveHolidayDisplayType({ holidayType: 'PUBLIC', country: 'US' })).toBe('US')
+    expect(resolveHolidayDisplayType({ holidayType: 'PUBLIC', country: 'IN' })).toBe('PUBLIC')
   })
 
-  it('ignores regular holidays, leaves, events and birthdays', () => {
-    expect(isHpeHoliday({ kind: 'HOLIDAY', extra: { holidayType: 'PUBLIC' } })).toBe(false)
-    expect(isHpeHoliday({ kind: 'LEAVE', extra: { holidayType: 'HPE_HOLIDAY' } })).toBe(false)
-    expect(isHpeHoliday({ kind: 'EVENT', extra: {} })).toBe(false)
-    expect(isHpeHoliday({ kind: 'BIRTHDAY', extra: {} })).toBe(false)
+  it('provides human-readable labels', () => {
+    expect(holidayLabel('HPE_HOLIDAY')).toBe('HPE Holiday')
+    expect(holidayLabel('US')).toBe('US Holiday')
+    expect(holidayLabel('PUBLIC')).toBe('Public Holiday')
+    expect(holidayCompactLabel('HPE_HOLIDAY')).toBe('HPEH')
+    expect(holidayCompactLabel('US')).toBe('US')
+    expect(holidayCompactLabel('PUBLIC')).toBe('PH')
   })
 
-  it('never matches on employee/entitlement data - only holiday metadata', () => {
-    expect(isHpeHoliday({ kind: 'HOLIDAY', extra: { entitlement: 'AVAILABLE' } })).toBe(false)
-    expect(isHpeHoliday({ kind: 'COMP_OFF', extra: { holidayType: 'HPE_HOLIDAY' } })).toBe(false)
+  it('getHolidayDisplayInfo returns label, compactLabel, and style for CalendarEvent', () => {
+    const hpeEvent = { kind: 'HOLIDAY', extra: { holidayType: 'HPE_HOLIDAY', country: 'IN' } }
+    const usEvent = { kind: 'HOLIDAY', extra: { holidayType: 'PUBLIC', country: 'US' } }
+    const regularEvent = { kind: 'HOLIDAY', extra: { holidayType: 'PUBLIC', country: 'IN' } }
+
+    expect(getHolidayDisplayInfo(hpeEvent).label).toBe('HPE Holiday')
+    expect(getHolidayDisplayInfo(hpeEvent).compactLabel).toBe('HPEH')
+    expect(getHolidayDisplayInfo(hpeEvent).style.backgroundColor).toBe('var(--holiday-hpe-bg)')
+
+    expect(getHolidayDisplayInfo(usEvent).label).toBe('US Holiday')
+    expect(getHolidayDisplayInfo(usEvent).compactLabel).toBe('US')
+    expect(getHolidayDisplayInfo(usEvent).style.backgroundColor).toBe('var(--holiday-us-bg)')
+
+    expect(getHolidayDisplayInfo(regularEvent).label).toBe('Public Holiday')
+    expect(getHolidayDisplayInfo(regularEvent).compactLabel).toBe('PH')
   })
 
-  it('exposes the agreed labels', () => {
-    expect(HPE_HOLIDAY_BADGE).toBe('HPEH')
-    expect(HPE_HOLIDAY_LABEL).toBe('HPE Holiday')
+  it('ignores non-holiday kinds', () => {
+    expect(getHolidayDisplayInfo({ kind: 'LEAVE', extra: {} }).label).toBe('')
+    expect(getHolidayDisplayInfo({ kind: 'EVENT', extra: {} }).label).toBe('')
+    expect(getHolidayDisplayInfo({ kind: 'BIRTHDAY', extra: {} }).label).toBe('')
   })
 })

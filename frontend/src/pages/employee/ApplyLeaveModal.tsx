@@ -2,20 +2,21 @@ import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { leaveApi, holidayApi, hpeHolidayApi } from '@/api'
 import { leaveSchema, type LeaveForm } from '@/validations/schemas'
 import { extractMessage } from '@/api/client'
 import { formatDate, toISODate } from '@/utils'
 import type { HPEEntitlement } from '@/types'
-import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
+import { Modal } from '@/components/ui/Modal'
+import { cn } from '@/utils'
 
-export function calculateLeaveDays(startIso: string, endIso: string, holidayDates: Set<string>): number {
+function calculateLeaveDays(startIso: string, endIso: string, holidayDates: Set<string>): number {
   const start = new Date(startIso + 'T00:00:00')
   const end = new Date(endIso + 'T00:00:00')
   let days = 0
@@ -29,8 +30,12 @@ export function calculateLeaveDays(startIso: string, endIso: string, holidayDate
   return days
 }
 
-export function ApplyLeavePage() {
-  const navigate = useNavigate()
+interface ApplyLeaveModalProps {
+  isOpen: boolean
+  onClose: () => void
+}
+
+export function ApplyLeaveModal({ isOpen, onClose }: ApplyLeaveModalProps) {
   const queryClient = useQueryClient()
   const [daysCount, setDaysCount] = useState(0)
 
@@ -54,9 +59,6 @@ export function ApplyLeavePage() {
   const hpeEntitlementId = watch('hpeEntitlementId')
   const isCompOff = leaveType === 'COMP_OFF'
 
-  // Only fetched once Compensatory Off is chosen. The endpoint returns AVAILABLE,
-  // unexpired entitlements for the logged-in employee only - USED, EXPIRED and
-  // holidays the employee never worked are already filtered out server-side.
   const { data: hpeEntitlements, isLoading: loadingHpeEntitlements } = useQuery({
     queryKey: ['hpe-holidays', 'entitlements', 'available'],
     queryFn: hpeHolidayApi.availableEntitlements,
@@ -71,7 +73,6 @@ export function ApplyLeavePage() {
     }
   }, [startDate, endDate, holidayDates])
 
-  // Switching away from Compensatory Off must not submit a stale entitlement.
   useEffect(() => {
     if (!isCompOff && hpeEntitlementId) {
       setValue('hpeEntitlementId', undefined)
@@ -98,16 +99,28 @@ export function ApplyLeavePage() {
       toast.success('Leave request submitted')
       queryClient.invalidateQueries({ queryKey: ['leaves'] })
       queryClient.invalidateQueries({ queryKey: ['hpe-holidays'] })
-      navigate('/leaves')
+      onClose()
     },
     onError: (err) => toast.error(extractMessage(err)),
   })
 
-  return (
-    <div className="mx-auto max-w-2xl">
-      <PageHeader title="Apply for leave" subtitle="Submit a new leave request for approval" />
+  if (!isOpen) return null
 
+  return (
+<Modal
+      open={isOpen}
+      onClose={onClose}
+      title="Apply for Leave"
+      size="lg"
+      footer={
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button type="submit" form="apply-leave-form" loading={mutation.isPending}>Submit Request</Button>
+        </div>
+      }
+    >
       <form
+        id="apply-leave-form"
         onSubmit={handleSubmit(({ attachment, hpeEntitlementId: entitlementId, ...v }) =>
           mutation.mutate({
             ...v,
@@ -115,7 +128,7 @@ export function ApplyLeavePage() {
             ...(entitlementId ? { hpeEntitlementId: entitlementId } : {}),
           }),
         )}
-        className="card space-y-5 p-6"
+        className="space-y-5"
       >
         <Select
           label="Leave Type"
@@ -129,7 +142,7 @@ export function ApplyLeavePage() {
         />
 
         {isCompOff && (
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Select
               label="HPE Holiday to Use"
               name="hpeEntitlementId"
@@ -144,48 +157,43 @@ export function ApplyLeavePage() {
             />
 
             {loadingHpeEntitlements ? (
-              <p className="text-xs text-surface-500">Loading your earned HPE holidays…</p>
+              <p className="text-sm text-surface-500">Loading your earned HPE holidays…</p>
             ) : hpeOptions.length === 0 ? (
-              <p className="rounded-lg border border-surface-200 bg-surface-50 px-4 py-3 text-sm text-surface-600">
+              <div className="rounded-lg border border-surface-200 bg-surface-50 p-3 text-sm text-surface-600">
                 You have no available HPE holidays to use. An entitlement is earned when you work on an
                 HPE holiday, and can be used within 3 calendar months of that date.
-              </p>
+              </div>
             ) : selectedEntitlement ? (
-              <div className="rounded-lg border border-surface-200 bg-surface-50 px-4 py-3 text-sm">
+              <div className="rounded-lg border border-surface-200 bg-surface-50 p-3 text-sm">
                 <p className="font-medium text-surface-800">
                   {selectedEntitlement.holidayName} — {formatDate(selectedEntitlement.holidayDate)}
                 </p>
-                <p className="mt-0.5 text-xs text-surface-500">
+                <p className="mt-1 text-xs text-surface-500">
                   Earned {formatDate(selectedEntitlement.earnedDate)} · Expires:{' '}
                   {formatDate(selectedEntitlement.expiryDate)}
                 </p>
               </div>
             ) : (
-              <p className="text-xs text-surface-500">
+              <p className="text-sm text-surface-500">
                 Pick the HPE holiday you worked on. The compensatory off date is chosen separately below.
               </p>
             )}
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input label="Start Date" type="date" {...register('startDate')} error={errors.startDate?.message} />
           <Input label="End Date" type="date" {...register('endDate')} error={errors.endDate?.message} />
         </div>
 
-        <div className="rounded-lg border border-surface-200 bg-surface-50 px-4 py-3 text-sm">
-          <span className="text-surface-500">Number of days:</span>{' '}
-          <span className="font-bold text-brand-700">{daysCount}</span>
-          <span className="ml-2 text-xs text-surface-400">(weekends & public holidays excluded)</span>
-        </div>
+        {daysCount > 0 && (
+          <div className="inline-flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1.5 text-sm font-medium text-brand-700 dark:bg-brand-500/10 dark:text-brand-400">
+            {daysCount} {daysCount === 1 ? 'Day' : 'Days'} selected (excluding weekends & holidays)
+          </div>
+        )}
 
         <Textarea label="Reason" rows={3} placeholder="Explain the reason for your leave…" {...register('reason')} error={errors.reason?.message} />
-
-        <div className="flex justify-end gap-2 border-t border-surface-100 pt-4">
-          <Button type="button" variant="secondary" onClick={() => navigate(-1)}>Cancel</Button>
-          <Button type="submit" loading={mutation.isPending}>Submit request</Button>
-        </div>
       </form>
-    </div>
+    </Modal>
   )
 }

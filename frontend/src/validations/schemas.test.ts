@@ -25,6 +25,32 @@ describe('validation schemas', () => {
     ).toBe(true)
   })
 
+  it('leaveSchema requires an HPE holiday for Compensatory Off', () => {
+    const base = { startDate: '2026-10-05', endDate: '2026-10-05', reason: 'worked the holiday' }
+    const missing = leaveSchema.safeParse({ ...base, leaveType: 'COMP_OFF' })
+    expect(missing.success).toBe(false)
+    if (!missing.success) {
+      expect(missing.error.issues.some((i) => i.path.includes('hpeEntitlementId'))).toBe(true)
+    }
+
+    const chosen = leaveSchema.safeParse({ ...base, leaveType: 'COMP_OFF', hpeEntitlementId: '300' })
+    expect(chosen.success).toBe(true)
+  })
+
+  it('leaveSchema rejects an HPE holiday on other leave types', () => {
+    const result = leaveSchema.safeParse({
+      leaveType: 'SICK_LEAVE',
+      startDate: '2026-10-05',
+      endDate: '2026-10-05',
+      reason: 'not feeling well',
+      hpeEntitlementId: '300',
+    })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.path.includes('hpeEntitlementId'))).toBe(true)
+    }
+  })
+
   it('swapOffSchema rejects same worked and off date', () => {
     expect(
       swapOffSchema.safeParse({

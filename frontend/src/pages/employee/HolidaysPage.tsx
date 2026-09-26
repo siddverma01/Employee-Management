@@ -1,26 +1,41 @@
 import { useQuery } from '@tanstack/react-query'
-import { Gift, PartyPopper, Sun } from 'lucide-react'
+import { Gift, PartyPopper, Sun, Calendar } from 'lucide-react'
 import { eventApi, holidayApi } from '@/api'
-import { useTeam } from '@/hooks/useTeam'
 import { formatMonthYear, toISODate } from '@/utils'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { holidayLabel, getHolidayCellStyle, resolveHolidayDisplayType } from '@/constants/holidayStatus'
 
 const currentYear = new Date().getFullYear()
 const from = `${currentYear}-01-01`
 const to = `${currentYear}-12-31`
 
 const holidayIcons: Record<string, React.ReactNode> = {
-  PUBLIC: <Sun className="h-4 w-4 text-amber-500" />,
-  OPTIONAL: <Gift className="h-4 w-4 text-violet-500" />,
-  OBSERVED: <PartyPopper className="h-4 w-4 text-brand-500" />,
+  HPE_HOLIDAY: <Calendar className="h-4 w-4" />,
+  US: <Sun className="h-4 w-4" />,
+  PUBLIC: <Sun className="h-4 w-4" />,
+  OPTIONAL: <Gift className="h-4 w-4" />,
+  OBSERVED: <PartyPopper className="h-4 w-4" />,
 }
 
-function MonthSection({ label, holidays, events }: { label: string; holidays: { name: string; date: string; holidayType?: string }[]; events: { title: string; eventDate: string; eventType?: string }[] }) {
+function MonthSection({ label, holidays, events }: { label: string; holidays: { name: string; date: string; holidayType?: string; country?: string; applicableLocations?: string }[]; events: { title: string; eventDate: string; eventType?: string }[] }) {
   const items = [
-    ...holidays.map((h) => ({ key: 'h' + h.name + h.date, icon: holidayIcons[h.holidayType ?? ''] ?? <Sun className="h-4 w-4 text-amber-500" />, name: h.name, date: h.date, tag: h.holidayType ?? 'HOLIDAY', color: 'text-amber-700 bg-amber-50 dark:text-amber-400 dark:bg-surface-100' })),
-    ...events.map((e) => ({ key: 'e' + e.title + e.eventDate, icon: <PartyPopper className="h-4 w-4 text-brand-500" />, name: e.title, date: e.eventDate, tag: e.eventType ?? 'EVENT', color: 'text-brand-700 bg-brand-50 dark:text-brand-400 dark:bg-surface-100' })),
+    ...holidays.map((h) => {
+      const displayType = resolveHolidayDisplayType(h)
+      const style = getHolidayCellStyle(displayType)
+      const icon = holidayIcons[displayType] ?? holidayIcons.PUBLIC
+      return {
+        key: 'h' + h.name + h.date,
+        icon,
+        name: h.name,
+        date: h.date,
+        tag: holidayLabel(displayType),
+        compactTag: displayType,
+        style: { backgroundColor: style.backgroundColor, color: style.color },
+      }
+    }),
+    ...events.map((e) => ({ key: 'e' + e.title + e.eventDate, icon: <PartyPopper className="h-4 w-4 text-brand-500" />, name: e.title, date: e.eventDate, tag: e.eventType ?? 'EVENT', style: { backgroundColor: 'var(--hpe-brand-100)', color: 'var(--hpe-brand-700)' } })),
   ].sort((a, b) => a.date.localeCompare(b.date))
 
   if (items.length === 0) return null
@@ -38,7 +53,7 @@ function MonthSection({ label, holidays, events }: { label: string; holidays: { 
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-surface-800">{it.name}</p>
             </div>
-            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${it.color}`}>{it.tag.toLowerCase()}</span>
+            <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold" style={it.style}>{it.tag}</span>
           </li>
         ))}
       </ul>
@@ -47,14 +62,13 @@ function MonthSection({ label, holidays, events }: { label: string; holidays: { 
 }
 
 export function HolidaysPage() {
-  const { effectiveTeamId } = useTeam()
   const { data: holidays, isLoading } = useQuery({
-    queryKey: ['holidays', 'year', effectiveTeamId ?? 'default'],
-    queryFn: () => holidayApi.list({ from, to, teamId: effectiveTeamId }),
+    queryKey: ['holidays', 'year', 'my'],
+    queryFn: () => holidayApi.myHolidays({ from, to }),
   })
   const { data: events } = useQuery({
-    queryKey: ['events', 'year', effectiveTeamId ?? 'default'],
-    queryFn: () => eventApi.list({ from, to, teamId: effectiveTeamId }),
+    queryKey: ['events', 'year', 'default'],
+    queryFn: () => eventApi.list({ from, to }),
   })
 
   if (isLoading) return <LoadingState label="Loading holidays…" />
