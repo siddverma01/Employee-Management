@@ -6,6 +6,7 @@
   html {
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    font-optical-sizing: auto;
     background-color: rgb(var(--hpe-surface-50));
   }
   body {
@@ -333,4 +334,84 @@
    utility regardless of class order. */
 .roster-frozen-panel .frozen-col-last {
   border-right: 0;
+}
+/* ==========================================================================
+   Stitch dark-charcoal theme override — DARK MODE ONLY
+   Every rule is nested under `.dark` so it deactivates automatically when the
+   `dark` class is removed from <html> (light mode). Unlayered and !important
+   so it wins over the token-driven utilities regardless of class order.
+   ========================================================================== */
+.dark body,
+.dark main {
+  background-color: #121316 !important;
+}
+.dark header,
+.dark aside {
+  background-color: #141518 !important;
+  border-color: #23252a !important;
+}
+.dark aside .border-slate-800,
+.dark header .border-slate-800,
+.dark main .border-slate-800,
+.dark footer.border-slate-800 {
+  border-color: #23252a !important;
+}
+.dark aside div.bg-\[\#0e1420\] {
+  background-color: #111215 !important;
+  border-color: #23252a !important;
+}
+.dark #team-selector,
+.dark select.bg-\[\#1e293b\]\/80,
+.dark input.bg-\[\#1e293b\]\/70 {
+  background-color: #1e2025 !important;
+  border-color: #2e323b !important;
+}
+.dark div.bg-\[\#1e293b\]\/70 {
+  background-color: #1a1b20 !important;
+  border-color: #2a2d35 !important;
+}
+.dark button.bg-slate-700 {
+  background-color: #262930 !important;
+  border-color: #353842 !important;
+}
+.dark section.bg-\[\#111827\] {
+  background-color: #141518 !important;
+  border-color: #23252a !important;
+}
+.dark div.bg-\[\#111827\] {
+  background-color: #16171b !important;
+  border-color: #23252b !important;
+}
+.dark div.bg-\[\#0d131f\] {
+  background-color: #141518 !important;
+  border-color: #23252b !important;
+}
+.dark .divide-slate-800\/90 > * + * {
+  border-color: #23252b !important;
+}
+.dark .calendar-cell {
+  min-height: 128px;
+  background-color: #16171b !important;
+  transition: background-color 0.15s ease-in-out;
+}
+.dark .calendar-cell:hover {
+  background-color: #1d1e24 !important;
+}
+.dark .calendar-cell.bg-\[\#0b0f17\]\/60 {
+  background-color: #121316 !important;
+}
+.dark .calendar-cell.bg-\[\#0d131f\]\/60 {
+  background-color: #131418 !important;
+}
+.dark .calendar-cell.bg-emerald-950\/20 {
+  background-color: rgba(0, 179, 136, 0.08) !important;
+}
+.dark .border-brand-500 {
+  border-color: #00b388 !important;
+}
+.dark .event-chip {
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+.dark .event-chip:hover {
+  transform: translateY(-1px);
 }

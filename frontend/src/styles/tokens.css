@@ -130,6 +130,16 @@
   --hpe-status-active-text: 13 111 95;
   --hpe-status-active-border: 178 223 215;
 
+  --hpe-status-inactive-bg: 242 243 247;
+  --hpe-status-inactive-text: 122 130 144;
+  --hpe-status-inactive-border: 224 227 234;
+
+  /* Leave request status badges — LIGHT */
+  --status-pending-bg: #FEF3C7; --status-pending-text: #78350F; --status-pending-border: #FCD34D;
+  --status-approved-bg: #D1FAE5; --status-approved-text: #065F46; --status-approved-border: #6EE7B7;
+  --status-rejected-bg: #FEE2E2; --status-rejected-text: #991B1B; --status-rejected-border: #FCA5A5;
+  --status-cancelled-bg: #F3F4F6; --status-cancelled-text: #4B5563; --status-cancelled-border: #D1D5DB;
+
   /*
    * Live employee status (employees table) — SEMANTIC, theme-aware.
    * LIGHT: soft pastel tints.   present → teal · wfh → blue ·
@@ -176,8 +186,8 @@
   /* Focus indicator — global accent */
   --hpe-focus: 0 184 148;
 
-  /* Typography — Metric primary, Open Sans / Arial / sans-serif fallbacks */
-  --hpe-font-primary: 'Metric', Arial, sans-serif;
+  /* Typography — Inter primary, system-ui / Arial / sans-serif fallbacks */
+  --hpe-font-primary: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 
   /* Radius */
   --hpe-radius-small: 4px;
@@ -210,8 +220,8 @@
   --attendance-wfh-bg: #FDE68A; --attendance-wfh-text: #78350F;
   --attendance-pl-bg: #FDE68A; --attendance-pl-text: #78350F;
   --attendance-sl-bg: #FEF3C7; --attendance-sl-text: #78350F;
-  --attendance-co-bg: #FEF3C7; --attendance-co-text: #78350F;
-  --attendance-hpeh-bg: #FDE68A; --attendance-hpeh-text: #78350F;
+  --attendance-co-bg: #DBEAFE; --attendance-co-text: #1E40AF;
+  --attendance-hpeh-bg: #F0FDF4; --attendance-hpeh-text: #166534;
   --attendance-fl-bg: #FED7AA; --attendance-fl-text: #7C2D12;
   --attendance-sw-off-bg: #FDE68A; --attendance-sw-off-text: #78350F;
   --attendance-sw-wk-bg: #86EFAC; --attendance-sw-wk-text: #166534;
@@ -223,6 +233,32 @@
   --attendance-wdt-bg: #BFDBFE; --attendance-wdt-text: #1E40AF;
   --attendance-atr-bg: #FECACA; --attendance-atr-text: #991B1B;
   --attendance-empty-bg: #F7F8FA; --attendance-empty-text: #A6AEBB;
+
+  /* Holiday type colors (Light mode)
+     Soft pastel fill + dark readable text + a subtle 1px border, so event
+     bars read as calm schedule entries rather than saturated colour blocks. */
+  --holiday-hpe-bg: #ECFDF5; --holiday-hpe-text: #065F46; --holiday-hpe-border: #A7F3D0;      /* HPE Holiday - soft mint/teal, dark teal-green text */
+  --holiday-us-bg: #EFF6FF; --holiday-us-text: #1E40AF; --holiday-us-border: #BFDBFE;        /* US Holiday - soft blue, dark blue text */
+  --holiday-public-bg: #FEF3C7; --holiday-public-text: #78350F; --holiday-public-border: #FDE68A; /* Generic public holiday - amber tint */
+  --holiday-optional-bg: #F3E8FF; --holiday-optional-text: #7C3AED; --holiday-optional-border: #E9D5FF; /* Optional holiday - violet tint */
+  --holiday-observed-bg: #FFEDD5; --holiday-observed-text: #9A3412; --holiday-observed-border: #FED7AA; /* Observed holiday - orange tint */
+
+  /* Calendar event categories (Light mode).
+     Deliberately low-saturation and mutually distinct: the calendar should read
+     as a schedule first and a colour key second. Hue per category:
+     Leave = amber, Comp Off = neutral slate, HPE = mint, US = blue,
+     Birthday = rose, Company Event = violet. */
+  --cal-leave-bg: #FFFBEB; --cal-leave-text: #92400E; --cal-leave-border: #FDE68A;
+  --cal-co-bg: #F1F5F9; --cal-co-text: #475569; --cal-co-border: #E2E8F0;
+  --cal-bday-bg: #FDF2F8; --cal-bday-text: #9D174D; --cal-bday-border: #FBCFE8;
+  --cal-event-bg: #F5F3FF; --cal-event-text: #5B21B6; --cal-event-border: #DDD6FE;
+
+  /* Calendar chrome — grid lines, today marker, container elevation. */
+  --cal-grid-line: #EEF0F3;
+  --cal-header-bg: #F8F9FB;
+  --cal-today-bg: #F4F8FF;
+  --cal-today-ring: rgb(0 82 204 / 0.22);
+  --cal-shadow: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.03);
 }
 
 /* DARK mode — layered SOFT charcoal-slate surfaces (no near-black, no pure
@@ -291,6 +327,16 @@
   --hpe-status-active-text: 111 216 192;
   --hpe-status-active-border: 30 56 48;
 
+  --hpe-status-inactive-bg: 25 27 33;
+  --hpe-status-inactive-text: 128 136 150;
+  --hpe-status-inactive-border: 41 46 56;
+
+  /* Leave request status badges — DARK */
+  --status-pending-bg: #4A3A16; --status-pending-text: #FDE68A; --status-pending-border: #FCD34D;
+  --status-approved-bg: #173D2B; --status-approved-text: #8BE0AE; --status-approved-border: #6EE7B7;
+  --status-rejected-bg: #48272A; --status-rejected-text: #FCA5A5; --status-rejected-border: #EF4444;
+  --status-cancelled-bg: #2D333B; --status-cancelled-text: #9CA3AF; --status-cancelled-border: #6B7280;
+
   /* Live employee status — DARK: translucent tinted surfaces */
   --hpe-status-present-bg: 11 27 24;
   --hpe-status-present-text: 111 216 192;
@@ -320,8 +366,8 @@
   --attendance-wfh-bg: #4A3A16; --attendance-wfh-text: #EFD180;
   --attendance-pl-bg: #493A17; --attendance-pl-text: #EDCB68;
   --attendance-sl-bg: #49301F; --attendance-sl-text: #F1B879;
-  --attendance-co-bg: #443817; --attendance-co-text: #E8CF76;
-  --attendance-hpeh-bg: #463817; --attendance-hpeh-text: #E7CE70;
+  --attendance-co-bg: #1E3A5F; --attendance-co-text: #9CC9EE;
+  --attendance-hpeh-bg: #173D2B; --attendance-hpeh-text: #8BE0AE;
   --attendance-fl-bg: #442D20; --attendance-fl-text: #E8AE7D;
   --attendance-sw-off-bg: #433417; --attendance-sw-off-text: #E7C96D;
   --attendance-sw-wk-bg: #173D2B; --attendance-sw-wk-text: #8BE0AE;
@@ -333,4 +379,56 @@
   --attendance-wdt-bg: #1F3548; --attendance-wdt-text: #9CC9EE;
   --attendance-atr-bg: #48272A; --attendance-atr-text: #F0A4A8;
   --attendance-empty-bg: #1E2229; --attendance-empty-text: #626A76;
+
+  /* Holiday type colors (Dark mode) — semi-transparent variants for modern chips */
+  --holiday-hpe-bg: rgba(123 220 176 / 0.12); --holiday-hpe-text: #7BDCB0; --holiday-hpe-border: #7BDCB0;
+  --holiday-us-bg: rgba(147 189 240 / 0.12); --holiday-us-text: #93BDF0; --holiday-us-border: #93BDF0;
+  --holiday-public-bg: rgba(241 184 121 / 0.12); --holiday-public-text: #F1B879; --holiday-public-border: #F1B879;
+  --holiday-optional-bg: rgba(216 180 254 / 0.12); --holiday-optional-text: #D8B4FE; --holiday-optional-border: #D8B4FE;
+  --holiday-observed-bg: rgba(253 186 116 / 0.12); --holiday-observed-text: #FDBA74; --holiday-observed-border: #FDBA74;
+
+  /* Calendar event categories (Dark mode) — semi-transparent variants */
+  --cal-leave-bg: rgba(240 198 116 / 0.12); --cal-leave-text: #F0C674; --cal-leave-border: #F0C674;
+  --cal-co-bg: rgba(169 180 194 / 0.12); --cal-co-text: #A9B4C2; --cal-co-border: #A9B4C2;
+  --cal-bday-bg: rgba(240 166 196 / 0.12); --cal-bday-text: #F0A6C4; --cal-bday-border: #F0A6C4;
+  --cal-event-bg: rgba(192 174 245 / 0.12); --cal-event-text: #C0AEF5; --cal-event-border: #C0AEF5;
+
+  /* Calendar chrome (Dark mode) */
+  --cal-grid-line: #23272F;
+  --cal-header-bg: #1B1F25;
+  --cal-today-bg: rgba(59 130 246 / 0.12);
+  --cal-today-ring: rgb(125 211 252 / 0.20);
+  --cal-shadow: 0 1px 2px rgb(0 0 0 / 0.28), 0 1px 3px rgb(0 0 0 / 0.20);
+}
+
+/* ---------------------------------------------------------------------------
+   Calendar sizing
+   --cal-cell-min is the floor for one week row. The calendar container is sized
+   with clamp(viewport height) and floored at (rows * --cal-cell-min), so the
+   grid always has room for its cells yet still grows to fill a tall window.
+   The floor steps down on smaller viewports so a phone never gets a
+   disproportionately tall calendar.
+   --------------------------------------------------------------------------- */
+:root {
+  --cal-cell-min: 104px;
+  /* weekday header row: py-2.5 (20px) + line box (~17px) + 1px border */
+  --cal-header-h: 38px;
+}
+
+@media (max-width: 1024px) {
+  :root {
+    --cal-cell-min: 92px;
+  }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --cal-cell-min: 78px;
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --cal-cell-min: 66px;
+  }
 }

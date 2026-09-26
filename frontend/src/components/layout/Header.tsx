@@ -10,24 +10,51 @@ import { TeamSelector } from '@/components/layout/TeamSelector'
 
 /**
  * Persisted light/dark theme.
- * Applies/resolves the `.dark` class on <html> — every token in
- * src/styles/tokens.css flips through that class.
+ *
+ * Tailwind is configured with `darkMode: 'class'`, so dark mode is active only
+ * while `dark` is present on <html>. Light mode is the absence of that class —
+ * we never add a `light` class.
+ *
+ * The DOM class is the single source of truth: `toggleTheme` flips it directly
+ * and mirrors the result into React state for the button icon. An init check
+ * (mirrored by the blocking script in index.html, which prevents a light flash)
+ * resolves the class on first mount.
  */
 function useTheme() {
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    const stored = localStorage.getItem('theme')
-    if (stored === 'light' || stored === 'dark') return stored
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-  })
+  const [isDark, setIsDark] = useState<boolean>(
+    () => document.documentElement.classList.contains('dark'),
+  )
 
+  // Init check: re-assert the class from storage / OS preference on mount.
   useEffect(() => {
-    const root = document.documentElement
-    root.classList.toggle('dark', theme === 'dark')
-    root.style.colorScheme = theme
-    localStorage.setItem('theme', theme)
-  }, [theme])
+    try {
+      const stored = localStorage.getItem('theme')
+      const prefersDark =
+        !('theme' in localStorage) &&
+        window.matchMedia('(prefers-color-scheme: dark)').matches
+      const dark = stored === 'dark' || prefersDark
+      document.documentElement.classList.toggle('dark', dark)
+      document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
+      setIsDark(dark)
+    } catch {
+      /* storage unavailable (private mode) — keep the current class */
+    }
+  }, [])
 
-  return { theme, toggle: () => setTheme((t) => (t === 'dark' ? 'light' : 'dark')) }
+  const updateThemeIcons = (dark: boolean) => setIsDark(dark)
+
+  const toggleTheme = () => {
+    const dark = document.documentElement.classList.toggle('dark')
+    try {
+      localStorage.setItem('theme', dark ? 'dark' : 'light')
+    } catch {
+      /* storage unavailable — theme still applies for this session */
+    }
+    document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
+    updateThemeIcons(dark)
+  }
+
+  return { isDark, toggleTheme }
 }
 
 const headerIconBtn =
@@ -37,8 +64,7 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
   const { user, logout } = useAuth()
   const location = useLocation()
   const [profileOpen, setProfileOpen] = useState(false)
-  const { theme, toggle } = useTheme()
-  const isDark = theme === 'dark'
+  const { isDark, toggleTheme } = useTheme()
 
   const { data: unreadCount = 0 } = useQuery({
     queryKey: ['notifications', 'unreadCount'],
@@ -49,7 +75,7 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
   useEffect(() => setProfileOpen(false), [location.pathname])
 
   return (
-    <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-surface-200 bg-topnav px-4 lg:px-6">
+    <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-white px-4 lg:px-6 dark:border-[#23252a] dark:bg-[#141518]">
       {/* Left — mobile menu trigger + team context */}
       <div className="flex min-w-0 items-center gap-3">
         <button
@@ -68,12 +94,14 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
           <Search strokeWidth={1.5} className="h-5 w-5" />
         </button>
 
-        {/* Dark / Light toggle — Sun in Dark mode (go light), Moon in Light mode (go dark) */}
+        {/* Theme toggle — Sun shown in Dark mode (click for light), Moon in Light mode */}
         <button
+          id="theme-toggle"
           className={headerIconBtn}
-          onClick={toggle}
+          onClick={toggleTheme}
           aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
           title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          aria-pressed={isDark}
         >
           {isDark ? <Sun strokeWidth={1.5} className="h-5 w-5" /> : <Moon strokeWidth={1.5} className="h-5 w-5" />}
         </button>
@@ -110,7 +138,7 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
                 <User className="h-4 w-4" /> My profile
               </Link>
               <hr className="my-1 border-surface-200" />
-              <button onClick={logout} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 transition-colors hover:bg-error-50">
+              <button onClick={logout} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 transition-colors hover:bg-surface-100">
                 <LogOut className="h-4 w-4" /> Log out
               </button>
             </div>

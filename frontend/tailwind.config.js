@@ -287,8 +287,26 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['Metric', 'Arial', 'sans-serif'],
-        display: ['Metric', 'Arial', 'sans-serif'],
+        sans: [
+          'Inter',
+          'system-ui',
+          '-apple-system',
+          'Segoe UI',
+          'Roboto',
+          'Helvetica Neue',
+          'Arial',
+          'sans-serif',
+        ],
+        display: [
+          'Inter',
+          'system-ui',
+          '-apple-system',
+          'Segoe UI',
+          'Roboto',
+          'Helvetica Neue',
+          'Arial',
+          'sans-serif',
+        ],
       },
       boxShadow: {
         'hpe-xs': '0 1px 2px rgba(0, 0, 0, 0.04)',
