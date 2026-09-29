@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Bell, ChevronDown, LogOut, Menu, Moon, Search, Sun, User } from 'lucide-react'
+import { Bell, ChevronDown, ChevronsLeft, ChevronsRight, LogOut, Menu, Moon, Search, Sun, User } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { cn } from '@/utils'
 import { useAuth } from '@/hooks/useAuth'
 import { notificationApi } from '@/api'
 import { Avatar } from '@/components/ui/Avatar'
 import { TeamSelector } from '@/components/layout/TeamSelector'
+import hpeLogoLight from '@/assets/hpe-logo-full-color-pos.png'
+import hpeLogoDark from '@/assets/hpe-logo-full-color-rev.png'
 
 /**
  * Persisted light/dark theme.
@@ -73,7 +75,15 @@ const headerIconBtn =
   'dark:border dark:border-[#2E323B] dark:bg-[#1E2025] dark:text-slate-400 ' +
   'dark:hover:border-[#3A3E48] dark:hover:bg-[#282B32] dark:hover:text-slate-100'
 
-export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
+export function Header({
+  onOpenMenu,
+  sidebarExpanded,
+  onToggleSidebar,
+}: {
+  onOpenMenu: () => void
+  sidebarExpanded: boolean
+  onToggleSidebar: () => void
+}) {
   const { user, logout } = useAuth()
   const location = useLocation()
   const [profileOpen, setProfileOpen] = useState(false)
@@ -88,25 +98,68 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
   useEffect(() => setProfileOpen(false), [location.pathname])
 
   return (
-    /* Shared 56px header rail. Height and padding are identical in both themes;
-       only the surface, border and ink colours differ. Inter is applied to <html>
-       via --hpe-font-primary; font-sans is restated so the control typography
-       holds even if the header is ever rendered outside the app shell. */
-    <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-white px-6 font-sans dark:border-[#23252A] dark:bg-[#141518]">
-      {/* Left — mobile menu trigger + team context */}
-      <div className="flex min-w-0 items-center gap-3">
-        <button
-          onClick={onOpenMenu}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-surface-500 transition-[background-color,color,border-color] duration-150 ease-in-out hover:bg-surface-100 hover:text-surface-800 dark:border dark:border-[#2E323B] dark:bg-[#1E2025] dark:text-slate-400 dark:hover:border-[#3A3E48] dark:hover:bg-[#282B32] dark:hover:text-slate-100 lg:hidden"
-          aria-label="Open menu"
-        >
-          <Menu className="h-4 w-4" strokeWidth={1.5} />
-        </button>
-        <TeamSelector className="w-32 grow sm:w-44 lg:w-48 lg:grow-0" />
-      </div>
+    /* Shared 64px header rail spanning the full viewport width. Height,
+       padding and the left-cluster spacing are identical in both themes; only
+       the surface, border and ink colours differ. Spacing is expressed as
+       explicit margins rather than a flex `gap` so the specified offsets
+       (40px logo-to-collapse, 16px around the divider) stay exact.
+       Inter is applied to <html> via --hpe-font-primary; font-sans is restated
+       so the control typography holds outside the app shell. */
+    <header className="flex h-16 shrink-0 items-center border-b border-slate-200 bg-white px-6 font-sans dark:border-[#23252A] dark:bg-[#141518]">
+      {/* Mobile menu trigger — the narrow-viewport counterpart of the collapse
+          button, so the two never appear together. */}
+      <button
+        onClick={onOpenMenu}
+        className="mr-3 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-surface-500 transition-[background-color,color,border-color] duration-150 ease-in-out hover:bg-surface-100 hover:text-surface-800 dark:border dark:border-[#2E323B] dark:bg-[#1E2025] dark:text-slate-400 dark:hover:border-[#3A3E48] dark:hover:bg-[#282B32] dark:hover:text-slate-100 lg:hidden"
+        aria-label="Open menu"
+      >
+        <Menu className="h-4 w-4" strokeWidth={1.5} />
+      </button>
 
-      {/* Right-aligned actions */}
-      <div className="flex items-center gap-1.5">
+      {/* Wordmark — the supplied positive (light) / reverse (dark) artwork, not
+          redrawn as text. 70px wide with auto height keeps the source 3.5:1
+          ratio exactly — 70/3.5 is a whole 20px, so it scales to a crisp
+          70x20 box with no sub-pixel rounding. No backing surface. */}
+      <Link
+        to="/dashboard"
+        aria-label="Employee management home"
+        className="flex shrink-0 items-center"
+      >
+        <img
+          src={isDark ? hpeLogoDark : hpeLogoLight}
+          alt="HPE"
+          className="block h-auto w-[70px]"
+        />
+      </Link>
+
+      {/* Sidebar collapse — 32px hit area, 40px after the wordmark. Reuses the
+          existing toggle and its localStorage-backed state in MainLayout. */}
+      <button
+        onClick={onToggleSidebar}
+        aria-label={sidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
+        title={sidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
+        aria-expanded={sidebarExpanded}
+        className="ml-10 hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg text-surface-500 transition-[background-color,color] duration-150 ease-in-out hover:bg-surface-100 hover:text-surface-800 dark:text-slate-400 dark:hover:bg-[#1D1E24] dark:hover:text-slate-100 lg:flex"
+      >
+        {sidebarExpanded ? (
+          <ChevronsLeft className="h-4 w-4" strokeWidth={1.5} />
+        ) : (
+          <ChevronsRight className="h-4 w-4" strokeWidth={1.5} />
+        )}
+      </button>
+
+      {/* Hairline between the brand cluster and the team context. Decorative
+          only, so it is hidden from assistive tech. */}
+      <span
+        aria-hidden="true"
+        className="mx-4 hidden h-6 w-px shrink-0 bg-slate-200 dark:bg-[#23252A] sm:block"
+      />
+
+      <TeamSelector className="hidden w-[165px] shrink-0 sm:flex lg:w-[175px]" />
+
+      {/* Right-aligned actions — 16px between controls, vertically centred on
+          the 64px rail by the parent's items-center. */}
+      <div className="ml-auto flex shrink-0 items-center gap-4">
         <button className={headerIconBtn} aria-label="Search" title="Search">
           <Search strokeWidth={1.5} className="h-4 w-4" />
         </button>

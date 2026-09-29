@@ -1,4 +1,4 @@
-import { Link, NavLink } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import {
   Home, Users, LogOut,
   LayoutDashboard, Building2, FileSpreadsheet, ClipboardList, Table2, History, Search,
@@ -6,7 +6,6 @@ import {
 } from 'lucide-react'
 import { cn } from '@/utils'
 import { useAuth } from '@/hooks/useAuth'
-import hpeElement from '@/assets/hpe-element-color.svg'
 
 type NavGroup = 'workspace' | 'administration' | 'attendance'
 
@@ -65,42 +64,15 @@ const itemClass = ({ isActive, collapsed }: { isActive: boolean; collapsed?: boo
       : 'border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-[#CBD5E1] dark:hover:bg-[#1D1E24] dark:hover:text-[#F8FAFC] dark:[&_svg]:text-[#94A3B8] dark:hover:[&_svg]:text-[#F8FAFC]',
   )
 
-function Brand({ collapsed = false }: { collapsed?: boolean }) {
-  return (
-        <div
-          data-probe="brand"
-          className={cn(
-            /* Brand rail matches the 56px header height in both themes so the
-               horizontal divider lines up across the shell. */
-            'flex h-14 shrink-0 items-center border-b border-slate-200 dark:border-[#23252A]',
-        collapsed ? 'justify-center px-1' : 'px-4',
-      )}
-    >
-      <Link
-        to="/dashboard"
-        className="flex min-w-0 items-center gap-3"
-        aria-label="Employee management home"
-        title={collapsed ? 'Employee management' : undefined}
-      >
-        <img src={hpeElement} alt="HPE" className="block h-6 w-auto shrink-0" />
-        {!collapsed && (
-          <span className="truncate whitespace-nowrap text-sm font-semibold text-surface-800">
-            Employee management
-          </span>
-        )}
-      </Link>
-    </div>
-  )
-}
-
 export function Sidebar({ onNavigate, collapsed = false }: { onNavigate?: () => void; collapsed?: boolean }) {
   const { user, logout } = useAuth()
   const isAdmin = user?.role === 'ADMIN'
   const visibleItems = NAV_ITEMS.filter((n) => !n.adminOnly || isAdmin)
 
   return (
+    /* No brand rail: the wordmark and the sidebar collapse control now live in
+       the full-width header, so a second logo here would duplicate it. */
     <div className="flex h-full flex-col bg-transparent">
-      <Brand collapsed={collapsed} />
       <nav className="flex flex-1 flex-col overflow-y-auto py-1">
         {NAV_GROUPS.map((group) => {
           const groupItems = visibleItems.filter((n) => n.group === group.id)

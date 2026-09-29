@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { cn } from '@/utils'
 import { Header } from '@/components/layout/Header'
 import { Sidebar } from '@/components/layout/Sidebar'
@@ -33,54 +33,52 @@ export function MainLayout() {
   }, [sidebarExpanded])
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-800 dark:bg-[#121316] dark:text-slate-200">
-      {/* Desktop sidebar */}
-      <aside
-        className={cn(
-          'relative hidden shrink-0 flex-col border-r border-slate-200 bg-white transition-[width] duration-200 ease-in-out lg:flex dark:border-[#23252a] dark:bg-[#141518]',
-          /* Geometry is shared: 224px expanded / 72px collapsed in both themes.
-             Only the border and surface colours differ. */
-          sidebarExpanded ? 'lg:w-[224px] lg:min-w-[224px]' : 'lg:w-[4.5rem]',
-        )}
-      >
-        <button
-          onClick={() => setSidebarExpanded((v) => !v)}
-          aria-label={sidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
-          title={sidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
-          /* Centred on the shared 56px header rail: (56 - 20) / 2 = 18px. */
-          className="absolute -right-3 top-[18px] z-10 flex h-5 w-5 items-center justify-center rounded-full border border-surface-300 bg-surface-100 text-surface-500 shadow-hpe-sm transition-colors duration-150 hover:text-surface-800"
-        >
-          {sidebarExpanded ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-        </button>
-        <Sidebar collapsed={!sidebarExpanded} />
-      </aside>
+    /* Column shell: the 64px header owns the full viewport width, so the wordmark
+       sits at the viewport's left edge above the sidebar. The second row holds
+       the sidebar and the scrollable main area. */
+    <div className="flex h-screen flex-col overflow-hidden bg-slate-50 text-slate-800 dark:bg-[#121316] dark:text-slate-200">
+      <Header
+        onOpenMenu={() => setMobileOpen(true)}
+        sidebarExpanded={sidebarExpanded}
+        onToggleSidebar={() => setSidebarExpanded((v) => !v)}
+      />
 
-      {/* Mobile overlay */}
-      {mobileOpen && (
-        <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={() => setMobileOpen(false)} />
-      )}
-      {/* Mobile drawer */}
-      <aside
-        className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-[224px] min-w-[224px] flex-col bg-white transition-transform lg:hidden dark:bg-[#141518]',
-          mobileOpen ? 'translate-x-0' : '-translate-x-full',
-        )}
-      >
-        <button
-          onClick={() => setMobileOpen(false)}
-          className="absolute right-3 top-4 z-10 p-1 text-surface-500 hover:text-surface-800"
-          aria-label="Close menu"
+      <div className="flex min-h-0 flex-1">
+        {/* Desktop sidebar */}
+        <aside
+          className={cn(
+            'relative hidden shrink-0 flex-col border-r border-slate-200 bg-white transition-[width] duration-200 ease-in-out lg:flex dark:border-[#23252a] dark:bg-[#141518]',
+            /* Geometry is shared: 224px expanded / 72px collapsed in both themes.
+               Only the border and surface colours differ. */
+            sidebarExpanded ? 'lg:w-[224px] lg:min-w-[224px]' : 'lg:w-[4.5rem]',
+          )}
         >
-          <X className="h-5 w-5" />
-        </button>
-        <Sidebar onNavigate={() => setMobileOpen(false)} />
-      </aside>
+          <Sidebar collapsed={!sidebarExpanded} />
+        </aside>
 
-      {/* Main area */}
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <Header onOpenMenu={() => setMobileOpen(true)} />
-        <main className="flex-1 overflow-y-auto w-full min-w-0 transition-all duration-300 ease-in-out">
-          {/* Shared main padding: 32px horizontal / 24px vertical in both themes. */}
+        {/* Mobile overlay */}
+        {mobileOpen && (
+          <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={() => setMobileOpen(false)} />
+        )}
+        {/* Mobile drawer */}
+        <aside
+          className={cn(
+            'fixed inset-y-0 left-0 z-50 flex w-[224px] min-w-[224px] flex-col bg-white transition-transform lg:hidden dark:bg-[#141518]',
+            mobileOpen ? 'translate-x-0' : '-translate-x-full',
+          )}
+        >
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="absolute right-3 top-4 z-10 p-1 text-surface-500 hover:text-surface-800"
+            aria-label="Close menu"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <Sidebar onNavigate={() => setMobileOpen(false)} />
+        </aside>
+
+        {/* Main area */}
+        <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <div className="w-full min-w-0 flex-1 flex flex-col bg-slate-50 overflow-y-auto px-8 py-6 transition-all duration-300 ease-in-out dark:bg-[#121316]">
             <Outlet />
           </div>
