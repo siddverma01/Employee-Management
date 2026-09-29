@@ -47,15 +47,15 @@ describe('CalendarGrid HPE holidays', () => {
     expect(badge.className).toContain('text-[9px]')
     expect(badge.className).toContain('font-bold')
     expect(badge.className).toContain('uppercase')
-    // light + dark emerald tint, matching the Stitch Company Holiday chip
-    expect(badge.className).toContain('bg-emerald-200/80')
-    expect(badge.className).toContain('dark:bg-emerald-800/80')
+    // light + dark emerald tint, matching the Stitch HPE Holiday chip
+    expect(badge.className).toContain('bg-[#D1FAE5]')
+    expect(badge.className).toContain('dark:bg-[#0B3B2E]')
 
     const chip = chipFor('Ganesh Chaturthi')
-    expect(chip.className).toContain('bg-emerald-50')
-    expect(chip.className).toContain('text-emerald-900')
-    expect(chip.className).toContain('border-emerald-200')
-    expect(chip.className).toContain('dark:bg-emerald-950/70')
+    expect(chip.className).toContain('bg-[#ECFDF5]')
+    expect(chip.className).toContain('text-[#047857]')
+    expect(chip.className).toContain('border-[#A7F3D0]')
+    expect(chip.className).toContain('dark:bg-[rgba(5,150,105,0.20)]')
     expect(chip.textContent).toContain('HPEH')
     expect(chip.textContent).toContain('Ganesh Chaturthi')
   })
@@ -82,9 +82,9 @@ describe('CalendarGrid HPE holidays', () => {
     expect(screen.getByText('US')).toBeInTheDocument()
 
     const chip = chipFor('Company Day')
-    expect(chip.className).toContain('bg-blue-50')
-    expect(chip.className).toContain('text-blue-900')
-    expect(chip.className).toContain('border-blue-200')
+    expect(chip.className).toContain('bg-[#EFF6FF]')
+    expect(chip.className).toContain('text-[#1D4ED8]')
+    expect(chip.className).toContain('border-[#BFDBFE]')
   })
 
   it('does not badge leave, event or birthday entries', () => {
@@ -121,5 +121,62 @@ describe('CalendarGrid HPE holidays', () => {
 
     expect(screen.getByText('HPEH')).toBeInTheDocument()
     expect(screen.getByText('Alex Doe - Comp Off')).toBeInTheDocument()
+  })
+})
+
+describe('CalendarGrid Today cell', () => {
+  it('never renders source comments as visible text', () => {
+    const { container } = render(
+      <CalendarGrid
+        year={2026}
+        month={9}
+        events={[makeEvent({ id: 7, date: '2026-09-25', title: 'Town Hall', kind: 'EVENT', extra: {} })]}
+        onSelectDay={() => undefined}
+        today="2026-09-25"
+      />,
+    )
+
+    const text = container.textContent ?? ''
+    expect(text).not.toContain('/*')
+    expect(text).not.toContain('*/')
+    expect(text).not.toContain('circular date badge')
+    expect(text).not.toContain('shrink-0')
+  })
+
+  it('keeps the 24px badge, TODAY label and the event below them', () => {
+    const { container } = render(
+      <CalendarGrid
+        year={2026}
+        month={9}
+        events={[makeEvent({ id: 8, date: '2026-09-25', title: 'Town Hall', kind: 'EVENT', extra: {} })]}
+        onSelectDay={() => undefined}
+        today="2026-09-25"
+      />,
+    )
+
+    const badge = screen.getByText('25')
+    expect(badge.className).toContain('w-6')
+    expect(badge.className).toContain('h-6')
+    expect(badge.className).toContain('min-w-6')
+    expect(badge.className).toContain('shrink-0')
+    expect(badge.className).toContain('rounded-full')
+
+    const label = screen.getByText('Today')
+    expect(label.className).toContain('uppercase')
+    expect(label.className).toContain('shrink-0')
+
+    const dateRow = badge.parentElement
+    expect(dateRow?.className).toContain('flex')
+    expect(dateRow?.className).toContain('items-center')
+    expect(dateRow?.className).toContain('justify-between')
+    expect(dateRow?.className).toContain('w-full')
+    expect(dateRow?.className).toContain('shrink-0')
+
+    const chip = chipFor('Town Hall')
+    const eventRow = chip.parentElement
+    expect(eventRow?.className).toContain('mt-2')
+    expect(eventRow?.className).toContain('flex-col')
+    expect(dateRow?.contains(eventRow as Node)).toBe(false)
+    expect(dateRow?.compareDocumentPosition(eventRow as Node)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
   })
 })
