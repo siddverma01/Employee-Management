@@ -40,7 +40,7 @@ function CalendarLegend({ highlightedCategories, onToggle }: {
 }) {
   return (
     <div className="flex flex-wrap items-center gap-4">
-      <span className="text-slate-500 dark:text-slate-400 font-semibold tracking-wide uppercase text-[10px]">Legend:</span>
+      <span className="text-[10px] font-semibold uppercase leading-none tracking-[0.06em] text-[#94A3B8]">Legend:</span>
       <ul className="flex flex-wrap items-center gap-4" role="list" aria-label="Calendar event categories">
         {CALENDAR_CATEGORIES.map((category) => {
           const isHighlighted = highlightedCategories.has(category.key)
@@ -51,10 +51,10 @@ function CalendarLegend({ highlightedCategories, onToggle }: {
                 onClick={() => onToggle(category.key)}
                 aria-pressed={isHighlighted}
                 className={cn(
-                  'flex items-center gap-1.5 text-xs cursor-pointer transition-colors',
+                  'flex items-center gap-1.5 text-xs font-normal leading-4 cursor-pointer transition-colors',
                   isHighlighted
-                    ? 'text-slate-700 dark:text-slate-100 font-semibold'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200',
+                    ? 'text-[#172033] dark:text-white font-semibold'
+                    : 'text-slate-500 dark:text-[#94A3B8] hover:text-slate-900 dark:hover:text-slate-200',
                 )}
                 title={category.label}
               >
@@ -164,19 +164,21 @@ export function CalendarPage() {
   }, [events])
 
   return (
-    <div className="flex h-full flex-col overflow-auto">
-      <section className="p-5 pb-3 border-b border-slate-200 bg-white shrink-0 dark:border-slate-800 dark:bg-[#111827]">
+    /* One shared height for both themes. Chrome around this element is the
+       56px global header plus 24px of main padding above and below = 104px. */
+    <div className="flex h-[calc(100vh-6.5rem)] min-h-0 flex-col overflow-y-auto">
+      <section className="p-4 pb-3 border-b border-slate-200 bg-white shrink-0 dark:border-[#23252A] dark:bg-[#141518]">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           {/* Title & Live Status Indicator */}
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Team calendar</h1>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-400 dark:border-emerald-800/60">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse dark:bg-emerald-400"></span>
+              <h1 className="text-2xl font-bold leading-[29px] tracking-tight text-[#172033] dark:text-[#F8FAFC]">Team calendar</h1>
+              <span className="inline-flex h-[22px] shrink-0 items-center gap-1.5 rounded-full border border-[#A7F3D0] bg-[#ECFDF5] px-2.5 text-[11px] font-medium leading-none text-[#059669] dark:border-[rgba(0,179,136,0.30)] dark:bg-[rgba(0,179,136,0.10)] dark:text-[#34D399]">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse dark:bg-[#00B388]"></span>
                 Live Schedule
               </span>
             </div>
-            <p className="block text-xs text-slate-500 dark:text-slate-400 mt-1">
+            <p className="mt-[3px] block text-xs font-normal leading-4 text-[#64748B] dark:text-[#94A3B8]">
               Leaves, comp offs, holidays, birthdays and company events
             </p>
           </div>
@@ -184,7 +186,7 @@ export function CalendarPage() {
           {/* View Switcher, Date Navigator & Filter */}
           <div className="flex flex-wrap items-center gap-2.5">
             {/* Segmented View Switcher */}
-            <div className="inline-flex shrink-0 items-center p-0.5 rounded-lg bg-slate-50 border border-slate-200 dark:bg-[#1e293b]/70 dark:border-slate-700 text-xs">
+            <div className="inline-flex h-8 shrink-0 items-center p-0.5 rounded-[7px] border border-[#E2E8F0] bg-[#F8FAFC] text-xs dark:border-[#2E323B] dark:bg-[#1E2025]">
               {(['month', 'week', 'day', 'list'] as CalendarView[]).map((v) => (
                 <button
                   key={v}
@@ -192,10 +194,13 @@ export function CalendarPage() {
                   onClick={() => setView(v)}
                   aria-pressed={view === v}
                   className={cn(
-                    'whitespace-nowrap shrink-0 px-3 py-1 text-xs rounded-[6px] font-medium',
+                    'whitespace-nowrap shrink-0 px-3 py-1 text-xs leading-4 rounded-[6px] font-medium transition-colors duration-150 ease-in-out',
                     view === v
-                      ? 'text-white bg-slate-700 shadow-sm border border-slate-600/80'
-                      : 'text-surface-500 dark:text-slate-400 hover:text-surface-900 dark:hover:text-white transition'
+                      ? /* Dark keeps the values index.css pins to this pill via
+                           `.dark button.bg-slate-700`, so they are restated
+                           directly instead of relying on that class hook. */
+                        'text-[#172033] bg-white border border-[#E2E8F0] shadow-sm dark:bg-[#23252A] dark:border-[#272930] dark:text-[#F8FAFC] dark:shadow-none'
+                      : 'text-[#64748B] hover:text-[#172033] dark:text-[#94A3B8] dark:hover:bg-[#25272D] dark:hover:text-[#F8FAFC]'
                   )}
                 >
                   {v.charAt(0).toUpperCase() + v.slice(1)}
@@ -204,30 +209,30 @@ export function CalendarPage() {
             </div>
 
             {/* Grouped Date Navigator */}
-            <div className="flex items-center bg-slate-50 border border-slate-200 dark:bg-[#1e293b]/70 dark:border-slate-700 rounded-lg p-0.5 shadow-sm">
+            <div className="flex items-center bg-[#F8FAFC] border border-[#E2E8F0] dark:bg-[#1E2025] dark:border-[#2E323B] rounded-[7px] p-0.5 h-8">
               <button
                 type="button"
                 onClick={goToday}
-                className="px-2.5 py-1 text-xs font-semibold text-surface-800 dark:text-slate-200 hover:text-surface-900 dark:hover:text-white hover:bg-surface-200 rounded transition dark:hover:bg-slate-700/80"
+                className="px-2.5 py-1 text-xs leading-4 font-semibold text-[#172033] dark:text-[#94A3B8] hover:bg-slate-100 dark:hover:text-[#F8FAFC] dark:hover:bg-[#25272D] rounded-[5px] transition-colors duration-150 ease-in-out"
               >
                 Today
               </button>
-              <div className="h-3 w-[1px] bg-slate-700 mx-1" />
+              <div className="h-3 w-[1px] bg-[#E2E8F0] dark:bg-[#2E323B] mx-1" />
               <button
                 type="button"
                 onClick={() => change(-1)}
                 title="Previous Month"
-                className="p-1 text-surface-500 dark:text-slate-400 hover:text-surface-900 dark:hover:text-white hover:bg-surface-200 rounded transition dark:hover:bg-slate-700/80"
+                className="p-1 text-[#64748B] dark:text-[#94A3B8] hover:text-[#172033] dark:hover:text-[#F8FAFC] hover:bg-slate-100 dark:hover:bg-[#25272D] rounded-[5px] transition-colors duration-150 ease-in-out"
               >
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronLeft className="w-[15px] h-[15px]" />
               </button>
               <button
                 type="button"
                 onClick={() => change(1)}
                 title="Next Month"
-                className="p-1 text-surface-500 dark:text-slate-400 hover:text-surface-900 dark:hover:text-white hover:bg-surface-200 rounded transition dark:hover:bg-slate-700/80"
+                className="p-1 text-[#64748B] dark:text-[#94A3B8] hover:text-[#172033] dark:hover:text-[#F8FAFC] hover:bg-slate-100 dark:hover:bg-[#25272D] rounded-[5px] transition-colors duration-150 ease-in-out"
               >
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="w-[15px] h-[15px]" />
               </button>
             </div>
 
@@ -238,27 +243,27 @@ export function CalendarPage() {
                 onClick={() => setFilterOpen((o) => !o)}
                 aria-expanded={filterOpen}
                 aria-haspopup="true"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 dark:bg-[#1e293b]/70 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-200 hover:text-slate-900 hover:border-slate-400 dark:hover:text-white dark:hover:border-slate-500 transition shadow-sm font-medium"
+                className="inline-flex h-8 items-center gap-1.5 px-3 rounded-[7px] bg-white border border-[#E2E8F0] dark:bg-[#1E2025] dark:border-[#2E323B] text-xs leading-4 text-[#475569] dark:text-[#94A3B8] hover:text-[#172033] hover:border-slate-300 dark:hover:bg-[#25272D] dark:hover:text-[#F8FAFC] dark:hover:border-[#3A3D46] transition-colors duration-150 ease-in-out font-medium"
               >
-                <Filter className="w-3.5 h-3.5 text-surface-500 dark:text-slate-400" />
+                <Filter className="w-3.5 h-3.5 text-[#64748B] dark:text-[#94A3B8]" />
                 <span>Filter</span>
               </button>
 
               {filterOpen && (
-                <div className="absolute right-0 z-20 mt-2 w-52 rounded-lg border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-700 dark:bg-[#1a1b20]">
+                <div className="absolute right-0 z-20 mt-2 w-52 rounded-lg border border-slate-200 bg-white p-1.5 shadow-xl dark:border-[#23252A] dark:bg-[#1E2025]">
                   <p className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-surface-500 dark:text-slate-400">
                     Event categories
                   </p>
                   {CALENDAR_FILTER_KINDS.map(({ kind, label }) => (
                     <label
                       key={kind}
-                      className="flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs text-surface-700 dark:text-slate-300 hover:bg-surface-100 hover:text-surface-900 transition dark:hover:bg-slate-800/60 dark:hover:text-surface-900 dark:hover:text-white"
+                      className="flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs text-surface-700 dark:text-slate-300 hover:bg-surface-100 hover:text-surface-900 transition dark:hover:bg-[#1D1E24] dark:hover:text-white"
                     >
                       <input
                         type="checkbox"
                         checked={enabledKinds.has(kind)}
                         onChange={() => toggleKind(kind)}
-                        className="h-3.5 w-3.5 rounded border-surface-300 bg-white text-emerald-600 dark:border-slate-600 dark:bg-slate-800 dark:text-emerald-500 focus:ring-emerald-500/40 focus:ring-offset-0"
+                        className="h-3.5 w-3.5 rounded border-surface-300 bg-white text-emerald-600 dark:border-[#23252A] dark:bg-[#1A1B20] dark:text-emerald-400 focus:ring-emerald-500/40 focus:ring-offset-0"
                       />
                       <span>{label}</span>
                     </label>
@@ -270,18 +275,18 @@ export function CalendarPage() {
         </div>
 
         {/* Month title & stats */}
-        <div className="mt-4 flex items-center justify-between gap-3">
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <h2 className="text-[22px] font-bold leading-[26px] tracking-tight text-[#172033] dark:text-[#F8FAFC]">
             {yearMonth(year, month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
           </h2>
-          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+          <span className="text-xs font-medium leading-4 text-[#64748B] dark:text-[#94A3B8]">
             {stats.total} Events • {stats.leaves} Leaves scheduled
           </span>
         </div>
       </section>
 
       {/* Calendar viewport */}
-      <section className="flex-1 p-5 min-w-[900px] flex flex-col justify-start" data-purpose="calendar-viewport">
+      <section className="flex-1 min-h-0 p-4 min-w-[900px] flex flex-col justify-start" data-purpose="calendar-viewport">
         {isLoading ? (
           <LoadingState label="Loading calendar…" />
         ) : (
@@ -298,14 +303,14 @@ export function CalendarPage() {
         )}
 
         {/* Legend & Timezone */}
-        <footer className="mt-4 pt-3 border-t border-slate-200 dark:border-t dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-400">
+        <footer className="shrink-0 mt-3 pt-2.5 border-t border-slate-200 dark:border-[#23252A] flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
           <CalendarLegend
             highlightedCategories={highlightedCategories}
             onToggle={toggleHighlight}
           />
 
-          <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
-            <Clock className="w-3.5 h-3.5" />
+          <div className="flex items-center gap-2 text-[11px] font-normal leading-4 text-slate-500 dark:text-[#94A3B8]">
+            <Clock className="w-3.5 h-3.5 shrink-0" />
             <span>Timezone: UTC+05:30 (IST)</span>
           </div>
         </footer>

@@ -261,144 +261,143 @@
   --cal-shadow: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.03);
 }
 
-/* DARK mode — layered SOFT charcoal-slate surfaces (no near-black, no pure
-   white): main #171B20 · sidebar #0E100F · top bar #14171D · cards #1B1E23 ·
-   rows #1A1D25 · hover #1E2325 · borders #1F242D ·
-   primary text #E2E6EE · secondary #8E9794 · muted #71788A ·
-   restrained teal accent #00CFA3 */
+/* DARK mode — Stitch charcoal/neutral theme
+   Page bg: #121316 · Header/Sidebar: #141518 · Main surfaces: #141518
+   Calendar cells: #16171B · Hover: #1D1E24 · Controls: #1E2025
+   Secondary controls: #1A1B20 · Borders: #23252A / #23252B
+   Dividers: #272930 · Primary green: #00B388 · Secondary green: #34D399
+   Primary text: near white · Secondary: muted gray · Tertiary: darker muted gray */
 .dark {
-  /* Brand lifts slightly in Dark so the teal reads on dark surfaces.
-     #00CFA3 — restrained dark accent */
-  --hpe-brand-400: 0 226 185;
-  --hpe-brand-500: 0 207 163; /* #00CFA3 */
-  --hpe-brand-600: 0 174 140;
+  /* Primary HPE green: #00B388 (0, 179, 136) */
+  --hpe-brand-400: 0 206 159;
+  --hpe-brand-500: 0 179 136; /* #00B388 */
+  --hpe-brand-600: 0 152 115;
 
-  --hpe-surface-0: 27 30 35; /* #1B1E23 — cards / containers / dropdowns */
-  --hpe-surface-50: 21 23 27; /* #15171B — main background (soft charcoal) */
-  --hpe-surface-100: 29 34 43; /* #1D222B — hover / active fill */
-  --hpe-surface-200: 31 36 45; /* #1F242D — subtle borders / separators */
-  --hpe-surface-300: 36 43 53; /* #242B35 — input borders */
-  --hpe-surface-400: 113 121 135; /* muted text #717987 */
-  --hpe-surface-500: 152 161 176; /* secondary text #98A1B0 */
-  --hpe-surface-600: 152 161 176; /* secondary text (emphasized) */
-  --hpe-surface-700: 164 173 187; /* body text */
-  --hpe-surface-800: 226 230 238; /* #E2E6EE — primary text / headings (soft) */
-  --hpe-surface-900: 226 230 238;
-  --hpe-surface-950: 226 230 238;
+  /* Stitch dark surfaces */
+  --hpe-surface-0: 20 21 24; /* #141518 — cards / containers / dropdowns */
+  --hpe-surface-50: 18 19 22; /* #121316 — main background */
+  --hpe-surface-100: 29 30 36; /* #1D1E24 — hover surface */
+  --hpe-surface-200: 35 37 42; /* #23252A — borders */
+  --hpe-surface-300: 39 41 48; /* #272930 — dividers / input borders */
+  --hpe-surface-400: 100 105 115; /* tertiary text */
+  --hpe-surface-500: 140 145 155; /* secondary text */
+  --hpe-surface-600: 160 165 175; /* secondary text (emphasized) */
+  --hpe-surface-700: 190 195 205; /* body text */
+  --hpe-surface-800: 230 235 240; /* primary text / headings */
+  --hpe-surface-900: 230 235 240;
+  --hpe-surface-950: 230 235 240;
 
-  --hpe-sidebar: 13 16 21; /* #0D1015 — slightly deeper than main */
-  --hpe-topnav: 19 22 29; /* #13161D — top navigation bar */
-  --hpe-field: 24 27 34; /* #181B22 — inputs / dropdowns */
-  --hpe-row: 26 29 37; /* #1A1D25 — table rows */
-  --hpe-row-hover: 30 35 44; /* #1E232C — table row hover */
+  --hpe-sidebar: 20 21 24; /* #141518 */
+  --hpe-topnav: 20 21 24; /* #141518 */
+  --hpe-field: 30 32 37; /* #1E2025 — controls */
+  --hpe-row: 26 27 32; /* #1A1B20 — secondary controls */
+  --hpe-row-hover: 29 30 36; /* #1D1E24 */
 
-  --hpe-decorative-brand: 0 207 163;
-  --hpe-decorative-green: 0 207 163;
-  --hpe-focus: 0 207 163;
+  --hpe-decorative-brand: 0 179 136;
+  --hpe-decorative-green: 0 179 136;
+  --hpe-focus: 0 179 136;
 
-  /* Shift badges — DARK: translucent tinted surfaces + soft accent text +
-     very subtle borders. Deeper, calm, integrated — no neon. */
-  --hpe-shift-morning-bg: 11 27 24;
-  --hpe-shift-morning-text: 111 216 192;
-  --hpe-shift-morning-border: 30 56 48;
+/* Shift badges — DARK: Stitch charcoal surfaces with green accents */
+  --hpe-shift-morning-bg: 20 21 24;
+  --hpe-shift-morning-text: 0 179 136;
+  --hpe-shift-morning-border: 35 37 42;
 
-  --hpe-shift-afternoon-bg: 11 23 32;
-  --hpe-shift-afternoon-text: 124 176 222;
-  --hpe-shift-afternoon-border: 28 45 62;
+  --hpe-shift-afternoon-bg: 20 21 24;
+  --hpe-shift-afternoon-text: 52 211 153;
+  --hpe-shift-afternoon-border: 35 37 42;
 
-  --hpe-shift-evening-bg: 26 20 38;
-  --hpe-shift-evening-text: 190 168 242;
-  --hpe-shift-evening-border: 49 37 68;
+  --hpe-shift-evening-bg: 20 21 24;
+  --hpe-shift-evening-text: 139 92 246;
+  --hpe-shift-evening-border: 35 37 42;
 
-  --hpe-shift-dusk-bg: 32 27 17;
-  --hpe-shift-dusk-text: 224 184 120;
-  --hpe-shift-dusk-border: 57 46 29;
+  --hpe-shift-dusk-bg: 20 21 24;
+  --hpe-shift-dusk-text: 251 191 36;
+  --hpe-shift-dusk-border: 35 37 42;
 
-  --hpe-shift-night-bg: 33 21 27;
-  --hpe-shift-night-text: 230 158 182;
-  --hpe-shift-night-border: 57 35 47;
+  --hpe-shift-night-bg: 20 21 24;
+  --hpe-shift-night-text: 244 113 184;
+  --hpe-shift-night-border: 35 37 42;
 
-  --hpe-shift-latenight-bg: 18 21 34;
-  --hpe-shift-latenight-text: 158 172 235;
-  --hpe-shift-latenight-border: 34 40 62;
+  --hpe-shift-latenight-bg: 20 21 24;
+  --hpe-shift-latenight-text: 96 165 250;
+  --hpe-shift-latenight-border: 35 37 42;
 
-  /* Status badges — DARK: dark teal tinted surface + soft teal text */
-  --hpe-status-active-bg: 11 27 24;
-  --hpe-status-active-text: 111 216 192;
-  --hpe-status-active-border: 30 56 48;
+  /* Status badges — DARK: dark charcoal surface + green text */
+  --hpe-status-active-bg: 20 21 24;
+  --hpe-status-active-text: 0 179 136;
+  --hpe-status-active-border: 35 37 42;
 
-  --hpe-status-inactive-bg: 25 27 33;
-  --hpe-status-inactive-text: 128 136 150;
-  --hpe-status-inactive-border: 41 46 56;
+  --hpe-status-inactive-bg: 26 27 32;
+  --hpe-status-inactive-text: 100 105 115;
+  --hpe-status-inactive-border: 39 41 48;
 
   /* Leave request status badges — DARK */
-  --status-pending-bg: #4A3A16; --status-pending-text: #FDE68A; --status-pending-border: #FCD34D;
-  --status-approved-bg: #173D2B; --status-approved-text: #8BE0AE; --status-approved-border: #6EE7B7;
-  --status-rejected-bg: #48272A; --status-rejected-text: #FCA5A5; --status-rejected-border: #EF4444;
-  --status-cancelled-bg: #2D333B; --status-cancelled-text: #9CA3AF; --status-cancelled-border: #6B7280;
+  --status-pending-bg: 40 35 25; --status-pending-text: 251 191 36; --status-pending-border: 251 191 36;
+  --status-approved-bg: 20 35 30; --status-approved-text: 0 179 136; --status-approved-border: 0 179 136;
+  --status-rejected-bg: 40 25 28; --status-rejected-text: 244 113 184; --status-rejected-border: 244 113 184;
+  --status-cancelled-bg: 35 37 42; --status-cancelled-text: 100 105 115; --status-cancelled-border: 39 41 48;
 
-  /* Live employee status — DARK: translucent tinted surfaces */
-  --hpe-status-present-bg: 11 27 24;
-  --hpe-status-present-text: 111 216 192;
-  --hpe-status-present-border: 30 56 48;
+  /* Live employee status — DARK: charcoal surfaces with semantic colors */
+  --hpe-status-present-bg: 20 21 24;
+  --hpe-status-present-text: 0 179 136;
+  --hpe-status-present-border: 35 37 42;
 
-  --hpe-status-wfh-bg: 11 23 32;
-  --hpe-status-wfh-text: 124 176 222;
-  --hpe-status-wfh-border: 28 45 62;
+  --hpe-status-wfh-bg: 20 21 24;
+  --hpe-status-wfh-text: 52 211 153;
+  --hpe-status-wfh-border: 35 37 42;
 
-  --hpe-status-leave-bg: 32 27 17;
-  --hpe-status-leave-text: 224 184 120;
-  --hpe-status-leave-border: 57 46 29;
+  --hpe-status-leave-bg: 20 21 24;
+  --hpe-status-leave-text: 251 191 36;
+  --hpe-status-leave-border: 35 37 42;
 
-  --hpe-status-offshift-bg: 25 27 33;
-  --hpe-status-offshift-text: 128 136 150;
-  --hpe-status-offshift-border: 41 46 56;
+  --hpe-status-offshift-bg: 26 27 32;
+  --hpe-status-offshift-text: 100 105 115;
+  --hpe-status-offshift-border: 39 41 48;
 
-  --hpe-elevation-background: 21 24 33;
+  --hpe-elevation-background: 18 19 22;
   --hpe-elevation-medium: 0 8px 24px rgba(0, 0, 0, 0.5);
   --hpe-elevation-large: 0 16px 40px rgba(0, 0, 0, 0.6);
-  --hpe-hover: rgba(255, 255, 255, 0.06);
+  --hpe-hover: rgba(255, 255, 255, 0.04);
 
-  /* Attendance roster status fills — DARK (muted tinted surfaces, soft text).
-     The dark tinted cell borders live in index.css via .dark [data-status="…"]. */
-  --attendance-wo-bg: #272C34; --attendance-wo-text: #C4CAD4;
-  --attendance-wfo-bg: #173D2B; --attendance-wfo-text: #8BE0AE;
-  --attendance-wfh-bg: #4A3A16; --attendance-wfh-text: #EFD180;
-  --attendance-pl-bg: #493A17; --attendance-pl-text: #EDCB68;
-  --attendance-sl-bg: #49301F; --attendance-sl-text: #F1B879;
-  --attendance-co-bg: #1E3A5F; --attendance-co-text: #9CC9EE;
-  --attendance-hpeh-bg: #173D2B; --attendance-hpeh-text: #8BE0AE;
-  --attendance-fl-bg: #442D20; --attendance-fl-text: #E8AE7D;
-  --attendance-sw-off-bg: #433417; --attendance-sw-off-text: #E7C96D;
-  --attendance-sw-wk-bg: #173D2B; --attendance-sw-wk-text: #8BE0AE;
-  --attendance-wk-wrk-bg: #173D2B; --attendance-wk-wrk-text: #8BE0AE;
-  --attendance-hd-bg: #453020; --attendance-hd-text: #E8B083;
-  --attendance-wx-bg: #33294A; --attendance-wx-text: #C8B5F5;
-  --attendance-tr-bg: #1F3548; --attendance-tr-text: #9CC9EE;
-  --attendance-its-bg: #48272A; --attendance-its-text: #F0A4A8;
-  --attendance-wdt-bg: #1F3548; --attendance-wdt-text: #9CC9EE;
-  --attendance-atr-bg: #48272A; --attendance-atr-text: #F0A4A8;
-  --attendance-empty-bg: #1E2229; --attendance-empty-text: #626A76;
+  /* Attendance roster status fills — DARK (muted charcoal surfaces) */
+  --attendance-wo-bg: 26 27 32; --attendance-wo-text: 100 105 115;
+  --attendance-wfo-bg: 20 35 30; --attendance-wfo-text: 0 179 136;
+  --attendance-wfh-bg: 35 30 25; --attendance-wfh-text: 251 191 36;
+  --attendance-pl-bg: 35 30 25; --attendance-pl-text: 251 191 36;
+  --attendance-sl-bg: 38 32 28; --attendance-sl-text: 235 170 85;
+  --attendance-co-bg: 25 30 40; --attendance-co-text: 96 165 250;
+  --attendance-hpeh-bg: 20 35 30; --attendance-hpeh-text: 0 179 136;
+  --attendance-fl-bg: 38 32 28; --attendance-fl-text: 235 170 85;
+  --attendance-sw-off-bg: 35 30 25; --attendance-sw-off-text: 251 191 36;
+  --attendance-sw-wk-bg: 20 35 30; --attendance-sw-wk-text: 0 179 136;
+  --attendance-wk-wrk-bg: 20 35 30; --attendance-wk-wrk-text: 0 179 136;
+  --attendance-hd-bg: 38 32 28; --attendance-hd-text: 235 170 85;
+  --attendance-wx-bg: 35 28 42; --attendance-wx-text: 190 168 242;
+  --attendance-tr-bg: 25 35 42; --attendance-tr-text: 96 165 250;
+  --attendance-its-bg: 40 25 28; --attendance-its-text: 244 113 184;
+  --attendance-wdt-bg: 25 35 42; --attendance-wdt-text: 96 165 250;
+  --attendance-atr-bg: 40 25 28; --attendance-atr-text: 244 113 184;
+  --attendance-empty-bg: 20 21 24; --attendance-empty-text: 100 105 115;
 
-  /* Holiday type colors (Dark mode) — semi-transparent variants for modern chips */
-  --holiday-hpe-bg: rgba(123 220 176 / 0.12); --holiday-hpe-text: #7BDCB0; --holiday-hpe-border: #7BDCB0;
-  --holiday-us-bg: rgba(147 189 240 / 0.12); --holiday-us-text: #93BDF0; --holiday-us-border: #93BDF0;
-  --holiday-public-bg: rgba(241 184 121 / 0.12); --holiday-public-text: #F1B879; --holiday-public-border: #F1B879;
-  --holiday-optional-bg: rgba(216 180 254 / 0.12); --holiday-optional-text: #D8B4FE; --holiday-optional-border: #D8B4FE;
-  --holiday-observed-bg: rgba(253 186 116 / 0.12); --holiday-observed-text: #FDBA74; --holiday-observed-border: #FDBA74;
+  /* Holiday type colors (Dark mode) — Stitch charcoal with green/blue accents */
+  --holiday-hpe-bg: rgba(0, 179, 136, 0.12); --holiday-hpe-text: #00B388; --holiday-hpe-border: #00B388;
+  --holiday-us-bg: rgba(52, 211, 153, 0.12); --holiday-us-text: #34D399; --holiday-us-border: #34D399;
+  --holiday-public-bg: rgba(251, 191, 36, 0.12); --holiday-public-text: #FBBF24; --holiday-public-border: #FBBF24;
+  --holiday-optional-bg: rgba(139, 92, 246, 0.12); --holiday-optional-text: #8B5CF6; --holiday-optional-border: #8B5CF6;
+  --holiday-observed-bg: rgba(249, 115, 22, 0.12); --holiday-observed-text: #F97316; --holiday-observed-border: #F97316;
 
-  /* Calendar event categories (Dark mode) — semi-transparent variants */
-  --cal-leave-bg: rgba(240 198 116 / 0.12); --cal-leave-text: #F0C674; --cal-leave-border: #F0C674;
-  --cal-co-bg: rgba(169 180 194 / 0.12); --cal-co-text: #A9B4C2; --cal-co-border: #A9B4C2;
-  --cal-bday-bg: rgba(240 166 196 / 0.12); --cal-bday-text: #F0A6C4; --cal-bday-border: #F0A6C4;
-  --cal-event-bg: rgba(192 174 245 / 0.12); --cal-event-text: #C0AEF5; --cal-event-border: #C0AEF5;
+  /* Calendar event categories (Dark mode) — Stitch charcoal with category accents */
+  --cal-leave-bg: rgba(251, 191, 36, 0.12); --cal-leave-text: #FBBF24; --cal-leave-border: #FBBF24;
+  --cal-co-bg: rgba(100, 105, 115, 0.12); --cal-co-text: #646973; --cal-co-border: #646973;
+  --cal-bday-bg: rgba(244, 113, 184, 0.12); --cal-bday-text: #F471B8; --cal-bday-border: #F471B8;
+  --cal-event-bg: rgba(139, 92, 246, 0.12); --cal-event-text: #8B5CF6; --cal-event-border: #8B5CF6;
 
-  /* Calendar chrome (Dark mode) */
-  --cal-grid-line: #23272F;
-  --cal-header-bg: #1B1F25;
-  --cal-today-bg: rgba(59 130 246 / 0.12);
-  --cal-today-ring: rgb(125 211 252 / 0.20);
-  --cal-shadow: 0 1px 2px rgb(0 0 0 / 0.28), 0 1px 3px rgb(0 0 0 / 0.20);
+  /* Calendar chrome (Dark mode) — Stitch borders and surfaces */
+  --cal-grid-line: #23252A;
+  --cal-header-bg: #141518;
+  --cal-today-bg: rgba(0, 179, 136, 0.08);
+  --cal-today-ring: rgba(0, 179, 136, 0.3);
+  --cal-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 /* ---------------------------------------------------------------------------

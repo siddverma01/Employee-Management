@@ -83,7 +83,7 @@ export const CALENDAR_CATEGORIES: readonly CalendarCategory[] = Object.freeze([
   },
   {
     key: 'HPE_HOLIDAY',
-    label: 'Company Holiday',
+    label: 'HPE Holiday',
     compactLabel: 'HPEH',
     holidayType: 'HPE_HOLIDAY',
     style: getHolidayCellStyle('HPE_HOLIDAY'),

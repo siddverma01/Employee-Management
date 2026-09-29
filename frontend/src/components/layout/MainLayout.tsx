@@ -38,14 +38,17 @@ export function MainLayout() {
       <aside
         className={cn(
           'relative hidden shrink-0 flex-col border-r border-slate-200 bg-white transition-[width] duration-200 ease-in-out lg:flex dark:border-[#23252a] dark:bg-[#141518]',
-          sidebarExpanded ? 'lg:w-64 lg:min-w-[16rem]' : 'lg:w-[4.5rem]',
+          /* Geometry is shared: 224px expanded / 72px collapsed in both themes.
+             Only the border and surface colours differ. */
+          sidebarExpanded ? 'lg:w-[224px] lg:min-w-[224px]' : 'lg:w-[4.5rem]',
         )}
       >
         <button
           onClick={() => setSidebarExpanded((v) => !v)}
           aria-label={sidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
           title={sidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
-          className="absolute -right-3 top-[22px] z-10 flex h-5 w-5 items-center justify-center rounded-full border border-surface-300 bg-surface-100 text-surface-500 shadow-hpe-sm transition-colors duration-150 hover:text-surface-800"
+          /* Centred on the shared 56px header rail: (56 - 20) / 2 = 18px. */
+          className="absolute -right-3 top-[18px] z-10 flex h-5 w-5 items-center justify-center rounded-full border border-surface-300 bg-surface-100 text-surface-500 shadow-hpe-sm transition-colors duration-150 hover:text-surface-800"
         >
           {sidebarExpanded ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
         </button>
@@ -59,7 +62,7 @@ export function MainLayout() {
       {/* Mobile drawer */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-64 min-w-[16rem] flex-col bg-white transition-transform lg:hidden dark:bg-[#141518]',
+          'fixed inset-y-0 left-0 z-50 flex w-[224px] min-w-[224px] flex-col bg-white transition-transform lg:hidden dark:bg-[#141518]',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
@@ -77,7 +80,8 @@ export function MainLayout() {
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Header onOpenMenu={() => setMobileOpen(true)} />
         <main className="flex-1 overflow-y-auto w-full min-w-0 transition-all duration-300 ease-in-out">
-          <div className="w-full min-w-0 flex-1 flex flex-col bg-slate-50 overflow-y-auto px-4 sm:px-6 py-4 transition-all duration-300 ease-in-out dark:bg-[#121316]">
+          {/* Shared main padding: 32px horizontal / 24px vertical in both themes. */}
+          <div className="w-full min-w-0 flex-1 flex flex-col bg-slate-50 overflow-y-auto px-8 py-6 transition-all duration-300 ease-in-out dark:bg-[#121316]">
             <Outlet />
           </div>
         </main>

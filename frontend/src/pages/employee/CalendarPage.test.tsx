@@ -81,10 +81,10 @@ describe('CalendarPage holiday identification', () => {
     await screen.findByText('Ganesh Chaturthi')
     const chip = chipFor('Ganesh Chaturthi')
     expect(chip.textContent).toContain('HPEH')
-    expect(chip.className).toContain('bg-emerald-50')
-    expect(chip.className).toContain('text-emerald-900')
-    expect(chip.className).toContain('border-emerald-200')
-    expect(chip.className).toContain('dark:bg-emerald-950/70')
+    expect(chip.className).toContain('bg-[#ECFDF5]')
+    expect(chip.className).toContain('text-[#047857]')
+    expect(chip.className).toContain('border-[#A7F3D0]')
+    expect(chip.className).toContain('dark:bg-[rgba(5,150,105,0.20)]')
   })
 
   it('renders the US holiday chip with a US badge and blue colours', async () => {
@@ -93,13 +93,13 @@ describe('CalendarPage holiday identification', () => {
     await screen.findByText('Labor Day')
     const chip = chipFor('Labor Day')
     expect(chip.textContent).toContain('US')
-    expect(chip.className).toContain('bg-blue-50')
-    expect(chip.className).toContain('text-blue-900')
-    expect(chip.className).toContain('border-blue-200')
-    expect(chip.className).toContain('dark:bg-sky-950/70')
+    expect(chip.className).toContain('bg-[#EFF6FF]')
+    expect(chip.className).toContain('text-[#1D4ED8]')
+    expect(chip.className).toContain('border-[#BFDBFE]')
+    expect(chip.className).toContain('dark:bg-[rgba(14,116,144,0.28)]')
   })
 
-  it('gives Company Holiday and US Holiday different colours', async () => {
+  it('gives HPE Holiday and US Holiday different colours', async () => {
     renderPage()
 
     await screen.findByText('Ganesh Chaturthi')
@@ -133,7 +133,7 @@ describe('CalendarPage legend', () => {
     for (const label of [
       'Leave',
       'Comp Off',
-      'Company Holiday',
+      'HPE Holiday',
       'US Holiday',
       'Birthday',
       'Company Event',
@@ -161,7 +161,7 @@ describe('CalendarPage legend', () => {
     expect(swatch.className).toContain('bg-sky-500')
     // ...while the in-grid chip uses the light tint of the same hue family
     const chip = chipFor('Labor Day')
-    expect(chip.className).toContain('bg-blue-50')
+    expect(chip.className).toContain('bg-[#EFF6FF]')
   })
 
   it('gives each legend category a distinct colour', async () => {
@@ -172,7 +172,7 @@ describe('CalendarPage legend', () => {
     const swatches = [
       'Leave',
       'Comp Off',
-      'Company Holiday',
+      'HPE Holiday',
       'US Holiday',
       'Birthday',
       'Company Event',
