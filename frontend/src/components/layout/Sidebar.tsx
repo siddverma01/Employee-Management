@@ -1,8 +1,8 @@
 import { NavLink } from 'react-router-dom'
 import {
   Home, Users, LogOut,
-  LayoutDashboard, Building2, FileSpreadsheet, ClipboardList, Table2, History, Search,
-  CalendarDays, FileText,
+  LayoutDashboard, FileSpreadsheet, ClipboardList, Table2, History, Search,
+  CalendarDays, CalendarClock, FileText,
 } from 'lucide-react'
 import { cn } from '@/utils'
 import { useAuth } from '@/hooks/useAuth'
@@ -29,7 +29,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/today', label: "Today's status", icon: <Users className="h-[18px] w-[18px] shrink-0" />, group: 'workspace' },
   { to: '/leaves', label: 'My leaves', icon: <ClipboardList className="h-[18px] w-[18px] shrink-0" />, group: 'workspace' },
   { to: '/calendar', label: 'Calendar', icon: <CalendarDays className="h-[18px] w-[18px] shrink-0" />, group: 'workspace' },
-  { to: '/holidays', label: 'Holidays', icon: <Building2 className="h-[18px] w-[18px] shrink-0" />, group: 'workspace' },
+  { to: '/events', label: 'Events & Schedule', icon: <CalendarClock className="h-[18px] w-[18px] shrink-0" />, group: 'workspace' },
   { to: '/admin/dashboard', label: 'Admin dashboard', icon: <LayoutDashboard className="h-[18px] w-[18px] shrink-0" />, group: 'administration', adminOnly: true },
   { to: '/admin/employees', label: 'Employees', icon: <Users className="h-[18px] w-[18px] shrink-0" />, group: 'administration', adminOnly: true },
   { to: '/admin/leaves', label: 'Leave approvals', icon: <FileText className="h-[18px] w-[18px] shrink-0" />, group: 'administration', adminOnly: true, badge: '3' },

@@ -842,3 +842,90 @@ export interface EmployeeHistoricalAttendance {
   monthly: EmployeeHistoricalMonthStat[]
   calendar: EmployeeHistoricalCalendar | null
 }
+
+/**
+ * Presentation category for the Upcoming Events feed.
+ *
+ * Mirrors `CalendarDtos.UpcomingEventCategory`. Note this is not the persisted
+ * `events.event_type` enum: HOLIDAY comes from the `holidays` table and BIRTHDAY
+ * is derived from employee date of birth, so neither is a stored event row.
+ */
+export type UpcomingEventCategory =
+  | 'HOLIDAY'
+  | 'BIRTHDAY'
+  | 'OFFICE_MEETING'
+  | 'SCHEDULED_MEETING'
+  | 'CUSTOMER_REMOTE_SESSION'
+
+/** One entry in the aggregated feed: a holiday, birthday or meeting. */
+export interface UpcomingEvent {
+  id: number
+  /** HOLIDAY / BIRTHDAY / EVENT, i.e. which backing store the row came from. */
+  source: string
+  category: UpcomingEventCategory
+  subject: string
+  description: string | null
+  date: string
+  /** Wall-clock start; null for holidays and birthdays. */
+  startTime: string | null
+  /** Wall-clock end, so a card can render a time range. */
+  endTime: string | null
+  /** Client name for customer-facing meetings; null for internal events. */
+  organization: string | null
+  location: string | null
+  meetingLink: string | null
+  setReminder: boolean | null
+  todoItems: string[] | null
+  employeeName: string | null
+  /** Raw persisted event type; null for holidays and birthdays. */
+  eventType: string | null
+  assignedEngineerId: number | null
+  assignedEngineerName: string | null
+  assignedEngineerDepartment: string | null
+  /** Job title, preferred over department for the assignee chip. */
+  assignedEngineerDesignation: string | null
+  /** Days from today until `date`; 0 means today. */
+  daysUntil: number
+}
+
+export interface UpcomingEventsResponse {
+  today: string
+  days: number
+  events: UpcomingEvent[]
+}
+
+/** Mirrors `EmployeeDtos.Simple`, returned by `/events/assignable-engineers`. */
+export interface AssignableEngineer {
+  id: number
+  employeeCode: string
+  fullName: string
+  department: string | null
+}
+
+/** Body for `POST /api/events`. */
+export interface CreateEventRequest {
+  subject: string
+  description?: string | null
+  date: string
+  startTime?: string | null
+  /**
+   * Drives the stored event type; defaults to OFFICE_MEETING when omitted.
+   *
+   * Mirrors `CreateEventRequest.eventType` on the backend, which accepts the
+   * full category enum. `HOLIDAY` is routed server-side to a `holidays` row
+   * rather than an `events` row; `BIRTHDAY` is computed from date of birth and
+   * is rejected, so neither is creatable through the meeting form.
+   */
+  eventType?: UpcomingEventCategory
+  meetingLink?: string | null
+  setReminder?: boolean
+  todoItems?: string[]
+  /** Optional assignee; omit or send null to leave the event unassigned. */
+  assignedEngineerId?: number | null
+  /** Optional client name, shown in the Customer Meeting card header. */
+  organization?: string | null
+  /** Optional wall-clock end, so the card can render a time range. */
+  endTime?: string | null
+  /** Optional room or platform, shown in the Customer Meetings card footer. */
+  location?: string | null
+}

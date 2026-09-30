@@ -2,6 +2,7 @@ package com.emplmgt.config;
 
 import com.emplmgt.entity.*;
 import com.emplmgt.repository.*;
+import com.emplmgt.util.JsonUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.Year;
 import java.util.List;
 
@@ -45,14 +48,29 @@ public class DataSeeder implements ApplicationRunner {
     private final EventRepository eventRepository;
     private final LeaveBalanceRepository leaveBalanceRepository;
     private final NotificationRepository notificationRepository;
+    private final JsonUtil jsonUtil;
 
     @Value("${application.seed.enabled:true}")
     private boolean enabled;
 
+    /** Titles double as the idempotency key for the sample Customer Meeting cards. */
+    private static final String VERTEX_TITLE = "Q4 Architecture & Solution Review";
+    private static final String MAERSK_TITLE = "Global Logistics Cloud Migration Check-in";
+    private static final String LEAD_ARCHITECT_CODE = "25102288";
+    private static final String LEAD_ARCHITECT_EMAIL = "sarah.jenkins-ext@hpe.com";
+
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        if (!enabled || userRepository.count() > 0) {
+        if (!enabled) {
+            return;
+        }
+        if (userRepository.count() > 0) {
+            // A dev database that is already populated keeps its own roster and
+            // holidays, but the Customer Meetings cards are page content a
+            // developer expects to see, so they are seeded (idempotently) outside
+            // the full-dataset guard below.
+            seedCustomerMeetings();
             return;
         }
         log.info("Seeding development data ...");
@@ -70,6 +88,7 @@ public class DataSeeder implements ApplicationRunner {
         List<SeedEmployee> roster = List.of(
                 new SeedEmployee("25106149", "masher.choudary-ext@hpe.com", "Masher Choudary", "Pune", "05:30-14:30", "Sun-Mon"),
                 new SeedEmployee("25102404", "siddhesh.verma-ext@hpe.com", "Siddhesh Verma", "Pune", "05:30-14:30", "Fri-Sat"),
+                new SeedEmployee(LEAD_ARCHITECT_CODE, LEAD_ARCHITECT_EMAIL, "Sarah Jenkins", "Lead Architect", "Pune", "05:30-14:30", "Tue-Wed"),
                 new SeedEmployee("25101553", "pradnya.mane-ext@hpe.com", "Pradnya Mane", "Pune", "05:30-14:30", "Sun-Mon"),
                 new SeedEmployee("60179491", "rutuja.ashish-palaye@hpe.com", "Rutuja Palaye", "Pune", "13:30-22:30", "Sat-Sun"),
                 new SeedEmployee("25098410", "ritik.raina@hpe.com", "Ritik Raina", "Pune", "13:30-22:30", "Fri-Sat"),
@@ -112,6 +131,7 @@ public class DataSeeder implements ApplicationRunner {
 
         seedHolidays(voice);
         seedEvents(voice);
+        seedCustomerMeetings();
 
         // Welcome notifications for everyone.
         LocalDate today = LocalDate.now();
@@ -178,6 +198,11 @@ public class DataSeeder implements ApplicationRunner {
     }
 
     private void holiday(LocalDate date, String name, String country, Department team) {
+        // Migration V17 already seeds the US holiday calendar, so skip anything
+        // already present to keep this seeder idempotent against (date, country, name).
+        if (holidayRepository.findByHolidayDateAndCountryAndName(date, country, name).isPresent()) {
+            return;
+        }
         holidayRepository.save(Holiday.builder()
                 .name(name).holidayDate(date).country(country)
                 .holidayType(HolidayType.PUBLIC)
@@ -195,6 +220,90 @@ public class DataSeeder implements ApplicationRunner {
         eventRepository.save(Event.builder().title("Voice Team Standup")
                 .eventDate(today.plusDays(4)).eventType(EventType.TEAM_MEETING)
                 .scope(ScopeType.TEAM).team(voiceTeam).build());
+    }
+
+    /**
+     * The two Customer Meetings the featured-card section is designed around:
+     * one assigned and joinable, one still looking for an engineer.
+     *
+     * <p>Runs on every non-prod start, including against an already-populated
+     * database, and skips whatever is already there. That matters because the
+     * full-dataset seed above is guarded on an empty user table, so a developer
+     * who seeded once would otherwise never see the section at all.</p>
+     *
+     * <p>Dated relative to today rather than pinned to a fixed date so the cards
+     * always land inside the page's 30-day default window, whenever the database
+     * was first seeded.</p>
+     */
+    private void seedCustomerMeetings() {
+        boolean vertexSeeded = eventRepository.existsByTitle(VERTEX_TITLE);
+        boolean maerskSeeded = eventRepository.existsByTitle(MAERSK_TITLE);
+        if (vertexSeeded && maerskSeeded) {
+            return;
+        }
+
+        Department voice = departmentRepository.findByNameIgnoreCase("Voice")
+                .orElseGet(() -> departmentRepository.save(Department.builder()
+                        .name("Voice").description("Voice operations").build()));
+        Employee leadArchitect = findOrCreateLeadArchitect(voice);
+        LocalDate today = LocalDate.now();
+
+        if (!vertexSeeded) {
+            eventRepository.save(Event.builder()
+                    .title(VERTEX_TITLE)
+                    .description("Walk the Vertex team through the Q4 solution design and agree the migration sequence.")
+                    .organization("Vertex Retail Systems")
+                    .location("Virtual Teams Room")
+                    .meetingLink("https://teams.example.com/vertex")
+                    .eventDate(today.plusDays(3))
+                    .startTime(LocalDateTime.of(today.plusDays(3), LocalTime.of(14, 0)))
+                    .endTime(LocalDateTime.of(today.plusDays(3), LocalTime.of(15, 30)))
+                    .eventType(EventType.CUSTOMER_REMOTE_SESSION)
+                    .scope(ScopeType.TEAM).team(voice)
+                    .setReminder(true)
+                    .todoItems(jsonUtil.writeList(List.of(
+                            "Confirm POS integration test coverage",
+                            "Share the Q4 capacity model",
+                            "Agree the phased cutover plan")))
+                    .assignedTo(leadArchitect)
+                    .build());
+        }
+
+        // Left unassigned on purpose: this is the card that must show the
+        // "Needs Engineer" / "Unassigned" treatment and the assign action.
+        if (!maerskSeeded) {
+            eventRepository.save(Event.builder()
+                    .title(MAERSK_TITLE)
+                    .description("Status check-in on the Maersk migration waves and open data residency risks.")
+                    .organization("Maersk Global Tech")
+                    .location("Virtual Conference Room A")
+                    .meetingLink("https://teams.example.com/maersk")
+                    .eventDate(today.plusDays(7))
+                    .startTime(LocalDateTime.of(today.plusDays(7), LocalTime.of(10, 0)))
+                    .endTime(LocalDateTime.of(today.plusDays(7), LocalTime.of(11, 0)))
+                    .eventType(EventType.CUSTOMER_REMOTE_SESSION)
+                    .scope(ScopeType.TEAM).team(voice)
+                    .setReminder(true)
+                    .todoItems(jsonUtil.writeList(List.of(
+                            "Migration wave status",
+                            "Open data residency risks",
+                            "Next checkpoint date")))
+                    .build());
+        }
+    }
+
+    /**
+     * The assignee on the first sample card, created on demand.
+     *
+     * <p>Found by employee code because that column is UNIQUE, so a populated
+     * database that already has her reuses the row instead of failing the insert
+     * and taking the whole seeder down with it.</p>
+     */
+    private Employee findOrCreateLeadArchitect(Department voice) {
+        return employeeRepository.findByEmployeeCodeIgnoreCase(LEAD_ARCHITECT_CODE)
+                .orElseGet(() -> createEmployee(LEAD_ARCHITECT_CODE, "Sarah Jenkins",
+                        LEAD_ARCHITECT_EMAIL, null, voice, "Lead Architect", "Pune",
+                        null, null, null, "05:30-14:30", "Tue-Wed"));
     }
 
     /**

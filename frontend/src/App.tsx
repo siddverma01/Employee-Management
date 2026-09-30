@@ -14,6 +14,7 @@ import { LeavePage } from '@/pages/employee/LeavePage'
 import { CalendarPage } from '@/pages/employee/CalendarPage'
 import { TodayPage } from '@/pages/employee/TodayPage'
 import { HolidaysPage } from '@/pages/employee/HolidaysPage'
+import { EventsPage } from '@/pages/employee/EventsPage'
 import { NotificationsPage } from '@/pages/employee/NotificationsPage'
 import { AttendancePage } from '@/pages/employee/AttendancePage'
 import { AdminDashboardPage } from '@/pages/admin/AdminDashboardPage'
@@ -66,6 +67,9 @@ export default function App() {
 <Route path="/swap-off" element={<MySwapOffsPage />} />
           <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/today" element={<TodayPage />} />
+          {/* Employee-facing aggregate feed: holidays + birthdays + meetings. */}
+          <Route path="/events" element={<EventsPage />} />
+          {/* Full-year holiday & company-event list. Kept reachable for deep links. */}
           <Route path="/holidays" element={<HolidaysPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
 <Route path="/attendance" element={<AttendancePage />} />

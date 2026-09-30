@@ -16,12 +16,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -30,6 +33,9 @@ import java.util.stream.Collectors;
 public class EmployeeService {
 
     private static final Logger log = LoggerFactory.getLogger(EmployeeService.class);
+
+    /** Upper bound for the birthday look-ahead window. */
+    private static final int MAX_BIRTHDAY_WINDOW_DAYS = 90;
 
     private final EmployeeRepository employeeRepository;
     private final UserRepository userRepository;
@@ -208,6 +214,15 @@ public class EmployeeService {
                 .orElseThrow(() -> ApiException.notFound("Employee profile not found"));
     }
 
+    /**
+     * Non-throwing counterpart of {@link #getEmployeeByUser}, for callers that must
+     * tolerate a login-only account with no employee profile (e.g. an admin console user).
+     */
+    @Transactional(readOnly = true)
+    public Optional<Employee> findEmployeeByUser(Long userId) {
+        return userId == null ? Optional.empty() : employeeRepository.findByUserId(userId);
+    }
+
     @Transactional(readOnly = true)
     public EmployeeDtos.Profile toProfile(Employee employee) {
         EmployeeDtos.Stats stats = computeStats(employee);
@@ -334,5 +349,61 @@ public class EmployeeService {
         }
         return employeeRepository.findById(managerId)
                 .orElseThrow(() -> ApiException.badRequest("Manager employee not found"));
+    }
+
+    /**
+     * Active employees with a birthday inside the next {@code days} days (inclusive of
+     * today), sorted by date.
+     *
+     * <p>Shared by {@code GET /api/employees/birthdays/upcoming} and the aggregated
+     * Upcoming Events feed so both report identical results. The window is clamped to
+     * {@value #MAX_BIRTHDAY_WINDOW_DAYS} days. A birthday landing on today is included,
+     * and a 29 February date of birth is skipped in non-leap years.</p>
+     *
+     * @param days look-ahead window in days; values above the cap are clamped
+     */
+    @Transactional(readOnly = true)
+    public List<Birthday> upcomingBirthdays(int days) {
+        int requested = Math.min(Math.max(days, 1), MAX_BIRTHDAY_WINDOW_DAYS);
+        LocalDate today = appClock.today();
+        LocalDate lastDay = today.plusDays(requested - 1L);
+        List<Birthday> items = new ArrayList<>();
+        for (Employee emp : employeeRepository.findByEmploymentStatus(EmploymentStatus.ACTIVE)) {
+            LocalDate next = nextBirthdayOnOrAfter(emp.getDateOfBirth(), today);
+            if (next == null || next.isAfter(lastDay)) {
+                continue;
+            }
+            items.add(new Birthday(emp.getId(), emp.getFullName(), next));
+        }
+        items.sort(Comparator.comparing(Birthday::date));
+        return List.copyOf(items);
+    }
+
+    /** Next occurrence of {@code dob} on or after {@code today}, or null if unusable. */
+    private LocalDate nextBirthdayOnOrAfter(LocalDate dob, LocalDate today) {
+        if (dob == null) {
+            return null;
+        }
+        LocalDate candidate = safeDate(today.getYear(), dob);
+        if (candidate == null) {
+            return null;
+        }
+        if (candidate.isBefore(today)) {
+            candidate = safeDate(today.getYear() + 1, dob);
+        }
+        return candidate;
+    }
+
+    /** Builds the date for {@code year}, returning null when the day does not exist. */
+    private LocalDate safeDate(int year, LocalDate dob) {
+        try {
+            return LocalDate.of(year, dob.getMonthValue(), dob.getDayOfMonth());
+        } catch (DateTimeException ex) {
+            return null;
+        }
+    }
+
+    /** An employee's upcoming birthday. {@code id} is the employee id. */
+    public record Birthday(Long employeeId, String employeeName, LocalDate date) {
     }
 }

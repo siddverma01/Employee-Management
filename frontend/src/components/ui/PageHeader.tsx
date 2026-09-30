@@ -1,4 +1,13 @@
-export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: React.ReactNode }) {
+export function PageHeader({
+  title,
+  subtitle,
+  actions,
+}: {
+  /** Plain text, or a node when the heading needs an inline badge. */
+  title: React.ReactNode
+  subtitle?: string
+  actions?: React.ReactNode
+}) {
   return (
     <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
       <div>

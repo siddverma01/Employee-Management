@@ -1,13 +1,13 @@
 import { api } from './client'
 import type {
-  AdminSummary, Attendance, AttendanceHistoryMeta, AttendanceHistoryResponse, AuditLog, AuthUser, CalendarEvent, ChartData, CompanyEvent, Department,
+  AdminSummary, AssignableEngineer, Attendance, AttendanceHistoryMeta, AttendanceHistoryResponse, AuditLog, AuthUser, CalendarEvent, ChartData, CompanyEvent, CreateEventRequest, Department,
   EmployeeDashboard, EmployeeHistoricalAttendance, Holiday, HistoricalCommitResponse, HistoricalHistoryItem,
   HistoricalInspectResponse, HistoricalMapStagedRequest, HistoricalMapStagedResponse, HistoricalMapUnknownResponse,
   HistoricalPreviewResponse, HistoricalRecordsPage, HistoricalStatusItem, HistoricalUnknownCode, HPEEntitlement, ImportCommit,
   ImportHistoryItem, ImportPreview, ImportUpload, Leave,
   LeaveBalance, LoginResponse, NotificationItem, PageResponse, Profile, RosterBatchSaveResult,
   RosterCellEdit, RosterImportPreview, RosterMonthData, RosterMonthlyData, RosterPageMeta, RosterRowSave, RosterSaveResult,
-  RosterStatusDetail, RosterTodayData, ScopeType, SwapOff, TeamDashboard, TodayStatus, UpcomingItem,
+  RosterStatusDetail, RosterTodayData, ScopeType, SwapOff, TeamDashboard, TodayStatus, UpcomingEvent, UpcomingEventsResponse, UpcomingItem,
 } from '@/types'
 
 export const authApi = {
@@ -88,6 +88,22 @@ export const holidayApi = {
 export const eventApi = {
   list: (params?: { from?: string; to?: string; scope?: ScopeType; teamId?: number }) =>
     api.get<CompanyEvent[]>('/events', { params }).then((r) => r.data),
+  /** Aggregated upcoming feed: holidays + birthdays + meetings/sessions. */
+  upcoming: (days = 30, teamId?: number) =>
+    api.get<UpcomingEventsResponse>('/events/upcoming', { params: { days, teamId } }).then((r) => r.data),
+  create: (body: CreateEventRequest) =>
+    api.post<UpcomingEvent>('/events', body).then((r) => r.data),
+  /** Active engineers offered by the "Assign Engineer" dropdown. */
+  assignableEngineers: () =>
+    api.get<AssignableEngineer[]>('/events/assignable-engineers').then((r) => r.data),
+  /**
+   * Assigns, reassigns or clears an event's engineer.
+   * Pass `null` to unassign. Drives the Customer Meeting card actions.
+   */
+  assign: (id: number, assignedEngineerId: number | null) =>
+    api
+      .patch<UpcomingEvent>(`/events/${id}/assignment`, { assignedEngineerId })
+      .then((r) => r.data),
 }
 
 export const notificationApi = {

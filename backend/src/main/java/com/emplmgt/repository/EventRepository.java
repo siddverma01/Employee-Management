@@ -13,6 +13,8 @@ public interface EventRepository extends JpaRepository<Event, Long> {
 
     List<Event> findByEventDateBetweenOrderByEventDate(LocalDate from, LocalDate to);
 
+    boolean existsByTitle(String title);
+
     @Query("select e from Event e where e.eventDate >= :from and e.eventDate <= :to " +
             "and (e.scope = com.emplmgt.entity.ScopeType.GLOBAL " +
             "     or (e.scope = com.emplmgt.entity.ScopeType.TEAM and (:teamId is null or e.team.id = :teamId)))")

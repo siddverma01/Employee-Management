@@ -1,4 +1,7 @@
+import type { LucideIcon } from 'lucide-react'
+import { CalendarClock, Cake, PartyPopper, Sun, Users } from 'lucide-react'
 import type { AttendanceCellStyle } from './rosterStatus'
+import type { UpcomingEventCategory } from '@/types'
 import { getHolidayCellStyle, getHolidayDisplayInfo } from './holidayStatus'
 
 /**
@@ -130,6 +133,96 @@ export function calendarEventKindLabel(kind: string | null | undefined): string 
 /** The legend entry for a resolved holiday display type (e.g. 'HPE_HOLIDAY'). */
 export function holidayCategory(holidayType: string): CalendarCategory | undefined {
   return CALENDAR_CATEGORIES.find((c) => c.holidayType === holidayType)
+}
+
+/**
+ * Display metadata for the employee "Upcoming Events" feed.
+ *
+ * This is a separate axis from `CALENDAR_CATEGORIES`, which colours the month
+ * grid: the grid splits holidays by applicability (HPE / US) and folds all
+ * meetings into one "Company Event" bar, whereas the feed talks about a single
+ * row in the future — so a holiday is one entry and each *kind* of meeting is
+ * its own entry. Keeping them in one file stops the two views from drifting
+ * apart when the backend `EventType` gains a value.
+ */
+export interface UpcomingEventCategoryMeta {
+  /** Full name shown on the feed row and in the create form. */
+  label: string
+  /** Short badge text for the row's right-hand tag. */
+  compactLabel: string
+  /** Tailwind classes for the row's leading icon chip. */
+  chipClass: string
+  /** Row icon component, so each category reads at a glance. */
+  icon: LucideIcon
+}
+
+/** Every `UpcomingEventCategory`, in the order the feed renders them. */
+export const UPCOMING_EVENT_CATEGORIES: Record<UpcomingEventCategory, UpcomingEventCategoryMeta> = {
+  HOLIDAY: {
+    label: 'Upcoming Holiday',
+    compactLabel: 'Holiday',
+    chipClass: 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300',
+    icon: Sun,
+  },
+  BIRTHDAY: {
+    label: 'Birthday',
+    compactLabel: 'Birthday',
+    chipClass: 'bg-pink-100 text-pink-700 dark:bg-pink-500/15 dark:text-pink-300',
+    icon: Cake,
+  },
+  OFFICE_MEETING: {
+    label: 'Upcoming Office Meeting',
+    compactLabel: 'Office',
+    chipClass: 'bg-brand-100 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300',
+    icon: Users,
+  },
+  SCHEDULED_MEETING: {
+    label: 'Upcoming Scheduled Meeting',
+    compactLabel: 'Meeting',
+    chipClass: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300',
+    icon: CalendarClock,
+  },
+  CUSTOMER_REMOTE_SESSION: {
+    label: 'Upcoming Customer Virtual Remote session',
+    compactLabel: 'Remote',
+    chipClass: 'bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300',
+    icon: PartyPopper,
+  },
+}
+
+/** The categories an employee may create; holidays and birthdays are derived. */
+export const CREATABLE_EVENT_CATEGORIES = [
+  'OFFICE_MEETING',
+  'SCHEDULED_MEETING',
+  'CUSTOMER_REMOTE_SESSION',
+] as const satisfies readonly UpcomingEventCategory[]
+
+export type CreatableEventCategory = (typeof CREATABLE_EVENT_CATEGORIES)[number]
+
+/**
+ * Category the Add Event form submits when the user is not asked to pick one.
+ *
+ * The "Event Type" select was removed from the modal, so every event created
+ * from the page lands in the feed under one fixed category. Kept here rather
+ * than inline in the page so restoring the picker is a one-line change.
+ */
+export const DEFAULT_CREATED_EVENT_TYPE: CreatableEventCategory = 'OFFICE_MEETING'
+
+/** Display metadata for a feed category; unknown values fall back to the key. */
+export function upcomingEventCategoryMeta(category: string | null | undefined): UpcomingEventCategoryMeta {
+  return (
+    UPCOMING_EVENT_CATEGORIES[category as UpcomingEventCategory] ?? {
+      label: category ?? 'Event',
+      compactLabel: category ?? 'Event',
+      chipClass: 'bg-surface-100 text-surface-600 dark:bg-white/5 dark:text-surface-300',
+      icon: PartyPopper,
+    }
+  )
+}
+
+/** Full name for a feed category, e.g. "Upcoming Office Meeting". */
+export function upcomingEventCategoryLabel(category: string | null | undefined): string {
+  return upcomingEventCategoryMeta(category).label
 }
 
 export interface CalendarEntryDisplay {

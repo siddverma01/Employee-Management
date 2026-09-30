@@ -16,8 +16,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 
 @RestController
@@ -92,32 +90,10 @@ public class EmployeeController {
     @GetMapping("/birthdays/upcoming")
     public ResponseEntity<List<DashboardDtos.UpcomingItem>> upcomingBirthdays(
             @RequestParam(name = "days", defaultValue = "30") int days) {
-        int requested = Math.min(days, 90);
-        LocalDate today = appClock.today();
-        List<DashboardDtos.UpcomingItem> items = new ArrayList<>();
-        for (var emp : employeeRepository.findByEmploymentStatus(com.emplmgt.entity.EmploymentStatus.ACTIVE)) {
-            if (emp.getDateOfBirth() == null) {
-                continue;
-            }
-            LocalDate dob = emp.getDateOfBirth();
-            LocalDate next;
-            try {
-                next = LocalDate.of(today.getYear(), dob.getMonthValue(), dob.getDayOfMonth());
-            } catch (Exception ex) {
-                continue;
-            }
-            if (next.isBefore(today)) {
-                try {
-                    next = LocalDate.of(today.getYear() + 1, dob.getMonthValue(), dob.getDayOfMonth());
-                } catch (Exception ex) {
-                    continue;
-                }
-            }
-            if (!next.isAfter(today.plusDays(requested - 1))) {
-                items.add(new DashboardDtos.UpcomingItem(next, emp.getFullName(), "BIRTHDAY"));
-            }
-        }
-        items.sort(Comparator.comparing(DashboardDtos.UpcomingItem::date));
+        // Logic lives in EmployeeService so the Upcoming Events feed shares this window.
+        List<DashboardDtos.UpcomingItem> items = employeeService.upcomingBirthdays(days).stream()
+                .map(b -> new DashboardDtos.UpcomingItem(b.date(), b.employeeName(), "BIRTHDAY"))
+                .toList();
         return ResponseEntity.ok(items);
     }
 }
