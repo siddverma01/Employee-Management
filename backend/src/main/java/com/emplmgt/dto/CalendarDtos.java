@@ -129,6 +129,15 @@ public final class CalendarDtos {
             /** Raw persisted event type, {@code null} for holidays and birthdays. */
             String eventType,
             /**
+             * Country of the holiday definition, e.g. {@code US} or {@code IN}.
+             *
+             * <p>Only set for holidays. Together with {@link #eventType} it lets the
+             * feed label a holiday as a US holiday or an HPE holiday: the persisted
+             * type alone is not enough, because US federal holidays are stored as
+             * {@code PUBLIC}.</p>
+             */
+            String holidayCountry,
+            /**
              * Employee the meeting is assigned to; {@code null} when unassigned.
              * Never set for holidays or birthdays.
              */
@@ -189,5 +198,19 @@ public final class CalendarDtos {
      */
     public record AssignEventRequest(
             Long assignedEngineerId) {
+    }
+
+    /**
+     * Body for {@code PATCH /api/events/{id}/schedule}.
+     *
+     * <p>Every field is a full replacement rather than a patch: {@code date} is
+     * required, and a {@code null} {@code startTime} means "all day", which is the
+     * same thing clearing the field means to the editor that sent it. The service
+     * rejects a window whose end is not after its start.</p>
+     */
+    public record RescheduleEventRequest(
+            @NotNull(message = "Event date is required") LocalDate date,
+            LocalDateTime startTime,
+            LocalDateTime endTime) {
     }
 }

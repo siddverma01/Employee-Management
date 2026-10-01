@@ -76,7 +76,7 @@ export function HolidaysPage() {
   if (!holidays?.length && !events?.length) {
     return (
       <div>
-        <PageHeader title="Holidays & events" subtitle={`Public holidays and company events for ${currentYear}`} />
+        <PageHeader title="Holidays & events" subtitle={`Holidays and company events for ${currentYear}`} />
         <EmptyState title="Nothing scheduled" description="No holidays or events for this year yet." />
       </div>
     )
@@ -94,7 +94,7 @@ export function HolidaysPage() {
 
   return (
     <div>
-      <PageHeader title="Holidays & events" subtitle={`Public holidays and company events for ${currentYear}`} />
+      <PageHeader title="Holidays & events" subtitle={`Holidays and company events for ${currentYear}`} />
       <div className="grid gap-4 md:grid-cols-2">
         {months.map((m) => (
           <MonthSection key={m.key} label={m.label} holidays={m.holidays} events={m.events} />

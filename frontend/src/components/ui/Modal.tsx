@@ -7,7 +7,7 @@ interface ModalProps {
   onClose: () => void
   title: string
   children: ReactNode
-  size?: 'sm' | 'md' | 'lg' | '2xl'
+  size?: 'sm' | 'md' | 'lg' | '2xl' | 'detail'
   footer?: ReactNode
   /**
    * Secondary line under the title. Only rendered when provided, so the 12
@@ -51,7 +51,15 @@ export function Modal({
 
   if (!open) return null
 
-  const sizes = { sm: 'max-w-md', md: 'max-w-xl', lg: 'max-w-3xl', '2xl': 'max-w-2xl' }
+  const sizes = {
+    sm: 'max-w-md',
+    md: 'max-w-xl',
+    lg: 'max-w-3xl',
+    '2xl': 'max-w-2xl',
+    // Narrower than sm's sibling widths; used by the event details dialog, whose
+    // label/value rows read better in a single column than across a wide panel.
+    detail: 'max-w-lg',
+  }
   const feature = variant === 'feature'
 
   return (

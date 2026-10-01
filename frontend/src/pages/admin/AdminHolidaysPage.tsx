@@ -17,10 +17,13 @@ import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import { Modal } from '@/components/ui/Modal'
 import { StatusBadge } from '@/components/ui/StatusBadge'
+import { holidayLabel, resolveHolidayDisplayType } from '@/constants/holidayStatus'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { EmptyState } from '@/components/ui/EmptyState'
 
-const STATUS_LABELS: Record<string, string> = { PUBLIC: 'PUBLIC', OPTIONAL: 'OPTIONAL', OBSERVED: 'OBSERVED', HPE_HOLIDAY: 'HPE Holiday' }
+/** Selectable holiday types. Labels come from the shared holiday config so the
+ *  form never offers the raw enum name (e.g. "PUBLIC") to the user. */
+const STATUS_LABELS = ['PUBLIC', 'OPTIONAL', 'OBSERVED', 'HPE_HOLIDAY'] as const
 
 const APPLICABLE_LOCATIONS = [
   { value: 'ALL', label: 'All Locations' },
@@ -115,7 +118,7 @@ export function AdminHolidaysPage() {
     <div>
       <PageHeader
         title="Holidays & events"
-        subtitle={`Manage public holidays and company events for ${year}`}
+        subtitle={`Manage holidays and company events for ${year}`}
         actions={
           <Button
             onClick={() => (tab === 'holidays' ? openHolidayModal(null) : openEventModal(null))}
@@ -140,7 +143,7 @@ export function AdminHolidaysPage() {
       {tab === 'holidays' ? (
         <div className="card overflow-hidden">
           {!holidaysQuery.data?.length ? (
-            <EmptyState title="No holidays" description="Add a public holiday for this year." />
+            <EmptyState title="No holidays" description="Add a holiday for this year." />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px]">
@@ -160,7 +163,7 @@ export function AdminHolidaysPage() {
                     <tr key={h.id} className="transition-colors duration-150 hover:bg-rowhover">
                       <td className="td font-medium text-surface-800">{h.name}</td>
                       <td className="td">{formatDate(h.date)}</td>
-                      <td className="td"><StatusBadge status={h.holidayType} /></td>
+                      <td className="td"><StatusBadge status={resolveHolidayDisplayType(h)} /></td>
                       <td className="td text-xs text-surface-500">{h.country || '—'}</td>
                       <td className="td text-xs text-surface-500">{h.applicableLocations || 'ALL'}</td>
                       <td className="td text-xs">
@@ -227,7 +230,7 @@ export function AdminHolidaysPage() {
           <Input label="Name" placeholder="Independence Day" {...holidayForm.register('name')} error={holidayForm.formState.errors.name?.message} />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input label="Date" type="date" {...holidayForm.register('date')} error={holidayForm.formState.errors.date?.message} />
-            <Select label="Type" options={Object.keys(STATUS_LABELS).map((v) => ({ value: v, label: v }))} {...holidayForm.register('holidayType')} />
+            <Select label="Type" options={STATUS_LABELS.map((v) => ({ value: v, label: holidayLabel(v) }))} {...holidayForm.register('holidayType')} />
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input label="Country" placeholder="US" {...holidayForm.register('country')} />

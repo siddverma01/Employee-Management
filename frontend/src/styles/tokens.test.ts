@@ -17,10 +17,10 @@ describe('calendar HPE holiday tag theming', () => {
   })
 
   it('has muted, higher-contrast HPEH colours in dark mode', () => {
-    // Dark HPEH is the muted charcoal/emerald pair: 20 35 30 = #14231E fill,
-    // 0 179 136 = #00B388 text. Values are stored as space-separated channels.
-    expect(darkTheme).toMatch(/--attendance-hpeh-bg:\s*20 35 30/)
-    expect(darkTheme).toMatch(/--attendance-hpeh-text:\s*0 179 136/)
+    // Dark HPEH is the muted emerald pair: 6 59 43 = #063B2B fill,
+    // 0 229 153 = #00E599 text. Values are stored as space-separated channels.
+    expect(darkTheme).toMatch(/--attendance-hpeh-bg:\s*6 59 43/)
+    expect(darkTheme).toMatch(/--attendance-hpeh-text:\s*0 229 153/)
     // the dark fill is a dark tone, never the bright light-mode fill
     expect(darkTheme).not.toMatch(/--attendance-hpeh-bg:\s*#F0FDF4/)
   })

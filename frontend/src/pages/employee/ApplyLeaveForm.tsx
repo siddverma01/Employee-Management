@@ -173,7 +173,7 @@ export function ApplyLeaveForm({ onSubmitSuccess }: ApplyLeaveFormProps) {
       <div className="rounded border border-surface-200 bg-surface-50 px-3 py-2 text-sm">
         <span className="text-surface-500">Number of days:</span>{' '}
         <span className="font-bold text-brand-700">{daysCount}</span>
-        <span className="ml-2 text-xs text-surface-400">(weekends & public holidays excluded)</span>
+        <span className="ml-2 text-xs text-surface-400">(weekends & holidays excluded)</span>
       </div>
 
       <Textarea label="Reason" rows={2} placeholder="Explain the reason for your leave…" {...register('reason')} error={errors.reason?.message} />

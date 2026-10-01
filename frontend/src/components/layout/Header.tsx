@@ -62,7 +62,7 @@ function useTheme() {
 /**
  * Compact Stitch control.
  *
- * Dark mode: #1E2025 control surface, #2E323B hairline border, 8px radius and
+ * Dark mode: #161A20 control surface, #2A313D hairline border, 8px radius and
  * muted ink. Hover lifts the surface slightly and brightens the icon, so the
  * affordance is legible without a glow. `duration-150 ease-in-out` is explicit
  * rather than inherited from the base transition, keeping every control on the
@@ -72,8 +72,8 @@ const headerIconBtn =
   'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-surface-500 ' +
   'transition-[background-color,color,border-color] duration-150 ease-in-out ' +
   'hover:bg-surface-100 hover:text-surface-800 ' +
-  'dark:border dark:border-[#2E323B] dark:bg-[#1E2025] dark:text-slate-400 ' +
-  'dark:hover:border-[#3A3E48] dark:hover:bg-[#282B32] dark:hover:text-slate-100'
+  'dark:border dark:border-[#2A313D] dark:bg-[#161A20] dark:text-slate-400 ' +
+  'dark:hover:border-[#333D4D] dark:hover:bg-[#222731] dark:hover:text-slate-100'
 
 export function Header({
   onOpenMenu,
@@ -105,12 +105,12 @@ export function Header({
        (40px logo-to-collapse, 16px around the divider) stay exact.
        Inter is applied to <html> via --hpe-font-primary; font-sans is restated
        so the control typography holds outside the app shell. */
-    <header className="flex h-16 shrink-0 items-center border-b border-slate-200 bg-white px-6 font-sans dark:border-[#23252A] dark:bg-[#141518]">
+    <header className="flex h-16 shrink-0 items-center border-b border-slate-200 bg-white px-6 font-sans dark:border-[#222731] dark:bg-[#121519]">
       {/* Mobile menu trigger — the narrow-viewport counterpart of the collapse
           button, so the two never appear together. */}
       <button
         onClick={onOpenMenu}
-        className="mr-3 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-surface-500 transition-[background-color,color,border-color] duration-150 ease-in-out hover:bg-surface-100 hover:text-surface-800 dark:border dark:border-[#2E323B] dark:bg-[#1E2025] dark:text-slate-400 dark:hover:border-[#3A3E48] dark:hover:bg-[#282B32] dark:hover:text-slate-100 lg:hidden"
+        className="mr-3 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-surface-500 transition-[background-color,color,border-color] duration-150 ease-in-out hover:bg-surface-100 hover:text-surface-800 dark:border dark:border-[#2A313D] dark:bg-[#161A20] dark:text-slate-400 dark:hover:border-[#333D4D] dark:hover:bg-[#222731] dark:hover:text-slate-100 lg:hidden"
         aria-label="Open menu"
       >
         <Menu className="h-4 w-4" strokeWidth={1.5} />
@@ -139,7 +139,7 @@ export function Header({
         aria-label={sidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
         title={sidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
         aria-expanded={sidebarExpanded}
-        className="ml-10 hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg text-surface-500 transition-[background-color,color] duration-150 ease-in-out hover:bg-surface-100 hover:text-surface-800 dark:text-slate-400 dark:hover:bg-[#1D1E24] dark:hover:text-slate-100 lg:flex"
+        className="ml-10 hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg text-surface-500 transition-[background-color,color] duration-150 ease-in-out hover:bg-surface-100 hover:text-surface-800 dark:text-slate-400 dark:hover:bg-[#1E232B] dark:hover:text-slate-100 lg:flex"
       >
         {sidebarExpanded ? (
           <ChevronsLeft className="h-4 w-4" strokeWidth={1.5} />
@@ -152,7 +152,7 @@ export function Header({
           only, so it is hidden from assistive tech. */}
       <span
         aria-hidden="true"
-        className="mx-4 hidden h-6 w-px shrink-0 bg-slate-200 dark:bg-[#23252A] sm:block"
+        className="mx-4 hidden h-6 w-px shrink-0 bg-slate-200 dark:bg-[#222731] sm:block"
       />
 
       <TeamSelector className="hidden w-[165px] shrink-0 sm:flex lg:w-[175px]" />
@@ -196,7 +196,7 @@ export function Header({
             onClick={() => setProfileOpen((v) => !v)}
             /* Same control surface as the icon buttons so the identity cluster
                reads as one row; the avatar is the only rounded element here. */
-            className="flex items-center gap-2 rounded-lg border border-transparent py-1 pl-1 pr-2 transition-[background-color,color,border-color] duration-150 ease-in-out hover:bg-surface-100 dark:border-[#2E323B] dark:bg-[#1E2025] dark:hover:border-[#3A3E48] dark:hover:bg-[#282B32]"
+            className="flex items-center gap-2 rounded-lg border border-transparent py-1 pl-1 pr-2 transition-[background-color,color,border-color] duration-150 ease-in-out hover:bg-surface-100 dark:border-[#2A313D] dark:bg-[#161A20] dark:hover:border-[#333D4D] dark:hover:bg-[#222731]"
           >
             <Avatar name={user?.fullName} size="sm" />
             <span className="hidden max-w-[120px] truncate text-sm font-medium text-surface-700 sm:block dark:text-slate-200">
@@ -208,12 +208,12 @@ export function Header({
             /* Menu surface sits one step above the header rail. The shadow is
                kept deliberately shallow in both themes — a 1px border plus a
                faint lift, not a large drop shadow. */
-            <div className="absolute right-0 top-full z-50 mt-2 w-48 rounded-lg border border-surface-200 bg-surface-0 py-1 shadow-sm dark:border-[#2E323B] dark:bg-[#1A1B20]">
-              <Link to="/profile" className="flex items-center gap-2 px-4 py-2 text-sm text-surface-700 transition-colors duration-150 ease-in-out hover:bg-surface-100 dark:text-slate-300 dark:hover:bg-[#23252A]">
+            <div className="absolute right-0 top-full z-50 mt-2 w-48 rounded-lg border border-surface-200 bg-surface-0 py-1 shadow-sm dark:border-[#2A313D] dark:bg-[#161A20]">
+              <Link to="/profile" className="flex items-center gap-2 px-4 py-2 text-sm text-surface-700 transition-colors duration-150 ease-in-out hover:bg-surface-100 dark:text-slate-300 dark:hover:bg-[#222731]">
                 <User className="h-4 w-4" strokeWidth={1.5} /> My profile
               </Link>
-              <hr className="my-1 border-surface-200 dark:border-[#2E323B]" />
-              <button onClick={logout} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 transition-colors duration-150 ease-in-out hover:bg-surface-100 dark:text-red-400 dark:hover:bg-[#23252A]">
+              <hr className="my-1 border-surface-200 dark:border-[#2A313D]" />
+              <button onClick={logout} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 transition-colors duration-150 ease-in-out hover:bg-surface-100 dark:text-red-400 dark:hover:bg-[#222731]">
                 <LogOut className="h-4 w-4" strokeWidth={1.5} /> Log out
               </button>
             </div>

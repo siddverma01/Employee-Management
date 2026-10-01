@@ -104,6 +104,14 @@ export const eventApi = {
     api
       .patch<UpcomingEvent>(`/events/${id}/assignment`, { assignedEngineerId })
       .then((r) => r.data),
+  /**
+   * Moves an event to a new date and/or time window.
+   * A `null` startTime makes the event all-day. Backed by PATCH /events/{id}/schedule.
+   */
+  reschedule: (
+    id: number,
+    body: { date: string; startTime: string | null; endTime: string | null },
+  ) => api.patch<UpcomingEvent>(`/events/${id}/schedule`, body).then((r) => r.data),
 }
 
 export const notificationApi = {

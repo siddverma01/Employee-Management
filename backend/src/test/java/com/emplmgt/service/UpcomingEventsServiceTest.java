@@ -14,6 +14,7 @@ import com.emplmgt.entity.EventType;
 import com.emplmgt.entity.HolidayType;
 import com.emplmgt.entity.ScopeType;
 import com.emplmgt.entity.User;
+import com.emplmgt.exception.ApiException;
 import com.emplmgt.repository.EmployeeRepository;
 import com.emplmgt.repository.EventRepository;
 import com.emplmgt.repository.UserRepository;
@@ -583,6 +584,94 @@ class UpcomingEventsServiceTest {
             when(employeeRepository.findById(77L)).thenReturn(Optional.of(engineer(77L, "Aarav Mehta", "EMP-77")));
 
             assertThat(service.assign(14L, 77L).assignedEngineerName()).isEqualTo("Aarav Mehta");
+        }
+
+        @Test
+        void movesAMeetingToANewDateAndWindow() {
+            Event event = Event.builder()
+                    .id(11L).title("Q4 Architecture Review").eventDate(TODAY.plusDays(1))
+                    .eventType(EventType.CUSTOMER_REMOTE_SESSION).scope(ScopeType.TEAM)
+                    .team(Department.builder().id(TEAM_ID).build())
+                    .startTime(TODAY.plusDays(1).atTime(10, 0))
+                    .endTime(TODAY.plusDays(1).atTime(11, 0))
+                    .build();
+            givenEventExists(event);
+
+            CalendarDtos.UpcomingEvent updated = service.reschedule(11L,
+                    new CalendarDtos.RescheduleEventRequest(
+                            TODAY.plusDays(5),
+                            TODAY.plusDays(5).atTime(14, 30),
+                            TODAY.plusDays(5).atTime(15, 30)));
+
+            // UpcomingEvent carries real LocalDate/LocalDateTime, not strings.
+            assertThat(updated.date()).isEqualTo(TODAY.plusDays(5));
+            assertThat(updated.startTime()).isEqualTo(TODAY.plusDays(5).atTime(14, 30));
+            assertThat(updated.endTime()).isEqualTo(TODAY.plusDays(5).atTime(15, 30));
+        }
+
+        @Test
+        void reschedulingCanAlsoMakeAMeetingAllDay() {
+            Event event = Event.builder()
+                    .id(11L).title("Q4 Architecture Review").eventDate(TODAY.plusDays(1))
+                    .eventType(EventType.CUSTOMER_REMOTE_SESSION).scope(ScopeType.TEAM)
+                    .team(Department.builder().id(TEAM_ID).build())
+                    .startTime(TODAY.plusDays(1).atTime(10, 0))
+                    .build();
+            givenEventExists(event);
+
+            CalendarDtos.UpcomingEvent updated = service.reschedule(11L,
+                    new CalendarDtos.RescheduleEventRequest(TODAY.plusDays(3), null, null));
+
+            assertThat(updated.startTime()).isNull();
+            assertThat(updated.endTime()).isNull();
+        }
+
+        @Test
+        void rejectsReschedulingIntoThePast() {
+            givenEventExists(Event.builder()
+                    .id(11L).title("Q4 Architecture Review").eventDate(TODAY.plusDays(1))
+                    .eventType(EventType.CUSTOMER_REMOTE_SESSION).scope(ScopeType.TEAM)
+                    .team(Department.builder().id(TEAM_ID).build())
+                    .build());
+
+            assertThatThrownBy(() -> service.reschedule(11L,
+                    new CalendarDtos.RescheduleEventRequest(TODAY.minusDays(1), null, null)))
+                    .isInstanceOf(ApiException.class)
+                    .hasMessageContaining("past");
+            verify(eventRepository, never()).save(any(Event.class));
+        }
+
+        @Test
+        void rejectsAnEndTimeThatIsNotAfterTheStart() {
+            givenEventExists(Event.builder()
+                    .id(11L).title("Q4 Architecture Review").eventDate(TODAY.plusDays(1))
+                    .eventType(EventType.CUSTOMER_REMOTE_SESSION).scope(ScopeType.TEAM)
+                    .team(Department.builder().id(TEAM_ID).build())
+                    .build());
+
+            assertThatThrownBy(() -> service.reschedule(11L,
+                    new CalendarDtos.RescheduleEventRequest(TODAY.plusDays(2),
+                            TODAY.plusDays(2).atTime(15, 0),
+                            TODAY.plusDays(2).atTime(14, 0))))
+                    .isInstanceOf(ApiException.class)
+                    .hasMessageContaining("after start time");
+            verify(eventRepository, never()).save(any(Event.class));
+        }
+
+        @Test
+        void rejectsReschedulingAMeetingFromAnotherTeam() {
+            when(securityUtils.currentUserId()).thenReturn(USER_ID);
+            when(securityUtils.currentTeamId()).thenReturn(TEAM_ID);
+            when(eventRepository.findById(11L)).thenReturn(Optional.of(Event.builder()
+                    .id(11L).title("Someone else's meeting").eventDate(TODAY.plusDays(1))
+                    .eventType(EventType.CUSTOMER_REMOTE_SESSION).scope(ScopeType.TEAM)
+                    .team(Department.builder().id(TEAM_ID + 1L).build())
+                    .build()));
+
+            assertThatThrownBy(() -> service.reschedule(11L,
+                    new CalendarDtos.RescheduleEventRequest(TODAY.plusDays(2), null, null)))
+                    .isInstanceOf(ApiException.class)
+                    .hasMessageContaining("not found");
         }
 
         @Test

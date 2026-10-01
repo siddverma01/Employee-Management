@@ -10,9 +10,9 @@ import { LoadingState } from '@/components/ui/LoadingState'
 import { EmptyState } from '@/components/ui/EmptyState'
 
 const STATUS_STYLES: Record<AvailabilityStatus, string> = {
-  WORKING: 'bg-emerald-50 text-emerald-700',
-  WFH: 'bg-violet-50 text-violet-700',
-  OFF: 'bg-amber-50 text-amber-700',
+  WORKING: 'bg-success-50 text-success-700',
+  WFH: 'bg-violet-50 text-violet-700 dark:bg-surface-100 dark:text-violet-400',
+  OFF: 'bg-warning-50 text-warning-700',
   WEEK_OFF: 'bg-surface-100 text-surface-500',
 }
 
@@ -31,13 +31,13 @@ function PersonCard({ entry, mode }: { entry: TodayEntry; mode: 'working' | 'lea
         <span
           className={cn(
             'rounded-full px-2 py-0.5 text-[11px] font-semibold',
-            isHome ? 'bg-violet-50 text-violet-700 dark:bg-surface-100 dark:text-violet-400' : 'bg-brand-50 text-brand-700 dark:bg-surface-100 dark:text-brand-400',
+            isHome ? 'bg-violet-50 dark:bg-surface-100 text-violet-700 dark:text-violet-400' : 'bg-brand-50 text-brand-700 dark:bg-surface-100 dark:text-brand-400',
           )}
         >
           {isHome ? 'WFH' : 'WFO'}
         </span>
       ) : (
-        <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+        <span className="rounded-full bg-warning-50 px-2 py-0.5 text-[11px] font-semibold text-warning-700">
           {entry.leaveType ?? 'Leave'}
         </span>
       )}
@@ -89,7 +89,7 @@ export function TodayPage() {
         <LoadingState label="Loading today's status…" />
       ) : status?.mode === 'BASIC' ? (
         <div>
-          <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          <div className="mb-3 rounded-lg border border-warning-2000/30 bg-warning-50 px-3 py-2 text-xs text-warning-700">
             You have basic access to {status.teamName ? `the ${status.teamName} team` : 'this team'} — internal leave
             and attendance details are not shown.
           </div>
@@ -99,9 +99,9 @@ export function TodayPage() {
                 Team availability <span className="text-surface-400">({members.length})</span>
               </h2>
               <div className="flex gap-3 text-[11px] text-surface-400">
-                <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-emerald-500" /> Working</span>
+                <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-success-500" /> Working</span>
                 <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-violet-500" /> WFH</span>
-                <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-amber-500" /> Off</span>
+                <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-warning-500" /> Off</span>
                 <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-surface-400" /> Week off</span>
               </div>
             </div>

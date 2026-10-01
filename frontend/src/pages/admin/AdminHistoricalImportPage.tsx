@@ -24,10 +24,10 @@ import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 
 const ACTION_STYLES: Record<string, string> = {
-  INSERT: 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200',
-  UPDATE: 'bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-200',
-  DUPLICATE: 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200',
-  INVALID: 'bg-red-50 text-red-600 ring-1 ring-inset ring-red-200',
+  INSERT: 'bg-success-50 text-success-700 ring-1 ring-inset ring-emerald-200',
+  UPDATE: 'bg-info-500/15 text-info-700 ring-1 ring-inset ring-info-2000/30',
+  DUPLICATE: 'bg-warning-50 text-warning-700 ring-1 ring-inset ring-amber-200',
+  INVALID: 'bg-error-50 text-error-600 ring-1 ring-inset ring-red-200',
 }
 
 function ActionBadge({ action }: { action: string }) {
@@ -44,8 +44,8 @@ function StatusPill({ code, unknown }: { code: string; unknown?: boolean }) {
     <span className={cn(
       'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold',
       unknown
-        ? 'bg-red-50 text-red-600 ring-1 ring-inset ring-red-200'
-        : 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200',
+        ? 'bg-error-50 text-error-600 ring-1 ring-inset ring-red-200'
+        : 'bg-success-50 text-success-700 ring-1 ring-inset ring-emerald-200',
     )}>
       {unknown && <AlertTriangle className="mr-1 h-3 w-3" />}
       {code}
@@ -100,14 +100,14 @@ function StepIndicator({ step, maxClickable, onStep }: {
               disabled={!clickable}
               onClick={() => clickable && onStep(n)}
               className={cn('flex items-center gap-1.5 text-xs font-medium',
-                active ? 'text-brand-600' : clickable ? 'text-emerald-600 hover:text-brand-600' : 'text-surface-400')}
+                active ? 'text-brand-600' : clickable ? 'text-success-600 hover:text-brand-600' : 'text-surface-400')}
             >
               <span className={cn(
                 'flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold',
                 active
                   ? 'bg-brand-500 text-white'
                   : done
-                    ? 'bg-emerald-100 text-emerald-700'
+                    ? 'bg-success-1000/15 text-success-700'
                     : 'bg-surface-100 text-surface-400',
               )}>
                 {done ? <CheckCircle2 className="h-3 w-3" /> : n}
@@ -144,10 +144,10 @@ function AnalysisTable({ analysis }: { analysis: HistoricalSheetAnalysis[] }) {
                 <td className="px-4 py-3 text-gray-700">{a.dateColumns}</td>
                 <td className="px-4 py-3 text-gray-700">{a.employeeCount}</td>
                 <td className="px-4 py-3 text-gray-700">{a.cellCount}</td>
-                <td className={cn('px-4 py-3', a.unknownCodeCount > 0 ? 'font-semibold text-red-600' : 'text-gray-700')}>
+                <td className={cn('px-4 py-3', a.unknownCodeCount > 0 ? 'font-semibold text-error-600' : 'text-gray-700')}>
                   {a.unknownCodeCount}
                 </td>
-                <td className={cn('max-w-[240px] px-4 py-3 text-xs', a.warnings.length > 0 ? 'text-amber-600' : 'text-gray-400')}>
+                <td className={cn('max-w-[240px] px-4 py-3 text-xs', a.warnings.length > 0 ? 'text-warning-600' : 'text-gray-400')}>
                   {a.warnings.length > 0 ? (
                     <ul className="space-y-1">
                       {a.warnings.map((w, i) => <li key={i} className="flex items-start gap-1"><AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />{w}</li>)}
@@ -160,9 +160,9 @@ function AnalysisTable({ analysis }: { analysis: HistoricalSheetAnalysis[] }) {
                       Skipped
                     </span>
                   ) : a.importable ? (
-                    <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">Importable</span>
+                    <span className="rounded-full bg-success-50 px-2.5 py-0.5 text-xs font-semibold text-success-700">Importable</span>
                   ) : (
-                    <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-600">Blocked</span>
+                    <span className="rounded-full bg-error-50 px-2.5 py-0.5 text-xs font-semibold text-error-600">Blocked</span>
                   )}
                 </td>
               </tr>
@@ -201,8 +201,8 @@ function ValidationPanel({ issues, onImportDisabled }: { issues: HistoricalValid
       </div>
 
       {errors.length > 0 && (
-        <div className="rounded-lg border border-red-200 bg-red-50/60">
-          <div className="flex items-center gap-2 border-b border-red-100 px-4 py-2.5 text-sm font-semibold text-red-700">
+        <div className="rounded-lg border border-error-2000/30 bg-error-50/60">
+          <div className="flex items-center gap-2 border-b border-error-1000/25 px-4 py-2.5 text-sm font-semibold text-error-700">
             <XCircle className="h-4 w-4" /> Fatal errors — these must be fixed by editing the workbook before importing
           </div>
           <ul className="divide-y divide-red-100/60 px-4">
@@ -212,8 +212,8 @@ function ValidationPanel({ issues, onImportDisabled }: { issues: HistoricalValid
       )}
 
       {warnings.length > 0 && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50/60">
-          <div className="flex items-center gap-2 border-b border-amber-100 px-4 py-2.5 text-sm font-semibold text-amber-700">
+        <div className="rounded-lg border border-warning-2000/30 bg-warning-50/60">
+          <div className="flex items-center gap-2 border-b border-warning-1000/25 px-4 py-2.5 text-sm font-semibold text-warning-700">
             <AlertTriangle className="h-4 w-4" /> Warnings — you can continue, but review these before importing
           </div>
           <ul className="divide-y divide-amber-100/60 px-4">
@@ -223,21 +223,21 @@ function ValidationPanel({ issues, onImportDisabled }: { issues: HistoricalValid
       )}
 
       {info.length > 0 && (
-        <div className="rounded-lg border border-sky-200 bg-sky-50/60">
-          <div className="px-4 py-3 text-sm text-sky-700">
+        <div className="rounded-lg border border-info-2000/30 bg-info-500/15/60">
+          <div className="px-4 py-3 text-sm text-info-700">
             {info.map((n, i) => <div key={i}>{n.message}</div>)}
           </div>
         </div>
       )}
 
       {issues.length === 0 && (
-        <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+        <div className="flex items-center gap-2 rounded-lg border border-success-2000/30 bg-success-50 px-4 py-3 text-sm text-success-700">
           <CheckCircle2 className="h-4 w-4" /> No validation issues detected — this workbook looks clean.
         </div>
       )}
 
       {onImportDisabled && (
-        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="flex items-center gap-2 rounded-lg border border-error-2000/30 bg-error-50 px-4 py-3 text-sm text-error-700">
           <XCircle className="h-4 w-4" />
           Import is blocked while the workbook has fatal errors. Fix the source file and re-upload.
         </div>
@@ -291,7 +291,7 @@ function StatusMappingStep({ preview, statuses, onApplied, applying }: {
 
   if (unknown.length === 0) {
     return (
-      <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+      <div className="flex items-center gap-2 rounded-lg border border-success-2000/30 bg-success-50 px-4 py-3 text-sm text-success-700">
         <CheckCircle2 className="h-4 w-4" /> All status codes in this workbook are already recognised — nothing to map.
       </div>
     )
@@ -318,8 +318,8 @@ function StatusMappingStep({ preview, statuses, onApplied, applying }: {
                 <tr key={u.code} className="hover:bg-surface-50">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <Tag className="h-4 w-4 text-red-500" />
-                      <span className="font-mono font-semibold text-red-700">{u.code}</span>
+                      <Tag className="h-4 w-4 text-error-500" />
+                      <span className="font-mono font-semibold text-error-700">{u.code}</span>
                       <span className="text-xs text-surface-500">{u.count.toLocaleString()} record(s)</span>
                     </div>
                   </td>
@@ -411,11 +411,11 @@ function ResultStep({ result, importId, onImportDetails, showDetails, onDownload
   ]
   return (
     <div className="space-y-5">
-      <div className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
-        <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+      <div className="flex items-start gap-3 rounded-lg border border-success-2000/30 bg-success-50 px-4 py-3">
+        <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-success-600" />
         <div>
-          <p className="text-sm font-semibold text-emerald-800">Import completed successfully</p>
-          <p className="text-xs text-emerald-700">
+          <p className="text-sm font-semibold text-success-800">Import completed successfully</p>
+          <p className="text-xs text-success-700">
             {result.originalFileName} was committed in a single transaction ({result.committedRows.toLocaleString()} rows).
           </p>
         </div>
@@ -465,11 +465,11 @@ function HistoryPanel({ history }: { history: HistoricalHistoryItem[] }) {
                 <td className="px-4 py-3 text-gray-600">{h.sheetsImported}/{h.totalSheets}</td>
                 <td className="px-4 py-3 text-gray-600">{h.employeesDetected}</td>
                 <td className="px-4 py-3 text-gray-600">{h.recordsDetected}</td>
-                <td className="px-4 py-3 text-emerald-700">{h.newRecords}</td>
-                <td className="px-4 py-3 text-sky-700">{h.updatedRecords}</td>
-                <td className="px-4 py-3 text-amber-600">{h.duplicateRecords}</td>
-                <td className={cn('px-4 py-3', h.unknownCodes > 0 ? 'font-semibold text-red-600' : 'text-gray-600')}>{h.unknownCodes}</td>
-                <td className={cn('px-4 py-3', h.invalidRows > 0 ? 'font-semibold text-red-600' : 'text-gray-600')}>{h.invalidRows}</td>
+                <td className="px-4 py-3 text-success-700">{h.newRecords}</td>
+                <td className="px-4 py-3 text-info-700">{h.updatedRecords}</td>
+                <td className="px-4 py-3 text-warning-600">{h.duplicateRecords}</td>
+                <td className={cn('px-4 py-3', h.unknownCodes > 0 ? 'font-semibold text-error-600' : 'text-gray-600')}>{h.unknownCodes}</td>
+                <td className={cn('px-4 py-3', h.invalidRows > 0 ? 'font-semibold text-error-600' : 'text-gray-600')}>{h.invalidRows}</td>
                 <td className="px-4 py-3"><ActionBadge action={h.status} /></td>
               </tr>
             ))}
@@ -512,10 +512,10 @@ function UnknownCodesPanel({ statuses, onMapped }: { statuses: HistoricalStatusI
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {unknown.map((c: HistoricalUnknownCode) => (
-          <div key={c.code} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-red-100 bg-red-50/50 px-4 py-2.5">
+          <div key={c.code} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-error-1000/25 bg-error-50/50 px-4 py-2.5">
             <div className="flex items-center gap-2">
-              <Tag className="h-4 w-4 text-red-500" />
-              <span className="font-mono text-sm font-semibold text-red-700">{c.code}</span>
+              <Tag className="h-4 w-4 text-error-500" />
+              <span className="font-mono text-sm font-semibold text-error-700">{c.code}</span>
               <span className="text-xs text-surface-500">{c.count} record(s)</span>
             </div>
             <div className="flex items-center gap-2">
@@ -895,7 +895,7 @@ export default function AdminHistoricalImportPage() {
                 <Button variant="ghost" onClick={() => setStep(2)}><ChevronLeft className="h-4 w-4" /> Back</Button>
                 <div className="flex items-center gap-2">
                   {errors > 0 && (
-                    <p className="text-xs text-red-600">Cannot continue: {errors} fatal error(s) detected.</p>
+                    <p className="text-xs text-error-600">Cannot continue: {errors} fatal error(s) detected.</p>
                   )}
                   <Button onClick={() => setStep(4)} disabled={errors > 0}>
                     Continue to Status Mapping <ChevronRight className="h-4 w-4" />
@@ -937,8 +937,8 @@ export default function AdminHistoricalImportPage() {
           {step === 6 && preview && (
             <div className="space-y-5">
               {result && (
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
-                  <p className="text-sm text-emerald-700">This import has already been committed successfully.</p>
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-success-2000/30 bg-success-50 px-4 py-3">
+                  <p className="text-sm text-success-700">This import has already been committed successfully.</p>
                   <Button size="sm" variant="secondary" onClick={() => setStep(7)}>View Result</Button>
                 </div>
               )}
@@ -973,7 +973,7 @@ export default function AdminHistoricalImportPage() {
                     Import Historical Attendance
                   </Button>
                   {errors > 0 && (
-                    <p className="text-xs text-red-600">Blocked: the workbook has {errors} fatal error(s).</p>
+                    <p className="text-xs text-error-600">Blocked: the workbook has {errors} fatal error(s).</p>
                   )}
                 </div>
               </div>
@@ -987,7 +987,7 @@ export default function AdminHistoricalImportPage() {
                       return (
                         <li key={label} className="flex items-center gap-2 text-sm">
                           {done ? (
-                            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                            <CheckCircle2 className="h-4 w-4 text-success-500" />
                           ) : active ? (
                             <span className="h-4 w-4 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
                           ) : (

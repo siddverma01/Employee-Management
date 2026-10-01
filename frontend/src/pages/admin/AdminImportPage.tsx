@@ -178,11 +178,11 @@ function MappingStep({ upload, onDone }: { upload: ImportUpload; onDone: (previe
         </div>
       </div>
       {hasDuplicates ? (
-        <p className="mt-3 flex items-center gap-1 rounded bg-amber-50 p-2 text-xs font-medium text-amber-600">
+        <p className="mt-3 flex items-center gap-1 rounded bg-warning-50 p-2 text-xs font-medium text-warning-600">
           <AlertTriangle className="h-3 w-3" /> Each source column can only be mapped once — please choose unique columns.
         </p>
       ) : !isMappingValid ? (
-        <p className="mt-3 flex items-center gap-1 rounded bg-amber-50 p-2 text-xs font-medium text-amber-600">
+        <p className="mt-3 flex items-center gap-1 rounded bg-warning-50 p-2 text-xs font-medium text-warning-600">
           <AlertTriangle className="h-3 w-3" /> employeeCode and attendanceDate are required to continue.
         </p>
       ) : null}
@@ -210,21 +210,21 @@ function PreviewStep({ preview, onCommit }: { preview: MappedPreview; onCommit: 
         <div className="flex flex-wrap items-center gap-4">
           <h3 className="text-sm font-semibold text-surface-700">Step 3 · Validation Preview</h3>
           <div className="ml-auto flex flex-wrap items-center gap-3">
-            <span className="bg-green-100 px-3 py-1 rounded-full text-sm font-medium text-green-700">{valid} valid</span>
-            <span className="bg-red-100 px-3 py-1 rounded-full text-sm font-medium text-red-700">{invalid} invalid</span>
-            <span className="bg-yellow-100 px-3 py-1 rounded-full text-sm font-medium text-yellow-700">{duplicate} duplicate</span>
+            <span className="bg-success-100 px-3 py-1 rounded-full text-sm font-medium text-success-700">{valid} valid</span>
+            <span className="bg-error-1000/15 px-3 py-1 rounded-full text-sm font-medium text-error-700">{invalid} invalid</span>
+            <span className="bg-warning-100 px-3 py-1 rounded-full text-sm font-medium text-warning-700">{duplicate} duplicate</span>
             <span className="bg-gray-100 px-3 py-1 rounded-full text-sm font-medium text-gray-700">{total} total</span>
           </div>
         </div>
 
         {problemRows.length > 0 && (
-          <div className="mt-4 rounded-lg border border-red-100 bg-red-50/60 p-4">
-            <h4 className="text-sm font-semibold text-red-800">
+          <div className="mt-4 rounded-lg border border-error-1000/25 bg-error-50/60 p-4">
+            <h4 className="text-sm font-semibold text-error-800">
               {invalid} invalid row{invalid === 1 ? '' : 's'} and {duplicate} duplicate row{duplicate === 1 ? '' : 's'} need attention
             </h4>
             <ul className="mt-2 divide-y divide-red-100">
               {problemRows.map((row) => (
-                <li key={row._originalIndex} className="py-2 text-xs text-red-700">
+                <li key={row._originalIndex} className="py-2 text-xs text-error-700">
                   <span className="font-semibold">Row {row._rowNumber}</span>
                   <span className="ml-2 text-red-400">({row._status})</span>
                   <div className="mt-1 space-y-1">
@@ -233,7 +233,7 @@ function PreviewStep({ preview, onCommit }: { preview: MappedPreview; onCommit: 
                         <p key={i} className="rounded bg-white/70 px-2 py-1">
                           {d.column ? <b>{d.column} · </b> : null}
                           {d.message.trim()}
-                          {d.rawValue ? <span className="text-red-500"> — raw value: &quot;{d.rawValue}&quot;</span> : null}
+                          {d.rawValue ? <span className="text-error-500"> — raw value: &quot;{d.rawValue}&quot;</span> : null}
                         </p>
                       ))
                     ) : (
@@ -245,7 +245,7 @@ function PreviewStep({ preview, onCommit }: { preview: MappedPreview; onCommit: 
                 </li>
               ))}
             </ul>
-            <p className="mt-2 text-[11px] text-red-500">
+            <p className="mt-2 text-[11px] text-error-500">
               Invalid rows are skipped on import. Fix the values in the source file or adjust the column mapping and validate again.
             </p>
           </div>
@@ -272,14 +272,14 @@ function PreviewStep({ preview, onCommit }: { preview: MappedPreview; onCommit: 
                       {row._status === 'invalid' ? (
                         <span
                           title="Needs both an employee code and an attendance date"
-                          className="inline-flex items-center gap-1 bg-red-100 px-2 py-0.5 rounded text-xs font-medium text-red-700"
+                          className="inline-flex items-center gap-1 bg-error-1000/15 px-2 py-0.5 rounded text-xs font-medium text-error-700"
                         >
-                          invalid <span className="text-red-500">!</span>
+                          invalid <span className="text-error-500">!</span>
                         </span>
                       ) : row._status === 'duplicate' ? (
-                        <span className="bg-yellow-100 px-2 py-0.5 rounded text-xs font-medium text-yellow-700">duplicate</span>
+                        <span className="bg-warning-100 px-2 py-0.5 rounded text-xs font-medium text-warning-700">duplicate</span>
                       ) : (
-                        <span className="bg-green-100 px-2 py-0.5 rounded text-xs font-medium text-green-700">valid</span>
+                        <span className="bg-success-100 px-2 py-0.5 rounded text-xs font-medium text-success-700">valid</span>
                       )}
                     </td>
                   </tr>
@@ -407,12 +407,12 @@ export function AdminImportPage() {
           </div>
 
           {commitResult && (
-            <div className="card border-emerald-200 bg-emerald-50 p-6">
+            <div className="card border-success-2000/30 bg-success-50 p-6">
               <div className="flex items-center gap-3">
-                <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+                <CheckCircle2 className="h-6 w-6 text-success-600" />
                 <div>
-                  <p className="font-semibold text-emerald-800">Import complete</p>
-                  <p className="text-sm text-emerald-700">{commitResult.imported} of {commitResult.total} rows successfully imported as attendance records.</p>
+                  <p className="font-semibold text-success-800">Import complete</p>
+                  <p className="text-sm text-success-700">{commitResult.imported} of {commitResult.total} rows successfully imported as attendance records.</p>
                 </div>
                 <Button className="ml-auto" size="sm" variant="secondary" onClick={reset}>Start a new import</Button>
               </div>
@@ -457,7 +457,7 @@ export function AdminImportPage() {
                 <li key={h.id} className="px-4 py-3">
                   <div className="flex items-center justify-between gap-2">
                     <p className="truncate text-sm font-medium text-surface-800" title={h.originalFileName}>{h.originalFileName}</p>
-                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${h.status === 'COMMITTED' ? 'bg-emerald-50 text-emerald-700' : h.status === 'FAILED' ? 'bg-red-50 text-red-700' : 'bg-surface-100 text-surface-600'}`}>
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${h.status === 'COMMITTED' ? 'bg-success-50 text-success-700' : h.status === 'FAILED' ? 'bg-error-50 text-error-700' : 'bg-surface-100 text-surface-600'}`}>
                       {h.status.toLowerCase()}
                     </span>
                   </div>

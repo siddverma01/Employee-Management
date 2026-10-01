@@ -76,6 +76,19 @@ public class EventController {
         return ResponseEntity.ok(upcomingEventsService.assign(id, request.assignedEngineerId()));
     }
 
+    /**
+     * Moves a meeting to a new date and/or time window.
+     *
+     * <p>Drives the inline Scheduled Time editor on the event details dialog. A
+     * {@code null} {@code startTime} makes the event all-day.</p>
+     */
+    @PatchMapping("/{id}/schedule")
+    public ResponseEntity<CalendarDtos.UpcomingEvent> reschedule(
+            @PathVariable Long id,
+            @Valid @RequestBody CalendarDtos.RescheduleEventRequest request) {
+        return ResponseEntity.ok(upcomingEventsService.reschedule(id, request));
+    }
+
     /** Creates a user-scheduled meeting, scheduled meeting or remote session. */
     @PostMapping
     public ResponseEntity<CalendarDtos.UpcomingEvent> create(

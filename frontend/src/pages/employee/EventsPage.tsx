@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
@@ -9,11 +9,11 @@ import {
   CalendarPlus,
   Clock,
   ExternalLink,
-  FileText,
   LayoutGrid,
   List,
   ListChecks,
   Plus,
+  Search,
   Sun,
   UserRound,
   Users,
@@ -26,7 +26,13 @@ import {
   UPCOMING_EVENT_CATEGORIES,
   upcomingEventCategoryMeta,
 } from '@/constants/calendarEventKind'
+import {
+  getHolidayCellStyle,
+  holidayLabel,
+  resolveHolidayDisplayType,
+} from '@/constants/holidayStatus'
 import type {
+  AssignableEngineer,
   CreateEventRequest,
   UpcomingEvent,
   UpcomingEventCategory,
@@ -228,6 +234,7 @@ function sampleHolidayMeeting(
     daysUntil: daysUntil(date),
     category: 'HOLIDAY',
     eventType: 'HOLIDAY',
+    holidayCountry: null,
     subject: '',
     description: null,
     organization: null,
@@ -261,6 +268,8 @@ const DEV_SAMPLE_HOLIDAY_MEETINGS: UpcomingEvent[] = [
     subject: 'Gandhi Jayanti',
     description: 'National holiday. All India offices closed.',
     location: 'All India Offices',
+    eventType: 'HPE_HOLIDAY',
+    holidayCountry: 'IN',
   }),
   sampleHolidayMeeting(9102, '2026-10-04', {
     category: 'OFFICE_MEETING',
@@ -282,12 +291,16 @@ const DEV_SAMPLE_HOLIDAY_MEETINGS: UpcomingEvent[] = [
     subject: 'Columbus Day',
     description: 'US locations closed.',
     location: 'US Locations',
+    eventType: 'PUBLIC',
+    holidayCountry: 'US',
   }),
   sampleHolidayMeeting(9105, '2026-10-14', {
     category: 'HOLIDAY',
     subject: 'Company Foundation Day',
     description: 'Company-wide foundation day.',
     location: 'Global',
+    eventType: 'PUBLIC',
+    holidayCountry: 'US',
   }),
   sampleHolidayMeeting(9106, '2026-10-21', {
     category: 'OFFICE_MEETING',
@@ -410,16 +423,10 @@ const ADD_EVENT_CATEGORY_CARDS: {
   value: CreatableEventType
   label: string
   icon: typeof Users
-  hint?: string
 }[] = [
   { value: 'CUSTOMER_REMOTE_SESSION', label: 'Customer Meeting', icon: Video },
   { value: 'OFFICE_MEETING', label: 'Office Meeting', icon: Users },
-  {
-    value: 'HOLIDAY',
-    label: 'Holiday',
-    icon: Sun,
-    hint: 'Purpose and date only',
-  },
+  { value: 'HOLIDAY', label: 'Holiday', icon: Sun },
 ]
 
 function AddEventForm({ onDone }: { onDone: () => void }) {
@@ -560,34 +567,35 @@ function AddEventForm({ onDone }: { onDone: () => void }) {
                 aria-pressed={selected}
                 onClick={() => setEventType(option.value)}
                 className={cn(
-                  'relative flex items-start gap-2.5 rounded-xl border p-3 text-left transition-colors',
-                  selected && 'border-2 border-emerald-500 bg-emerald-50/40',
+                  // h-full plus items-center: the grid stretches all three to one
+                  // row height, and centering keeps the icon and label on the same
+                  // optical line now that the cards carry one line of text each.
+                  'relative flex h-full items-center gap-2.5 rounded-xl border p-3 text-left transition-colors',
+                  selected &&
+                    'border-2 border-success-500 bg-success-50/40 dark:border-[#0a5c43] dark:bg-[#063b2b]',
                   !selected && 'border-surface-200 hover:border-surface-300',
                 )}
               >
                 <Icon
                   className={cn(
-                    'mt-0.5 h-4 w-4 shrink-0',
-                    selected ? 'text-emerald-600' : 'text-surface-400',
+                    'h-4 w-4 shrink-0',
+                    selected
+                      ? 'text-success-600 dark:text-[#00e599]'
+                      : 'text-surface-400',
                   )}
                 />
-                <span className="min-w-0">
-                  <span
-                    className={cn(
-                      'block text-sm font-semibold',
-                      selected ? 'text-emerald-700' : 'text-surface-700',
-                    )}
-                  >
-                    {option.label}
-                  </span>
-                  {option.hint && (
-                    <span className="mt-0.5 block text-[11px] leading-tight text-surface-500">
-                      {option.hint}
-                    </span>
+                <span
+                  className={cn(
+                    'min-w-0 text-sm font-semibold',
+                    selected
+                      ? 'text-success-700 dark:text-[#00e599]'
+                      : 'text-surface-700',
                   )}
+                >
+                  {option.label}
                 </span>
                 {selected && (
-                  <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-emerald-500" />
+                  <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-success-500 dark:bg-[#00e599]" />
                 )}
               </button>
             )
@@ -661,7 +669,7 @@ function AddEventForm({ onDone }: { onDone: () => void }) {
                   onClick={() => setAllDay((prev) => !prev)}
                   className={cn(
                     'relative h-5 w-9 shrink-0 rounded-full transition-colors',
-                    allDay ? 'bg-emerald-500' : 'bg-surface-300',
+                    allDay ? 'bg-success-500' : 'bg-surface-300',
                   )}
                 >
                   <span
@@ -674,8 +682,11 @@ function AddEventForm({ onDone }: { onDone: () => void }) {
               </label>
             </div>
 
+            {/* Two equal columns: the Date picker and the Start Time row each take
+            half the box, so the zone badge eats into Start Time rather than
+            pushing the pair off-balance. min-w-0 lets the time input shrink. */}
             <div className="grid gap-3 sm:grid-cols-2">
-              <div>
+              <div className="min-w-0">
                 <label
                   htmlFor="event-date"
                   className="mb-1 block text-xs font-medium text-surface-600"
@@ -691,7 +702,7 @@ function AddEventForm({ onDone }: { onDone: () => void }) {
                   className="w-full rounded-md border border-surface-300 bg-surface-0 px-3 py-2 text-sm text-surface-800 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
                 />
               </div>
-              <div>
+              <div className="min-w-0">
                 <label
                   htmlFor="event-start"
                   className="mb-1 block text-xs font-medium text-surface-600"
@@ -706,12 +717,13 @@ function AddEventForm({ onDone }: { onDone: () => void }) {
                     value={startClock}
                     disabled={allDay}
                     onChange={(e) => setStartClock(e.target.value)}
-                    className="w-full rounded-md border border-surface-300 bg-surface-0 px-3 py-2 text-sm text-surface-800 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:cursor-not-allowed disabled:bg-surface-100 disabled:text-surface-400"
+                    className="min-w-0 flex-1 rounded-md border border-surface-300 bg-surface-0 px-3 py-2 text-sm text-surface-800 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:cursor-not-allowed disabled:bg-surface-100 disabled:text-surface-400"
                   />
                   {/* Reader's own clock, not a hardcoded zone: these are naive wall-clock
-                  values, so the badge names the clock they are read on. */}
+                  values, so the badge names the clock they are read on. shrink-0 keeps
+                  it from being squeezed by the time input on a narrow viewport. */}
                   {timeZoneLabel() && (
-                    <span className="shrink-0 rounded-full bg-surface-200 px-2 py-0.5 text-[11px] font-semibold text-surface-600">
+                    <span className="h-fit shrink-0 self-center rounded-full bg-surface-200 px-2 py-0.5 text-[11px] font-semibold text-surface-600">
                       {timeZoneLabel()}
                     </span>
                   )}
@@ -748,30 +760,10 @@ function AddEventForm({ onDone }: { onDone: () => void }) {
             <span className="mb-1 block text-sm font-medium text-surface-700">
               Assign to
             </span>
+            {/* Add Member leads so the dashed pill stays put on the left and a
+            selected chip wraps onto the row after it. There is no empty-state
+            label: the field speaks for itself when it holds only the pill. */}
             <div className="flex flex-wrap items-center gap-2 rounded-md border border-surface-300 bg-surface-0 p-2">
-              {assignedEngineer ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 py-0.5 pl-0.5 pr-1.5">
-                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand-600 text-[10px] font-semibold text-white">
-                    {initialsOf(assignedEngineer.fullName)}
-                  </span>
-                  <span className="text-xs font-medium text-brand-800">
-                    {assignedEngineer.fullName}
-                  </span>
-                  <button
-                    type="button"
-                    aria-label={`Remove ${assignedEngineer.fullName}`}
-                    onClick={() => setAssignedEngineerId('')}
-                    className="rounded-full p-0.5 text-brand-400 transition-colors hover:bg-brand-100 hover:text-brand-700"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </span>
-              ) : (
-                <span className="px-1 text-xs text-surface-400">
-                  No one assigned yet
-                </span>
-              )}
-
               <span className="relative inline-flex">
                 <select
                   aria-label="Add Member"
@@ -796,6 +788,25 @@ function AddEventForm({ onDone }: { onDone: () => void }) {
                   Add Member
                 </span>
               </span>
+
+              {assignedEngineer && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 py-0.5 pl-0.5 pr-1.5">
+                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand-600 text-[10px] font-semibold text-white">
+                    {initialsOf(assignedEngineer.fullName)}
+                  </span>
+                  <span className="text-xs font-medium text-brand-800">
+                    {assignedEngineer.fullName}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={`Remove ${assignedEngineer.fullName}`}
+                    onClick={() => setAssignedEngineerId('')}
+                    className="rounded-full p-0.5 text-brand-400 transition-colors hover:bg-brand-100 hover:text-brand-700"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              )}
             </div>
           </div>
 
@@ -828,7 +839,7 @@ function AddEventForm({ onDone }: { onDone: () => void }) {
               name="setReminder"
               checked={setReminder}
               onChange={(e) => setSetReminder(e.target.checked)}
-              className="mt-0.5 h-4 w-4 shrink-0 rounded border-surface-300 text-brand-500 focus:ring-brand-500"
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-surface-300 accent-emerald-600 focus:ring-brand-500"
             />
             <span className="flex items-center gap-1.5">
               <Bell className="h-4 w-4 shrink-0 text-surface-400" />
@@ -838,7 +849,7 @@ function AddEventForm({ onDone }: { onDone: () => void }) {
         </>
       )}
 
-      {formError && <p className="text-sm text-red-600">{formError}</p>}
+      {formError && <p className="text-sm text-error-600">{formError}</p>}
 
       <div className="flex justify-end gap-2">
         <Button type="button" variant="secondary" onClick={onDone}>
@@ -925,6 +936,26 @@ function EventCard({
  * lists arbitrary events, whereas these reference cards stack icon + title + tag
  * over a muted when-line and a split footer of countdown and location.</p>
  */
+/**
+ * Whether a holiday is a US or an HPE holiday, so the feed can say which.
+ *
+ * <p>HPE holidays are identified by their persisted type. US federal holidays are
+ * stored as `PUBLIC`, so `holidayCountry` is what separates them; without it they
+ * would be indistinguishable from a generic public holiday. Returns `null` for
+ * anything that is not a holiday, and for a holiday with no recognisable type so
+ * the caller can simply omit the chip.</p>
+ */
+function holidayTypeBadge(event: UpcomingEvent) {
+  if (event.category !== 'HOLIDAY') return null
+  const displayType = resolveHolidayDisplayType({
+    holidayType: event.eventType ?? undefined,
+    country: event.holidayCountry ?? undefined,
+  })
+  const label = holidayLabel(displayType)
+  if (!label) return null
+  return { label, style: getHolidayCellStyle(displayType) }
+}
+
 function HolidayMeetingCard({
   event,
   onOpen,
@@ -935,12 +966,13 @@ function HolidayMeetingCard({
   const meta = upcomingEventCategoryMeta(event.category)
   const Icon = meta.icon
   const relative = countdownLabel(event.daysUntil)
+  const holidayType = holidayTypeBadge(event)
 
   return (
     <button
       type="button"
       onClick={onOpen}
-      className="flex w-full flex-col rounded-lg border border-surface-200 bg-surface-0 p-4 text-left transition-colors hover:border-surface-300 hover:bg-surface-100"
+      className="flex w-full flex-col rounded-lg border border-surface-200 bg-surface-0 p-4 text-left transition-colors hover:border-surface-300 hover:bg-surface-100 dark:rounded-xl dark:border-[#222731] dark:bg-[#161a20] dark:hover:border-[#2d3748] dark:hover:bg-[#1a202c]"
     >
       <div className="flex items-start gap-3">
         <span
@@ -951,26 +983,39 @@ function HolidayMeetingCard({
         >
           <Icon className="h-4 w-4" />
         </span>
-        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-surface-800">
+        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-surface-800 dark:text-white">
           {event.subject}
         </span>
-        <span
-          className={cn(
-            'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold',
-            meta.chipClass,
-          )}
-        >
-          {meta.compactLabel}
-        </span>
+        {holidayType ? (
+          <span
+            className="shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold"
+            style={{
+              ...holidayType.style,
+              borderColor: holidayType.style.borderColor,
+            }}
+            title={holidayType.label}
+          >
+            {holidayType.label}
+          </span>
+        ) : (
+          <span
+            className={cn(
+              'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold',
+              meta.chipClass,
+            )}
+          >
+            {meta.compactLabel}
+          </span>
+        )}
       </div>
 
-      <p className="mt-3 text-xs text-surface-500">{sectionWhen(event)}</p>
+      <p className="mt-3 text-xs text-surface-500 dark:text-[#8a99ad]">{sectionWhen(event)}</p>
 
-      <div className="mt-3 flex items-center justify-between gap-3 border-t border-surface-100 pt-2.5">
-        <span className="shrink-0 text-xs font-semibold text-emerald-600">
+      <div className="mt-3 flex items-center justify-between gap-3 border-t border-surface-100 pt-2.5 dark:border-[#1e232b]">
+        <span className="shrink-0 text-xs font-semibold text-success-700 dark:text-[#00e599]">
           {relative}
         </span>
-        <span className="min-w-0 truncate text-xs text-surface-500">
+        <span className="min-w-0 truncate text-xs text-surface-500 dark:text-[#8a99ad]">
           {event.location?.trim() || '—'}
         </span>
       </div>
@@ -981,56 +1026,241 @@ function HolidayMeetingCard({
 function EventDetails({
   event,
   onClose,
+  onSaved,
 }: {
   event: UpcomingEvent
   onClose: () => void
+  onSaved?: (updated: UpcomingEvent) => void
 }) {
   const meta = upcomingEventCategoryMeta(event.category)
   const Icon = meta.icon
-  const hasTodos = event.todoItems && event.todoItems.length > 0
+  const holidayType = holidayTypeBadge(event)
+  const queryClient = useQueryClient()
+
+  const { data: engineersRaw, isLoading: loadingEngineers } = useQuery({
+    queryKey: ['events', 'assignable-engineers'],
+    queryFn: () => eventApi.assignableEngineers(),
+  })
+  const engineers = useMemo(() => engineersRaw ?? [], [engineersRaw])
+
+  /**
+   * Only rows backed by the `events` table can be moved or reassigned. Holidays and
+   * birthdays are synthesized from their own tables, so they have no event id to
+   * PATCH and the editor stays read-only for them.
+   */
+  const canEdit = event.source === 'EVENT'
+
+  const [editing, setEditing] = useState(false)
+  const [date, setDate] = useState(event.date)
+  const [startClock, setStartClock] = useState(isoClock(event.startTime))
+  const [endClock, setEndClock] = useState(isoClock(event.endTime))
+  const [assigneeId, setAssigneeId] = useState(
+    event.assignedEngineerId == null ? '' : String(event.assignedEngineerId),
+  )
+
+  /**
+   * Compared field by field rather than by rebuilding the ISO string, because
+   * Jackson may or may not render the trailing seconds. Comparing `14:30` to
+   * `14:30` keeps Save correctly disabled on a freshly opened dialog.
+   */
+  const scheduleDirty =
+    date !== event.date ||
+    startClock !== isoClock(event.startTime) ||
+    endClock !== isoClock(event.endTime)
+  const assigneeDirty =
+    (assigneeId === '' ? null : Number(assigneeId)) !== event.assignedEngineerId
+  const dirty = scheduleDirty || assigneeDirty
+
+  /**
+   * Reschedule runs before assign so that a dialog changing both persists the
+   * new window first and the assign response carries it back.
+   */
+  const save = useMutation({
+    mutationFn: async () => {
+      let updated = event
+      if (scheduleDirty) {
+        updated = await eventApi.reschedule(event.id, {
+          date,
+          startTime: startClock ? `${date}T${startClock}:00` : null,
+          endTime: endClock ? `${date}T${endClock}:00` : null,
+        })
+      }
+      if (assigneeDirty) {
+        updated = await eventApi.assign(
+          event.id,
+          assigneeId === '' ? null : Number(assigneeId),
+        )
+      }
+      return updated
+    },
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ['events', 'upcoming'] })
+      onSaved?.(updated)
+      onClose()
+    },
+  })
+
+  // The current assignee may be someone no longer offered by the dropdown (left
+  // the company), so fall back to the name the feed already reported.
+  const assigneeName =
+    engineers.find((e) => String(e.id) === assigneeId)?.fullName ??
+    (assigneeId === '' ? null : event.assignedEngineerName)
+
+  const planOfAction =
+    (event.description ?? '').trim() || (event.todoItems ?? []).join('\n')
+
+  const inputClass =
+    'rounded-md border border-surface-300 bg-surface-0 px-2.5 py-1.5 text-sm text-surface-800 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
 
   return (
-    <Modal open onClose={onClose} title={event.subject} size="md">
-      <div className="space-y-4">
-        <span
-          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${meta.chipClass}`}
-        >
-          <Icon className="h-3.5 w-3.5" />
-          {meta.label}
-        </span>
-
-        {event.employeeName && (
-          <p className="text-sm text-surface-500">{event.employeeName}</p>
-        )}
+    <Modal
+      open
+      onClose={onClose}
+      title={event.subject}
+      size="detail"
+      variant="feature"
+    >
+      <div className="space-y-5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2">
+            {holidayType ? (
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
+                style={holidayType.style}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {holidayType.label}
+              </span>
+            ) : (
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${meta.chipClass}`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {meta.label}
+              </span>
+            )}
+          </div>
+          {event.employeeName && (
+            <p className="truncate text-sm text-surface-500">{event.employeeName}</p>
+          )}
+        </div>
 
         <dl className="divide-y divide-surface-100 text-sm">
-          <div className="flex items-start justify-between gap-4 py-2">
-            <dt className="text-surface-500">Subject</dt>
+          <div className="flex items-start justify-between gap-4 py-2.5">
+            <dt className="shrink-0 text-surface-500">Subject</dt>
             <dd className="text-right font-medium text-surface-800">
               {event.subject}
             </dd>
           </div>
-          <div className="flex items-start justify-between gap-4 py-2">
-            <dt className="text-surface-500">Scheduled Time</dt>
-            <dd className="text-right font-medium text-surface-800">
-              {formatWhen(event)}
-            </dd>
-          </div>
-          <div className="flex items-start justify-between gap-4 py-2">
-            <dt className="text-surface-500">Assigned To</dt>
-            <dd className="flex items-center justify-end gap-1.5 text-right font-medium text-surface-800">
-              {event.assignedEngineerName ? (
-                <>
-                  <UserRound className="h-3.5 w-3.5 shrink-0 text-surface-400" />
-                  {event.assignedEngineerName}
-                </>
+
+          <div className="flex items-start justify-between gap-4 py-2.5">
+            <dt className="shrink-0 pt-1 text-surface-500">Scheduled Time</dt>
+            <dd className="min-w-0 flex-1">
+              {editing ? (
+                <div className="space-y-2">
+                  <div>
+                    <label
+                      htmlFor="event-detail-date"
+                      className="mb-1 block text-xs font-medium text-surface-600"
+                    >
+                      Date
+                    </label>
+                    <input
+                      id="event-detail-date"
+                      type="date"
+                      value={date}
+                      onChange={(e) => setDate(e.target.value)}
+                      className={`${inputClass} w-full`}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label
+                        htmlFor="event-detail-start"
+                        className="mb-1 block text-xs font-medium text-surface-600"
+                      >
+                        Start
+                      </label>
+                      <input
+                        id="event-detail-start"
+                        type="time"
+                        value={startClock}
+                        onChange={(e) => setStartClock(e.target.value)}
+                        className={`${inputClass} w-full`}
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="event-detail-end"
+                        className="mb-1 block text-xs font-medium text-surface-600"
+                      >
+                        End
+                      </label>
+                      <input
+                        id="event-detail-end"
+                        type="time"
+                        value={endClock}
+                        onChange={(e) => setEndClock(e.target.value)}
+                        className={`${inputClass} w-full`}
+                      />
+                    </div>
+                  </div>
+                </div>
               ) : (
-                <span className="text-surface-400">Unassigned</span>
+                <div className="flex items-center justify-end gap-2">
+                  <span className="text-right font-medium text-surface-800">
+                    {formatWhen(event)}
+                  </span>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => setEditing(true)}
+                      className="shrink-0 rounded px-1.5 py-0.5 text-xs font-medium text-brand-600 transition-colors hover:bg-brand-50"
+                    >
+                      Edit
+                    </button>
+                  )}
+                </div>
               )}
             </dd>
           </div>
-          <div className="flex items-start justify-between gap-4 py-2">
-            <dt className="text-surface-500">Meeting Link</dt>
+
+          <div className="flex items-start justify-between gap-4 py-2.5">
+            <dt className="shrink-0 pt-1 text-surface-500">Assigned To</dt>
+            <dd className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
+              {assigneeName ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-100 py-0.5 pl-0.5 pr-2">
+                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand-600 text-[10px] font-semibold text-white">
+                    {initialsOf(assigneeName)}
+                  </span>
+                  <span className="truncate text-xs font-medium text-surface-700">
+                    {assigneeName}
+                  </span>
+                </span>
+              ) : (
+                <span className="text-xs text-surface-400">Unassigned</span>
+              )}
+              {canEdit && (
+                <select
+                  aria-label="Assigned To"
+                  value={assigneeId}
+                  disabled={loadingEngineers}
+                  onChange={(e) => setAssigneeId(e.target.value)}
+                  className="min-w-0 max-w-full rounded-md border border-surface-300 bg-surface-0 px-2 py-1 text-xs text-surface-700 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                >
+                  <option value="">Unassigned</option>
+                  {engineers.map((e) => (
+                    <option key={e.id} value={String(e.id)}>
+                      {e.fullName}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </dd>
+          </div>
+
+          <div className="flex items-start justify-between gap-4 py-2.5">
+            <dt className="shrink-0 text-surface-500">Meeting Link</dt>
             <dd className="text-right">
               {event.meetingLink ? (
                 <a
@@ -1047,8 +1277,8 @@ function EventDetails({
               )}
             </dd>
           </div>
-          <div className="flex items-start justify-between gap-4 py-2">
-            <dt className="text-surface-500">Reminder Status</dt>
+          <div className="flex items-start justify-between gap-4 py-2.5">
+            <dt className="shrink-0 text-surface-500">Reminder Status</dt>
             <dd className="flex items-center justify-end gap-1.5 font-medium text-surface-800">
               {event.setReminder ? (
                 <>
@@ -1066,32 +1296,43 @@ function EventDetails({
         </dl>
 
         <div>
-          <p className="mb-1.5 text-sm text-surface-500">TO DO</p>
-          {hasTodos ? (
-            <ul className="space-y-1">
-              {event.todoItems!.map((item, i) => (
-                <li
-                  key={`${item}-${i}`}
-                  className="flex items-start gap-1.5 text-sm text-surface-700"
-                >
-                  <ListChecks className="mt-0.5 h-3.5 w-3.5 shrink-0 text-surface-400" />
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-surface-400">No checklist items</p>
-          )}
+          <p className="mb-1.5 text-sm text-surface-500">Plan of Action</p>
+          <div className="rounded-xl border border-surface-200 bg-surface-50 p-4 text-sm text-surface-700">
+            {planOfAction ? (
+              <p className="whitespace-pre-line">{planOfAction}</p>
+            ) : (
+              <p className="text-surface-400">No plan of action recorded</p>
+            )}
+          </div>
         </div>
 
-        <div className="flex justify-end border-t border-surface-200 pt-4">
+        <div className="flex justify-end gap-2 border-t border-surface-200 pt-5">
           <Button variant="secondary" onClick={onClose}>
             Close
+          </Button>
+          <Button
+            variant="primary"
+            disabled={!dirty || !canEdit}
+            loading={save.isPending}
+            onClick={() => save.mutate()}
+          >
+            Save Changes
           </Button>
         </div>
       </div>
     </Modal>
   )
+}
+
+/**
+ * "14:30" for an `<input type="time">`, from an ISO timestamp.
+ *
+ * <p>Slices the wall clock rather than reformatting, so it never shifts the
+ * stored naive time through a timezone the backend never applied.</p>
+ */
+function isoClock(iso: string | null): string {
+  if (!iso || iso.length < 16) return ''
+  return iso.slice(11, 16)
 }
 
 /** "02:00 PM" from an ISO timestamp. Hours are zero-padded to match the card mock. */
@@ -1166,13 +1407,16 @@ function initialsOf(name: string | null | undefined): string {
 }
 
 /**
- * Engineer picker shared by the "Reassign" and "+ Assign Engineer" actions.
+ * Inline engineer autocomplete shared by the "Reassign" and "+ Assign Engineer"
+ * actions.
  *
- * <p>Reuses the existing `assignable-engineers` query rather than adding a second
- * source of truth, and writes through `eventApi.assign` so the change is persisted
- * rather than only held in local state.</p>
+ * <p>Opens in place of the card action instead of in a dialog, so searching never
+ * covers the meeting being edited. Reuses the existing `assignable-engineers`
+ * query rather than adding a second source of truth, and writes through
+ * `eventApi.assign` so the change is persisted rather than only held in local
+ * state.</p>
  */
-function AssignEngineerModal({
+function AssignEngineerSearch({
   event,
   onClose,
 }: {
@@ -1192,7 +1436,45 @@ function AssignEngineerModal({
       ? DEV_SAMPLE_ENGINEERS
       : engineersRaw
 
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(true)
+  const [activeIndex, setActiveIndex] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // A single keystroke filters. Prefix hits outrank substring hits so typing
+  // "s" surfaces Siddhesh before the alphabetically later Masher/Choudary.
+  const matches = useMemo(() => {
+    const all: AssignableEngineer[] = engineers ?? []
+    const q = query.trim().toLowerCase()
+    if (!q) return all
+    const prefix: AssignableEngineer[] = []
+    const loose: AssignableEngineer[] = []
+    for (const e of all) {
+      const name = e.fullName.toLowerCase()
+      const role = (e.department ?? '').toLowerCase()
+      if (name.startsWith(q) || role.startsWith(q)) prefix.push(e)
+      else if (name.includes(q) || role.includes(q)) loose.push(e)
+    }
+    return [...prefix, ...loose]
+  }, [engineers, query])
+
+  // Shortening the list must not leave the highlight past the last option.
+  useEffect(() => setActiveIndex(0), [matches])
+
+  useEffect(() => {
+    inputRef.current?.focus()
+  }, [])
+
+  // Anywhere outside the panel is a cancel, same as Escape.
+  useEffect(() => {
+    const onPointerDown = (e: MouseEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) onClose()
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    return () => document.removeEventListener('mousedown', onPointerDown)
+  }, [onClose])
 
   const mutation = useMutation({
     mutationFn: (engineerId: number | null) =>
@@ -1223,77 +1505,144 @@ function AssignEngineerModal({
     onError: (err) => setError(extractMessage(err)),
   })
 
+  const choose = (engineerId: number | null) => mutation.mutate(engineerId)
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      onClose()
+      return
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setOpen(true)
+      setActiveIndex((i) => (matches.length ? Math.min(i + 1, matches.length - 1) : 0))
+      return
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setActiveIndex((i) => Math.max(i - 1, 0))
+      return
+    }
+    if (e.key === 'Enter') {
+      const picked = matches[activeIndex]
+      if (!picked || mutation.isPending) return
+      e.preventDefault()
+      choose(picked.id)
+    }
+  }
+
   return (
-    <Modal
-      open
-      onClose={onClose}
-      title={
-        event.assignedEngineerId ? 'Reassign engineer' : 'Assign an engineer'
-      }
-      size="md"
+    <div
+      ref={rootRef}
+      className="border-t border-surface-200 bg-surface-50 px-4 py-3 dark:border-[#222936] dark:bg-[#12161C]"
     >
-      <div className="space-y-3">
-        <p className="text-sm text-surface-500">
-          {event.organization?.toUpperCase() ?? event.subject} · {event.subject}
-        </p>
+      <h4 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-surface-500 dark:text-slate-400">
+        {event.assignedEngineerId ? 'Reassign engineer' : 'Assign an engineer'}
+      </h4>
 
-        {isLoading && (
-          <p className="text-sm text-surface-400">Loading engineers…</p>
-        )}
-
-        <ul className="divide-y divide-surface-100 rounded-md border border-surface-200">
-          {(engineers ?? []).map((e) => {
-            const isCurrent = e.id === event.assignedEngineerId
-            return (
-              <li key={e.id}>
-                <button
-                  type="button"
-                  disabled={mutation.isPending}
-                  onClick={() => mutation.mutate(e.id)}
-                  className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-surface-100 disabled:opacity-60"
-                >
-                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-100 text-[11px] font-semibold text-brand-700">
-                    {initialsOf(e.fullName)}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium text-surface-800">
-                      {e.fullName}
-                    </span>
-                    <span className="block truncate text-xs text-surface-500">
-                      {e.department ?? e.employeeCode}
-                    </span>
-                  </span>
-                  {isCurrent && (
-                    <span className="shrink-0 text-[11px] font-semibold text-brand-600">
-                      Current
-                    </span>
-                  )}
-                </button>
-              </li>
-            )
-          })}
-        </ul>
-
-        {event.assignedEngineerId && (
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={mutation.isPending}
-            onClick={() => mutation.mutate(null)}
-          >
-            Remove assignment
-          </Button>
-        )}
-
-        {error && <p className="text-sm text-red-600">{error}</p>}
-
-        <div className="flex justify-end border-t border-surface-200 pt-3">
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
+      <div className="flex items-center gap-2">
+        <div className="relative min-w-0 flex-1">
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-surface-400 dark:text-slate-500"
+          />
+          <input
+            ref={inputRef}
+            value={query}
+            role="combobox"
+            aria-label="Search engineers"
+            aria-expanded={open}
+            aria-controls="assign-engineer-listbox"
+            aria-autocomplete="list"
+            autoComplete="off"
+            placeholder="Search by name or role…"
+            onChange={(e) => {
+              setQuery(e.target.value)
+              setOpen(true)
+            }}
+            onKeyDown={onKeyDown}
+            className="w-full rounded-md border border-surface-300 bg-surface-0 py-1.5 pl-8 pr-2 text-sm text-surface-800 outline-none transition-colors placeholder:text-surface-400 focus:border-brand-500 focus:ring-[3px] focus:ring-brand-500/20 dark:border-[#222936] dark:bg-[#0D0F12] dark:text-white"
+          />
         </div>
+        <Button variant="secondary" size="sm" onClick={onClose}>
+          Cancel
+        </Button>
       </div>
-    </Modal>
+
+      {open && (
+        <ul
+          id="assign-engineer-listbox"
+          role="listbox"
+          aria-label="Engineers"
+          className="mt-2 max-h-56 overflow-y-auto rounded-md border border-surface-200 bg-surface-0 dark:border-[#222936] dark:bg-[#12161C]"
+        >
+          {isLoading && (
+            <li className="px-3 py-2.5 text-sm text-surface-400">Loading engineers…</li>
+          )}
+
+          {!isLoading && matches.length === 0 && (
+            <li className="px-3 py-2.5 text-sm text-surface-500 dark:text-slate-400">
+              No engineer matches “{query.trim()}”
+            </li>
+          )}
+
+          {!isLoading &&
+            matches.map((e, i) => {
+              const isCurrent = e.id === event.assignedEngineerId
+              const isActive = i === activeIndex
+              return (
+                <li key={e.id} role="option" aria-selected={isActive}>
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    disabled={mutation.isPending}
+                    onMouseEnter={() => setActiveIndex(i)}
+                    onClick={() => choose(e.id)}
+                    className={cn(
+                      'flex w-full items-center gap-3 px-3 py-2 text-left transition-colors disabled:opacity-60',
+                      isActive
+                        ? 'bg-surface-100 dark:bg-[#1a1f27]'
+                        : 'hover:bg-surface-100 dark:hover:bg-[#161a20]',
+                    )}
+                  >
+                    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-brand-100 text-[10px] font-semibold text-brand-700 dark:bg-[#00E599] dark:text-[#0D0F12] dark:font-bold">
+                      {initialsOf(e.fullName)}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium text-surface-800 dark:text-white">
+                        {e.fullName}
+                      </span>
+                      <span className="block truncate text-xs text-surface-500 dark:text-slate-400">
+                        {e.department ?? e.employeeCode}
+                      </span>
+                    </span>
+                    {isCurrent && (
+                      <span className="shrink-0 text-[11px] font-semibold text-brand-600 dark:text-[#00E599]">
+                        Current
+                      </span>
+                    )}
+                  </button>
+                </li>
+              )
+            })}
+        </ul>
+      )}
+
+      {event.assignedEngineerId && (
+        <Button
+          variant="secondary"
+          size="sm"
+          className="mt-2"
+          disabled={mutation.isPending}
+          onClick={() => choose(null)}
+        >
+          Remove assignment
+        </Button>
+      )}
+
+      {error && <p className="mt-2 text-sm text-error-600">{error}</p>}
+    </div>
   )
 }
 
@@ -1411,22 +1760,22 @@ function CustomerMeetingCard({
   }
 
   return (
-    <article className="flex flex-col overflow-hidden rounded-lg border border-surface-200 bg-surface-0 shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-surface-100 bg-surface-50 px-4 py-2.5">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          {!isAssigned && (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-orange-300 bg-orange-50 px-2 py-0.5 text-[10px] font-semibold text-orange-700">
+<article className="flex flex-col overflow-hidden rounded-lg border border-surface-200 bg-surface-0 shadow-sm dark:rounded-xl dark:bg-[#161a20] dark:border-[#222731]">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-surface-100 bg-surface-50 px-4 py-2.5 dark:border-[#1e232b] dark:bg-[#121519]">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            {!isAssigned && (
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-warning-200 bg-warning-50 px-2 py-0.5 text-[10px] font-semibold text-warning-700 dark:border-[#5c3a0a] dark:bg-[#3b2506] dark:text-[#fbbf24]">
               • Needs Engineer
             </span>
           )}
           {countdown && countdownOnLeft && (
-            <span className="shrink-0 rounded-full bg-surface-200 px-2.5 py-0.5 text-[11px] font-semibold text-surface-700">
+            <span className="shrink-0 rounded-full bg-surface-200 px-2.5 py-0.5 text-[11px] font-semibold text-surface-700 dark:bg-[#1e232b] dark:text-[#718096]">
               {countdown}
             </span>
           )}
         </div>
         {countdown && !countdownOnLeft && (
-          <span className="shrink-0 rounded-full bg-surface-200 px-2.5 py-0.5 text-[11px] font-semibold text-surface-700">
+          <span className="shrink-0 rounded-full bg-surface-200 px-2.5 py-0.5 text-[11px] font-semibold text-surface-700 dark:bg-[#1e232b] dark:text-[#718096]">
             {countdown}
           </span>
         )}
@@ -1449,29 +1798,32 @@ function CustomerMeetingCard({
         {isAssigned ? (
           <div className="flex items-center gap-2">
             <span className="text-xs text-surface-500">Assigned:</span>
-            <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-brand-50 py-0.5 pl-0.5 pr-2.5">
-              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand-600 text-[10px] font-semibold text-white">
+            <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-brand-50 py-0.5 pl-0.5 pr-2.5 dark:border dark:border-[#222936] dark:bg-[#12161C]">
+              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand-600 text-[10px] font-semibold text-white dark:bg-[#00E599] dark:text-[#0D0F12] dark:font-bold">
                 {initialsOf(event.assignedEngineerName)}
               </span>
-              {/* Name and role stay in one element so the chip reads as a single
-                  unit ("Sarah Jenkins (Lead Architect)") rather than two fragments. */}
-              <span className="truncate text-xs font-medium text-brand-800">
+              {/* Name and role stay inside one truncating element so the chip reads as a
+                  single unit ("Sarah Jenkins (Lead Architect)") rather than two
+                  fragments, while the role can still drop to muted slate on its own. */}
+              <span className="truncate text-xs font-medium text-brand-800 dark:text-white dark:font-semibold">
                 {event.assignedEngineerName}
-                {assigneeRole ? ` (${assigneeRole})` : ''}
+                {assigneeRole && (
+                  <span className="dark:text-slate-400 dark:font-normal"> ({assigneeRole})</span>
+                )}
               </span>
             </span>
           </div>
         ) : (
-          <span className="inline-flex items-center gap-1 rounded-full border border-orange-300 bg-orange-50 px-2 py-0.5 text-[11px] font-semibold text-orange-700">
+          <span className="inline-flex items-center gap-1 rounded-full border border-warning-200 bg-warning-50 px-2 py-0.5 text-[11px] font-semibold text-warning-700 dark:border-[#4a2608] dark:bg-[#2e1805] dark:text-[#f97316]">
             • Unassigned
           </span>
         )}
 
-        {joinError && <p className="text-xs text-red-600">{joinError}</p>}
+        {joinError && <p className="text-xs text-error-600">{joinError}</p>}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-surface-100 bg-surface-50 px-4 py-2.5">
-        <p className="flex min-w-0 items-center gap-1.5 text-xs text-surface-500">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-surface-100 bg-surface-50 px-4 py-2.5 dark:border-[#1e232b] dark:bg-[#121519]">
+        <p className="flex min-w-0 items-center gap-1.5 text-xs text-surface-500 dark:text-[#8a99ad]">
           <Video className="h-3.5 w-3.5 shrink-0" />
           <span className="truncate">
             {event.location?.trim() || 'No platform set'}
@@ -1510,7 +1862,7 @@ function CustomerMeetingCard({
       </div>
 
       {assigning && (
-        <AssignEngineerModal
+        <AssignEngineerSearch
           event={event}
           onClose={() => setAssigning(false)}
         />
@@ -1546,7 +1898,7 @@ function Section({
           )}
         </div>
         {badge && (
-          <span className="rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700">
+          <span className="rounded-full border border-warning-200 bg-warning-50 px-2.5 py-0.5 text-[11px] font-semibold text-warning-700 dark:border-[#5c3a0a] dark:bg-[#3b2506] dark:text-[#fbbf24]">
             {badge}
           </span>
         )}
@@ -1710,7 +2062,7 @@ export function EventsPage() {
         title={
           <span className="flex flex-wrap items-center gap-2">
             Events &amp; Schedule
-            <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+            <span className="rounded-full border border-success-200 bg-success-50 px-2.5 py-0.5 text-[11px] font-semibold text-success-700">
               Q4 FY26 Active
             </span>
           </span>
@@ -1720,7 +2072,7 @@ export function EventsPage() {
 
       {isError && !usingSampleData ? (
         <div className="card p-6 text-center">
-          <p className="text-sm text-red-600">{extractMessage(error)}</p>
+          <p className="text-sm text-error-600">{extractMessage(error)}</p>
           <Button
             variant="secondary"
             size="sm"
@@ -1740,7 +2092,7 @@ export function EventsPage() {
       ) : (
         <>
           {usingSampleData && (
-            <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <div className="mb-4 rounded-md border border-warning-200 bg-warning-50 px-3 py-2 text-xs text-warning-800 dark:border-[#5c3a0a] dark:bg-[#3b2506] dark:text-[#fbbf24]">
               Showing reference sample events. The feed did not supply{' '}
               {events.length - remoteEvents.length} of them
               {isError ? ' (API unreachable)' : ''}.
@@ -1760,8 +2112,8 @@ export function EventsPage() {
               className={cn(
                 'rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors',
                 tab === ALL_TAB
-                  ? 'bg-brand-600 text-white'
-                  : 'border border-surface-200 text-surface-600 hover:bg-surface-100',
+                  ? 'bg-brand-600 text-white dark:border dark:border-[#0a5c43] dark:bg-[#063b2b] dark:text-[#00e599]'
+                  : 'border border-surface-200 text-surface-600 hover:bg-surface-100 dark:border-[#2d3748] dark:bg-[#1a202c] dark:text-[#94a3b8]',
               )}
             >
               All ({events.length})
@@ -1778,15 +2130,15 @@ export function EventsPage() {
                   className={cn(
                     'inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors',
                     isActive
-                      ? 'bg-brand-600 text-white'
-                      : 'border border-surface-200 text-surface-600 hover:bg-surface-100',
+                      ? 'bg-brand-600 text-white dark:border dark:border-[#0a5c43] dark:bg-[#063b2b] dark:text-[#00e599]'
+                      : 'border border-surface-200 text-surface-600 hover:bg-surface-100 dark:border-[#2d3748] dark:bg-[#1a202c] dark:text-[#94a3b8]',
                   )}
                 >
                   {pill.key === 'CUSTOMER' && (
                     <span
                       className={cn(
                         'h-1.5 w-1.5 rounded-full',
-                        isActive ? 'bg-white' : 'bg-emerald-500',
+                        isActive ? 'bg-[#00e599]' : 'bg-success-500 dark:bg-[#00e599]',
                       )}
                     />
                   )}
@@ -1835,41 +2187,13 @@ export function EventsPage() {
         </>
       )}
 
-      <div className="card mt-6 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <FileText className="h-5 w-5 shrink-0 text-surface-400" />
-          <p className="min-w-0 text-sm text-surface-600">
-            Need the complete fiscal year breakdown? The{' '}
-            <Link
-              to="/holidays"
-              className="font-medium text-brand-600 underline"
-            >
-              Holidays
-            </Link>{' '}
-            page lists every holiday, regional observatory, and official company
-            event.
-          </p>
-        </div>
-        {/* No PDF export endpoint exists on the backend yet, so this is inert
-            rather than a button that silently does nothing. */}
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled
-          title="PDF export is not implemented yet"
-        >
-          <CalendarClock className="h-4 w-4" />
-          Download PDF Calendar
-        </Button>
-      </div>
-
       <Modal
         open={showCreate}
         onClose={() => setShowCreate(false)}
         title="Schedule New Event"
         subtitle="Create a meeting, holiday entry, or company session across teams."
         icon={
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-50 text-emerald-600">
+          <span className="grid h-10 w-10 place-items-center rounded-xl bg-success-50 text-success-700">
             <CalendarPlus className="h-5 w-5" />
           </span>
         }
@@ -1880,7 +2204,11 @@ export function EventsPage() {
       </Modal>
 
       {selected && (
-        <EventDetails event={selected} onClose={() => setSelected(null)} />
+        <EventDetails
+        event={selected}
+        onClose={() => setSelected(null)}
+        onSaved={setSelected}
+      />
       )}
     </div>
   )

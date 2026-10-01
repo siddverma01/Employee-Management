@@ -129,9 +129,9 @@ export function CalendarGrid({ year, month, events, onSelectDay, today }: Calend
   return (
     /* One shared geometry for both themes: 9px radius, 38px weekday rail, 8px
        cell padding. `dark:` below carries surface, border and ink colours only. */
-    <div className="flex min-h-0 flex-1 flex-col w-full border border-[#E2E8F0] rounded-[9px] overflow-hidden bg-white dark:border-[#23252A] dark:bg-[#141518] dark:shadow-none">
+    <div className="flex min-h-0 flex-1 flex-col w-full border border-[#E2E8F0] rounded-[9px] overflow-hidden bg-white dark:border-[#222731] dark:bg-[#121519] dark:shadow-none">
       {/* Day Headers — 38px in both themes */}
-      <div className="shrink-0 grid grid-cols-7 h-[38px] border-b border-[#E2E8F0] bg-[#F8FAFC] text-[11px] font-semibold leading-[38px] tracking-[0.08em] text-[#94A3B8] uppercase text-center items-center dark:border-[#23252A] dark:bg-[#141518] dark:text-slate-400">
+      <div className="shrink-0 grid grid-cols-7 h-[38px] border-b border-[#E2E8F0] bg-[#F8FAFC] text-[11px] font-semibold leading-[38px] tracking-[0.08em] text-[#94A3B8] uppercase text-center items-center dark:border-[#222731] dark:bg-[#121519] dark:text-slate-400">
         {WEEKDAYS.map((d, i) => (
           <div
             key={d}
@@ -146,7 +146,7 @@ export function CalendarGrid({ year, month, events, onSelectDay, today }: Calend
       </div>
 
       {/* 7 x N Day Grid — rows share the available height via auto-rows-fr */}
-      <div className="grid min-h-0 flex-1 auto-rows-fr grid-cols-7 divide-x divide-y divide-[#E2E8F0] text-xs dark:divide-[#23252B]">
+      <div className="grid min-h-0 flex-1 auto-rows-fr grid-cols-7 divide-x divide-y divide-[#E2E8F0] text-xs dark:divide-[#222731]">
         {cells.map((cell) => {
           const dayEvents = eventsByDay.get(cell.date) ?? []
           const isToday = cell.date === today
@@ -162,25 +162,25 @@ export function CalendarGrid({ year, month, events, onSelectDay, today }: Calend
               onClick={() => onSelectDay(cell.date)}
               aria-label={`${cell.date}${dayEvents.length ? `, ${dayEvents.length} events` : ''}`}
               className={cn(
-                'calendar-cell min-h-0 p-2 flex flex-col items-stretch justify-start text-left transition-colors duration-150 bg-white overflow-hidden dark:bg-[#16171B]',
+                'calendar-cell min-h-0 p-2 flex flex-col items-stretch justify-start text-left transition-colors duration-150 bg-white overflow-hidden dark:bg-[#161A20]',
                 /* Today is a background tint in both themes — no ring, no extra
                    border width, no shadow, so cell geometry is identical. */
                 isToday
-                  ? 'bg-[#F0FDF9] relative shadow-none dark:bg-[rgba(0,179,136,0.08)]'
+                  ? 'bg-[#F0FDF9] relative shadow-none dark:bg-[rgba(0,229,153,0.08)]'
                   : !cell.inMonth
-                    ? 'bg-[#F8FAFC] text-slate-400 font-medium dark:bg-[#121316] dark:text-slate-600 dark:hover:bg-[#1D1E24]'
+                    ? 'bg-[#F8FAFC] text-slate-400 font-medium dark:bg-[#0D0F12] dark:text-slate-600 dark:hover:bg-[#1E232B]'
                     : isWeekend
-                      ? 'bg-white hover:bg-[#F8FAFC] font-medium dark:bg-[#131418] dark:hover:bg-[#1D1E24]'
-                      : 'bg-white hover:bg-[#F8FAFC] dark:hover:bg-[#1D1E24]',
+                      ? 'bg-white hover:bg-[#F8FAFC] font-medium dark:bg-[#14171d] dark:hover:bg-[#1E232B]'
+                      : 'bg-white hover:bg-[#F8FAFC] dark:hover:bg-[#1E232B]',
               )}
             >
               {/* Day number / Today marker */}
               {isToday ? (
                 <div className="flex w-full shrink-0 items-center justify-between">
-                  <span className="w-6 h-6 min-w-6 shrink-0 rounded-full bg-[#00B388] text-white text-xs font-bold leading-none flex items-center justify-center shadow-none dark:bg-[#00B388] dark:shadow-none">
+                  <span className="w-6 h-6 min-w-6 shrink-0 rounded-full bg-[#00B388] text-white text-xs font-bold leading-none flex items-center justify-center shadow-none dark:bg-[#00E599] dark:text-[#0D0F12] dark:shadow-none">
                     {cell.day}
                   </span>
-                  <span className="shrink-0 text-[10px] font-bold leading-none tracking-[0.06em] uppercase text-[#059669] dark:text-[#34D399]">
+                  <span className="shrink-0 text-[10px] font-bold leading-none tracking-[0.06em] uppercase text-[#059669] dark:text-[#2DD4BF]">
                     Today
                   </span>
                 </div>

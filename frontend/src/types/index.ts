@@ -879,6 +879,12 @@ export interface UpcomingEvent {
   employeeName: string | null
   /** Raw persisted event type; null for holidays and birthdays. */
   eventType: string | null
+  /**
+   * Country of the holiday definition (`US`, `IN`, ...); null for anything that
+   * is not a holiday. Needed alongside `eventType` to tell a US holiday from an
+   * HPE one, because US federal holidays are persisted as `PUBLIC`.
+   */
+  holidayCountry?: string | null
   assignedEngineerId: number | null
   assignedEngineerName: string | null
   assignedEngineerDepartment: string | null

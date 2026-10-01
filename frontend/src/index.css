@@ -119,15 +119,18 @@
 }
 
 @layer components {
-  /* Cards: minimal border; dark mode uses border only, no shadow. */
+  /* Cards: minimal border in light mode. Dark mode lifts the card onto its own
+     plane (#161a20) above the page (#0d0f12) with a soft shadow. */
   .card {
-    @apply bg-surface-0 rounded-lg border border-surface-200 shadow-hpe-sm dark:shadow-none;
+    @apply bg-surface-0 rounded-lg border border-surface-200 shadow-hpe-sm dark:rounded-xl dark:bg-[#161a20] dark:border-[#222731] dark:shadow-hpe-md;
   }
+  /* Dark mode forces light text on controls; otherwise the selected value can
+     render dark-on-dark and be unreadable. */
   .input {
-    @apply w-full rounded-md border border-surface-300 bg-field px-3 py-2 text-sm text-surface-800 placeholder:text-surface-400 transition-colors hover:border-surface-400 focus:border-brand-500 focus:ring-[3px] focus:ring-brand-500/20 disabled:bg-surface-100 disabled:text-surface-500 disabled:hover:border-surface-300;
+    @apply w-full rounded-md border border-surface-300 bg-field px-3 py-2 text-sm text-surface-800 placeholder:text-surface-400 transition-colors hover:border-surface-400 focus:border-brand-500 focus:ring-[3px] focus:ring-brand-500/20 disabled:bg-surface-100 disabled:text-surface-500 disabled:hover:border-surface-300 dark:bg-[#161a20] dark:border-[#2a313d] dark:text-[#e2e8f0];
   }
   .select {
-    @apply w-full rounded-md border border-surface-300 bg-field px-3 py-2 text-sm text-surface-800 transition-colors hover:border-surface-400 focus:border-brand-500 focus:ring-[3px] focus:ring-brand-500/20 disabled:bg-surface-100 disabled:text-surface-500;
+    @apply w-full rounded-md border border-surface-300 bg-field px-3 py-2 text-sm text-surface-800 transition-colors hover:border-surface-400 focus:border-brand-500 focus:ring-[3px] focus:ring-brand-500/20 disabled:bg-surface-100 disabled:text-surface-500 dark:bg-[#161a20] dark:border-[#2a313d] dark:text-[#e2e8f0];
   }
   .icon-btn {
     @apply inline-grid h-8 w-8 place-items-center rounded-md border border-surface-200 bg-surface-0 text-surface-500 transition-colors hover:bg-surface-100 hover:text-brand-400 disabled:opacity-50;
@@ -390,80 +393,89 @@
    `dark` class is removed from <html> (light mode). Unlayered and !important
    so it wins over the token-driven utilities regardless of class order.
    ========================================================================== */
+/* Three distinct planes: page (#0d0f12) → chrome (#121519) → cards (#161a20),
+   so nothing reads as one flat field. */
 .dark body,
 .dark main {
-  background-color: #121316 !important;
+  background-color: #0d0f12 !important;
 }
 .dark header,
 .dark aside {
-  background-color: #141518 !important;
-  border-color: #23252A !important;
+  background-color: #121519 !important;
+  border-color: #1e232b !important;
 }
 .dark aside .border-slate-800,
 .dark header .border-slate-800,
 .dark main .border-slate-800,
 .dark footer.border-slate-800 {
-  border-color: #23252A !important;
+  border-color: #1e232b !important;
 }
 .dark aside div.bg-\[\#0e1420\] {
-  background-color: #141518 !important;
-  border-color: #23252A !important;
+  background-color: #121519 !important;
+  border-color: #1e232b !important;
 }
 .dark #team-selector,
 .dark select.bg-\[\#1e293b\]\/80,
 .dark input.bg-\[\#1e293b\]\/70 {
-  background-color: #1E2025 !important;
-  border-color: #23252A !important;
+  background-color: #161a20 !important;
+  border-color: #2a313d !important;
+  color: #e2e8f0 !important;
+}
+/* Native select popups render on the OS palette, so the open list needs its
+   own treatment or it flashes white against the dark control. */
+.dark select option {
+  background-color: #161a20;
+  color: #e2e8f0;
 }
 .dark div.bg-\[\#1e293b\]\/70 {
-  background-color: #1A1B20 !important;
-  border-color: #272930 !important;
+  background-color: #161a20 !important;
+  border-color: #222731 !important;
 }
 .dark button.bg-slate-700 {
-  background-color: #23252A !important;
-  border-color: #272930 !important;
+  background-color: #1e232b !important;
+  border-color: #333d4d !important;
 }
 .dark section.bg-\[\#111827\] {
-  background-color: #141518 !important;
-  border-color: #23252A !important;
+  background-color: #161a20 !important;
+  border-color: #222731 !important;
 }
 .dark div.bg-\[\#111827\] {
-  background-color: #16171B !important;
-  border-color: #23252B !important;
+  background-color: #161a20 !important;
+  border-color: #222731 !important;
 }
 .dark div.bg-\[\#0d131f\] {
-  background-color: #141518 !important;
-  border-color: #23252B !important;
+  background-color: #121519 !important;
+  border-color: #1e232b !important;
 }
 .dark .divide-slate-800\/90 > * + * {
-  border-color: #23252B !important;
+  border-color: #222731 !important;
 }
 /* Calendar cell surface colours only. Row height and padding come from the
    shared `.calendar-cell` utility classes in CalendarGrid.tsx, so dark and
    light lay out identically. */
 .dark .calendar-cell {
-  background-color: #16171B !important;
+  background-color: #161a20 !important;
   transition: background-color 0.15s ease-in-out;
 }
 .dark .calendar-cell:hover {
-  background-color: #1D1E24 !important;
+  background-color: #1e232b !important;
 }
 /* Today keeps its emerald tint in dark; the base rule above is !important, so
    the tint needs an equally specific override. */
 .dark .calendar-cell.bg-\[\#F0FDF9\] {
-  background-color: rgba(0, 179, 136, 0.10) !important;
+  background-color: rgba(0, 229, 153, 0.10) !important;
 }
 .dark .calendar-cell.bg-\[\#0b0f17\]\/60 {
-  background-color: #121316 !important;
+  background-color: #0d0f12 !important;
 }
 .dark .calendar-cell.bg-\[\#0d131f\]\/60 {
-  background-color: #131418 !important;
+  background-color: #121519 !important;
 }
 .dark .calendar-cell.bg-emerald-950\/20 {
   background-color: rgba(0, 179, 136, 0.08) !important;
 }
 .dark .border-brand-500 {
-  border-color: #00B388 !important;
+  border-color: #00e599 !important;
 }
 /* Hover lift on the event pill — shared by both themes so the interaction
    geometry does not differ. */

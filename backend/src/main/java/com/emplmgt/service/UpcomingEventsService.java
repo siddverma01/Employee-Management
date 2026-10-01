@@ -232,7 +232,61 @@ public class UpcomingEventsService {
     }
 
     /**
+     * Moves a meeting to a new date and/or time window.
+     *
+     * <p>Backs the inline "Edit" control on the event details dialog. Reuses the same
+     * {@link #isVisibleTo} guard as {@link #assign} so rescheduling cannot be used to
+     * reach an event the caller could not otherwise see. Holidays and birthdays are
+     * synthesized from their own tables and so have no event row to move, which
+     * surfaces here as a 404.</p>
+     *
+     * @throws ApiException 400 when the date is in the past or the window is
+     *                      inverted; 404 when the event is not visible to the caller
+     */
+    @Transactional
+    public UpcomingEvent reschedule(Long eventId, CalendarDtos.RescheduleEventRequest request) {
+        Long userId = securityUtils.currentUserId();
+        if (userId == null) {
+            throw ApiException.badRequest("No authenticated user");
+        }
+
+        Event event = eventRepository.findById(eventId)
+                .filter(e -> isVisibleTo(e, userId))
+                .orElseThrow(() -> ApiException.notFound("Event not found: " + eventId));
+
+        // Matches create()'s rule, so an event can never be edited into the past.
+        if (request.date().isBefore(appClock.today())) {
+            throw ApiException.badRequest("Event date cannot be in the past");
+        }
+        if (request.startTime() != null && request.endTime() != null
+                && !request.endTime().isAfter(request.startTime())) {
+            throw ApiException.badRequest("End time must be after start time");
+        }
+
+        // String.valueOf rather than the raw value: audit's maps are Map.of, which
+        // rejects nulls, and an all-day event legitimately has no times.
+        String previousDate = String.valueOf(event.getEventDate());
+        String previousStart = String.valueOf(event.getStartTime());
+        String previousEnd = String.valueOf(event.getEndTime());
+
+        event.setEventDate(request.date());
+        event.setStartTime(request.startTime());
+        event.setEndTime(request.endTime());
+        Event saved = eventRepository.save(event);
+
+        auditService.record("EVENT_RESCHEDULED", "Event", String.valueOf(saved.getId()),
+                Map.of("date", previousDate, "startTime", previousStart, "endTime", previousEnd),
+                Map.of("date", String.valueOf(saved.getEventDate()),
+                        "startTime", String.valueOf(saved.getStartTime()),
+                        "endTime", String.valueOf(saved.getEndTime())));
+        log.info("Upcoming event {} rescheduled to {} by user {}", saved.getId(),
+                saved.getEventDate(), userId);
+        return toUpcomingEvent(saved, appClock.today());
+    }
+
+    /**
      * Whether the caller may see this event on the upcoming feed.
+
      *
      * <p>Mirrors {@link EventRepository#findVisibleInRange}: global events are open to
      * everyone, team events to that team, and a caller's own event stays visible to
@@ -303,10 +357,12 @@ public class UpcomingEventsService {
                 null,
                 null,
                 null,
-                // employeeName
-                null,
-                h.holidayType() == null ? null : h.holidayType().name(),
-                // assignedEngineerId / Name / Department / Designation
+// employeeName
+                    null,
+                    h.holidayType() == null ? null : h.holidayType().name(),
+                    // holidayCountry
+                    h.country(),
+                    // assignedEngineerId / Name / Department / Designation
                 null,
                 null,
                 null,
@@ -354,7 +410,8 @@ public class UpcomingEventsService {
                     null,
                     null,
                     b.employeeName(),
-                    // eventType
+                    // eventType / holidayCountry
+                    null,
                     null,
                     // assignedEngineerId / Name / Department / Designation
                     null,
@@ -396,6 +453,8 @@ public class UpcomingEventsService {
                 jsonUtil.readList(e.getTodoItems(), String.class),
                 e.getCreatedBy() != null ? e.getCreatedBy().getEmail() : null,
                 e.getEventType() == null ? null : e.getEventType().name(),
+                // holidayCountry: never set for a stored event
+                null,
                 e.getAssignedTo() != null ? e.getAssignedTo().getId() : null,
                 e.getAssignedTo() != null ? e.getAssignedTo().getFullName() : null,
                 e.getAssignedTo() != null && e.getAssignedTo().getDepartment() != null

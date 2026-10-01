@@ -176,7 +176,7 @@ export function ApplyLeavePage() {
         <div className="rounded-lg border border-surface-200 bg-surface-50 px-4 py-3 text-sm">
           <span className="text-surface-500">Number of days:</span>{' '}
           <span className="font-bold text-brand-700">{daysCount}</span>
-          <span className="ml-2 text-xs text-surface-400">(weekends & public holidays excluded)</span>
+          <span className="ml-2 text-xs text-surface-400">(weekends & holidays excluded)</span>
         </div>
 
         <Textarea label="Reason" rows={3} placeholder="Explain the reason for your leave…" {...register('reason')} error={errors.reason?.message} />

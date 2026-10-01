@@ -161,31 +161,36 @@ export const UPCOMING_EVENT_CATEGORIES: Record<UpcomingEventCategory, UpcomingEv
   HOLIDAY: {
     label: 'Upcoming Holiday',
     compactLabel: 'Holiday',
-    chipClass: 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300',
+    chipClass:
+      'bg-sky-100 text-sky-700 dark:border dark:border-[#0f766e] dark:bg-[#063835] dark:text-[#2dd4bf]',
     icon: Sun,
   },
   BIRTHDAY: {
     label: 'Birthday',
     compactLabel: 'Birthday',
-    chipClass: 'bg-pink-100 text-pink-700 dark:bg-pink-500/15 dark:text-pink-300',
+    chipClass:
+      'bg-pink-100 text-pink-700 dark:border dark:border-[#4c1d95] dark:bg-[#2d1a4d] dark:text-[#c084fc]',
     icon: Cake,
   },
   OFFICE_MEETING: {
     label: 'Upcoming Office Meeting',
     compactLabel: 'Office',
-    chipClass: 'bg-brand-100 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300',
+    chipClass:
+      'bg-brand-100 text-brand-700 dark:border dark:border-[#4c1d95] dark:bg-[#2d1a4d] dark:text-[#c084fc]',
     icon: Users,
   },
   SCHEDULED_MEETING: {
     label: 'Upcoming Scheduled Meeting',
     compactLabel: 'Meeting',
-    chipClass: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300',
+    chipClass:
+      'bg-indigo-100 text-indigo-700 dark:border dark:border-[#4c1d95] dark:bg-[#2d1a4d] dark:text-[#c084fc]',
     icon: CalendarClock,
   },
   CUSTOMER_REMOTE_SESSION: {
     label: 'Upcoming Customer Virtual Remote session',
     compactLabel: 'Remote',
-    chipClass: 'bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300',
+    chipClass:
+      'bg-purple-100 text-purple-700 dark:border dark:border-[#4c1d95] dark:bg-[#2d1a4d] dark:text-[#c084fc]',
     icon: PartyPopper,
   },
 }

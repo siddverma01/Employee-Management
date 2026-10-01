@@ -13,10 +13,10 @@ import { rosterStatusClass } from '@/constants/rosterStatus'
 import { Button } from '@/components/ui/Button'
 
 const ROW_STATUS_STYLES: Record<string, string> = {
-  NEW: 'bg-emerald-50 text-emerald-700',
-  EXISTING: 'bg-amber-50 text-amber-700',
-  DUPLICATE: 'bg-amber-50 text-amber-700',
-  INVALID: 'bg-red-50 text-red-700',
+  NEW: 'bg-success-50 text-success-700',
+  EXISTING: 'bg-warning-50 text-warning-700',
+  DUPLICATE: 'bg-warning-50 text-warning-700',
+  INVALID: 'bg-error-50 text-error-700',
 }
 
 function daysSorted(days: Record<string, string>): string[] {
@@ -97,7 +97,7 @@ export function RosterImportPanel({ initialFile }: { initialFile?: File | null }
         </p>
 
         <label className="mb-4 block">
-          <span className="label">Target team <span className="text-red-500">*</span></span>
+          <span className="label">Target team <span className="text-error-500">*</span></span>
           <select
             className="select max-w-md"
             value={teamId ?? ''}
@@ -144,9 +144,9 @@ export function RosterImportPanel({ initialFile }: { initialFile?: File | null }
           <div className="flex flex-wrap items-center gap-3">
             <h3 className="text-sm font-semibold text-surface-700">Step 2 · Review roster — {monthLabel(preview.month)}</h3>
             <div className="ml-auto flex flex-wrap items-center gap-2 text-xs font-medium">
-              <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-700">{preview.newRows} new</span>
-              <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">{preview.existingRows} existing</span>
-              <span className="rounded-full bg-red-50 px-2.5 py-1 text-red-700">{preview.invalidRows} invalid</span>
+              <span className="rounded-full bg-success-50 px-2.5 py-1 text-success-700">{preview.newRows} new</span>
+              <span className="rounded-full bg-warning-50 px-2.5 py-1 text-warning-700">{preview.existingRows} existing</span>
+              <span className="rounded-full bg-error-50 px-2.5 py-1 text-error-700">{preview.invalidRows} invalid</span>
               <span className="rounded-full bg-surface-100 px-2.5 py-1 text-surface-600">{preview.totalRows} total</span>
             </div>
           </div>
@@ -157,7 +157,7 @@ export function RosterImportPanel({ initialFile }: { initialFile?: File | null }
           </div>
 
           {preview.warnings.length > 0 && (
-            <div className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700">
+            <div className="mt-3 rounded-md bg-warning-50 px-3 py-2 text-xs text-warning-700">
               {preview.warnings.map((w) => <p key={w}>⚠ {w}</p>)}
             </div>
           )}
@@ -196,7 +196,7 @@ export function RosterImportPanel({ initialFile }: { initialFile?: File | null }
                       <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${ROW_STATUS_STYLES[r.status ?? ''] ?? 'bg-surface-100 text-surface-600'}`}>
                         {String(r.status ?? '').toLowerCase()}
                       </span>
-                      {r.errors?.length ? <span className="ml-1 text-[10px] text-red-600" title={r.errors.join('; ')}>!</span> : null}
+                      {r.errors?.length ? <span className="ml-1 text-[10px] text-error-600" title={r.errors.join('; ')}>!</span> : null}
                     </td>
                   </tr>
                 ))}
@@ -207,9 +207,9 @@ export function RosterImportPanel({ initialFile }: { initialFile?: File | null }
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             {result ? (
               <div className="flex items-center gap-2 text-sm">
-                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                <CheckCircle2 className="h-5 w-5 text-success-600" />
                 <span className="text-surface-700">
-                  Imported <strong className="text-emerald-700">{result.imported}</strong> row{result.imported === 1 ? '' : 's'}
+                  Imported <strong className="text-success-700">{result.imported}</strong> row{result.imported === 1 ? '' : 's'}
                   {result.skipped > 0 && <span> · skipped {result.skipped} existing</span>}
                 </span>
                 <Link to={`/admin/roster?teamId=${preview.teamId}&month=${preview.month}`} className="ml-2 inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:underline">

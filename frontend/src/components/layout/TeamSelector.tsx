@@ -21,7 +21,7 @@ export function TeamSelector({ className }: { className?: string }) {
         className={cn(
           'h-10 w-full min-w-0 appearance-none truncate rounded-lg border border-slate-200 bg-white pl-9 pr-8 text-sm font-medium leading-none text-surface-800 shadow-hpe-sm transition-colors hover:border-surface-400',
           'focus:outline-none focus:ring-2 focus:ring-brand-500',
-          'dark:border-[#2E323B] dark:bg-[#141518] dark:text-slate-100 dark:shadow-none',
+          'dark:border-[#2A313D] dark:bg-[#161A20] dark:text-slate-100 dark:shadow-none',
         )}
       >
         {isAdmin ? (

@@ -60,8 +60,8 @@ const itemClass = ({ isActive, collapsed }: { isActive: boolean; collapsed?: boo
     'group flex min-h-9 min-w-0 items-center justify-between gap-2.5 whitespace-nowrap rounded-lg border px-3 py-1.5 text-[13px] font-medium leading-5 transition-[background-color,color,border-color] duration-150 ease-in-out',
     collapsed && 'justify-center px-2',
     isActive
-      ? 'border-[rgba(0,179,136,0.35)] bg-[rgba(0,179,136,0.10)] font-semibold text-emerald-700 dark:border-[rgba(0,179,136,0.35)] dark:bg-[rgba(0,179,136,0.10)] dark:text-[#34D399] dark:shadow-none dark:[&_svg]:text-[#00B388]'
-      : 'border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-[#CBD5E1] dark:hover:bg-[#1D1E24] dark:hover:text-[#F8FAFC] dark:[&_svg]:text-[#94A3B8] dark:hover:[&_svg]:text-[#F8FAFC]',
+      ? 'border-[rgba(0,179,136,0.35)] bg-[rgba(0,179,136,0.10)] font-semibold text-emerald-700 dark:border-[rgba(0,229,153,0.35)] dark:bg-[rgba(0,229,153,0.10)] dark:text-[#2DD4BF] dark:shadow-none dark:[&_svg]:text-[#00E599]'
+      : 'border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-[#CBD5E1] dark:hover:bg-[#1E232B] dark:hover:text-[#F8FAFC] dark:[&_svg]:text-[#94A3B8] dark:hover:[&_svg]:text-[#F8FAFC]',
   )
 
 export function Sidebar({ onNavigate, collapsed = false }: { onNavigate?: () => void; collapsed?: boolean }) {
@@ -105,7 +105,7 @@ export function Sidebar({ onNavigate, collapsed = false }: { onNavigate?: () => 
                         </span>
                       )}
                       {!collapsed && isActive && (
-                        <span className="h-[5px] w-[5px] rounded-full bg-[#00B388]" />
+                        <span className="h-[5px] w-[5px] rounded-full bg-[#00B388] dark:bg-[#00E599]" />
                       )}
                     </>
                   )}
@@ -117,7 +117,7 @@ export function Sidebar({ onNavigate, collapsed = false }: { onNavigate?: () => 
       </nav>
       <div
         data-probe="logout"
-        className={cn('border-t border-slate-200 bg-white dark:border-[#23252A] dark:bg-[#141518]', collapsed ? 'p-1' : 'p-2')}
+        className={cn('border-t border-slate-200 bg-white dark:border-[#222731] dark:bg-[#121519]', collapsed ? 'p-1' : 'p-2')}
       >
         <button
           onClick={() => {
@@ -125,7 +125,7 @@ export function Sidebar({ onNavigate, collapsed = false }: { onNavigate?: () => 
             onNavigate?.()
           }}
           className={cn(
-            'group flex min-h-9 w-full items-center gap-3 rounded-lg px-3 py-1.5 text-[13px] font-medium leading-5 text-slate-600 transition-[background-color,color] duration-150 ease-in-out hover:bg-slate-100 hover:text-slate-900 dark:text-[#CBD5E1] dark:hover:bg-[#1D1E24] dark:hover:text-[#F8FAFC] dark:[&_svg]:text-[#94A3B8] dark:hover:[&_svg]:text-[#F8FAFC]',
+            'group flex min-h-9 w-full items-center gap-3 rounded-lg px-3 py-1.5 text-[13px] font-medium leading-5 text-slate-600 transition-[background-color,color] duration-150 ease-in-out hover:bg-slate-100 hover:text-slate-900 dark:text-[#CBD5E1] dark:hover:bg-[#1E232B] dark:hover:text-[#F8FAFC] dark:[&_svg]:text-[#94A3B8] dark:hover:[&_svg]:text-[#F8FAFC]',
             collapsed && 'justify-center px-2',
           )}
           title={collapsed ? 'Log out' : undefined}

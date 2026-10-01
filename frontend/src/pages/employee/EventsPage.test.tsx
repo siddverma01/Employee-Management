@@ -14,6 +14,7 @@ vi.mock('@/api', () => ({
     list: vi.fn(),
     assignableEngineers: vi.fn(),
     assign: vi.fn(),
+    reschedule: vi.fn(),
   },
   holidayApi: { myHolidays: vi.fn(), list: vi.fn(), upcoming: vi.fn() },
   authApi: { login: vi.fn(), me: vi.fn(), logout: vi.fn() },
@@ -125,6 +126,22 @@ beforeEach(() => {
   vi.mocked(eventApi.upcoming).mockResolvedValue(response())
   vi.mocked(eventApi.create).mockResolvedValue(remoteSession)
   vi.mocked(eventApi.assignableEngineers).mockResolvedValue(ENGINEERS)
+  // Both editors are optimistic about the server: resolve with the row the
+  // endpoint would echo back, so the dialog's post-save state is realistic.
+  vi.mocked(eventApi.reschedule).mockImplementation((_id, body) =>
+    Promise.resolve(
+      event({ date: body.date, startTime: body.startTime, endTime: body.endTime }),
+    ),
+  )
+  vi.mocked(eventApi.assign).mockImplementation((_id, engineerId) =>
+    Promise.resolve(
+      event({
+        assignedEngineerId: engineerId,
+        assignedEngineerName:
+          ENGINEERS.find((e) => e.id === engineerId)?.fullName ?? null,
+      }),
+    ),
+  )
 })
 
 // Cases below flip import.meta.env.DEV back on to exercise the dev sample-data
@@ -320,8 +337,11 @@ describe('EventsPage categorisation', () => {
     // Holidays carry a date only.
     expect(within(section).getByText('Oct 2, 2026')).toBeInTheDocument()
 
-    // Category tags: three holidays, three office meetings.
-    expect(within(section).getAllByText('Holiday')).toHaveLength(3)
+    // Category tags: a holiday is tagged with its own type instead of the
+    // generic "Holiday" chip, office meetings keep theirs.
+    expect(within(section).getAllByText('HPE Holiday')).toHaveLength(1)
+    expect(within(section).getAllByText('US Holiday')).toHaveLength(2)
+    expect(within(section).queryByText('Holiday')).toBeNull()
     expect(within(section).getAllByText('Office')).toHaveLength(3)
 
     // Footer: green countdown on the left, location on the right.
@@ -437,6 +457,35 @@ describe('EventsPage add event modal', () => {
     )
   })
 
+  it('gives the three category cards one uniform height with no subtitles', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: /add event/i }))
+    const dialog = await screen.findByRole('dialog')
+
+    const cards = ['Customer Meeting', 'Office Meeting', 'Holiday'].map((label) =>
+      within(dialog).getByRole('button', { name: label }),
+    )
+    expect(cards).toHaveLength(3)
+
+    // h-full makes every card fill the stretched grid row, and items-center keeps
+    // the icon and label on one line. A single-card subtitle would break this.
+    for (const card of cards) {
+      expect(card).toHaveClass('h-full', 'items-center')
+      expect(card.textContent?.trim()).toBe(
+        card.textContent?.includes('Customer')
+          ? 'Customer Meeting'
+          : card.textContent?.includes('Office')
+            ? 'Office Meeting'
+            : 'Holiday',
+      )
+    }
+    expect(
+      within(dialog).queryByText('Purpose and date only'),
+    ).not.toBeInTheDocument()
+  })
+
   it('shows only Holiday Purpose and Date once Holiday is selected', async () => {
     const user = userEvent.setup()
     renderPage()
@@ -532,7 +581,10 @@ describe('EventsPage add event modal', () => {
     const dialog = await screen.findByRole('dialog')
     const select = (await within(dialog).findByLabelText('Add Member')) as HTMLSelectElement
 
-    expect(within(dialog).getByText('No one assigned yet')).toBeInTheDocument()
+    // The field shows only the Add Member pill: no empty-state label, and no chip.
+    expect(within(dialog).queryByText('No one assigned yet')).not.toBeInTheDocument()
+    // Two matches: the hidden <option> placeholder and the visible dashed pill.
+    expect(within(dialog).getAllByText('Add Member').length).toBeGreaterThan(0)
     const options = within(select)
       .getAllByRole('option')
       .map((o) => o.textContent)
@@ -569,7 +621,9 @@ describe('EventsPage add event modal', () => {
     await user.selectOptions(within(dialog).getByLabelText('Add Member'), '7')
     await user.click(within(dialog).getByRole('button', { name: 'Remove Siddhesh Verma' }))
 
-    expect(within(dialog).getByText('No one assigned yet')).toBeInTheDocument()
+    // Chip gone, pill left: still no empty-state label.
+    expect(within(dialog).queryByText('Siddhesh Verma')).not.toBeInTheDocument()
+    expect(within(dialog).getAllByText('Add Member').length).toBeGreaterThan(0)
 
     await fillRequiredFields(user, dialog)
     await user.click(within(dialog).getByRole('button', { name: /Create Event/ }))
@@ -897,13 +951,16 @@ describe('Customer Meeting cards', () => {
   it('shows the assignee job title as the role on the chip', async () => {
     renderCustomerCards([vertex])
     // The title is preferred: a department says where someone sits, a title says
-    // what they are there to do.
-    expect(await screen.findByText('Sarah Jenkins (Lead Architect)')).toBeInTheDocument()
+    // what they are there to do. Name and role sit in sibling spans so the role
+    // can be muted independently, so assert on the wrapping chip's full text.
+    const name = await screen.findByText('Sarah Jenkins')
+    expect(name.parentElement).toHaveTextContent('Sarah Jenkins (Lead Architect)')
   })
 
   it('falls back to the department when the assignee has no job title', async () => {
     renderCustomerCards([{ ...vertex, assignedEngineerDesignation: null }])
-    expect(await screen.findByText('Sarah Jenkins (Voice)')).toBeInTheDocument()
+    const name = await screen.findByText('Sarah Jenkins')
+    expect(name.parentElement).toHaveTextContent('Sarah Jenkins (Voice)')
   })
 
   it('shows a countdown pill derived from daysUntil', async () => {
@@ -1014,6 +1071,101 @@ describe('Customer Meeting cards', () => {
     await waitFor(() => expect(eventApi.assign).toHaveBeenCalledWith(501, null))
   })
 
+  it('opens the inline search in place and marks the current engineer', async () => {
+    const user = userEvent.setup()
+    renderCustomerCards([vertex])
+
+    await user.click(await screen.findByRole('button', { name: /reassign/i }))
+
+    expect(await screen.findByRole('heading', { name: /reassign engineer/i })).toBeInTheDocument()
+    const search = screen.getByRole('combobox', { name: 'Search engineers' })
+    expect(search).toHaveFocus()
+    expect(screen.getByText('Current')).toBeInTheDocument()
+  })
+
+  it('filters the results from the first typed character', async () => {
+    const user = userEvent.setup()
+    renderCustomerCards([maersk])
+
+    await user.click(await screen.findByRole('button', { name: /assign engineer/i }))
+    // "v" only appears in Siddhesh Verma, so one keystroke must isolate him.
+    await user.type(screen.getByRole('combobox', { name: 'Search engineers' }), 'v')
+
+    expect(screen.getByRole('button', { name: /Siddhesh Verma/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Masher Choudary/ })).not.toBeInTheDocument()
+  })
+
+  it('matches engineers on role as well as name', async () => {
+    const user = userEvent.setup()
+    vi.mocked(eventApi.assignableEngineers).mockResolvedValue([
+      ...ENGINEERS,
+      { id: 9, employeeCode: 'EMP-9', fullName: 'Priya Raman', department: 'Platform' },
+    ])
+    renderCustomerCards([maersk])
+
+    await user.click(await screen.findByRole('button', { name: /assign engineer/i }))
+    await user.type(screen.getByRole('combobox', { name: 'Search engineers' }), 'plat')
+
+    expect(screen.getByRole('button', { name: /Siddhesh Verma/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Priya Raman/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Masher Choudary/ })).not.toBeInTheDocument()
+  })
+
+  it('reports when nothing matches', async () => {
+    const user = userEvent.setup()
+    renderCustomerCards([maersk])
+
+    await user.click(await screen.findByRole('button', { name: /assign engineer/i }))
+    await user.type(screen.getByRole('combobox', { name: 'Search engineers' }), 'zzz')
+
+    expect(screen.getByText(/no engineer matches/i)).toBeInTheDocument()
+  })
+
+  it('assigns the highlighted engineer with the arrow keys and Enter', async () => {
+    const user = userEvent.setup()
+    vi.mocked(eventApi.assign).mockResolvedValue({ ...maersk, assignedEngineerId: 8 })
+    renderCustomerCards([maersk])
+
+    await user.click(await screen.findByRole('button', { name: /assign engineer/i }))
+    await user.type(screen.getByRole('combobox', { name: 'Search engineers' }), '{ArrowDown}{ArrowUp}{Enter}')
+
+    await waitFor(() => expect(eventApi.assign).toHaveBeenCalledWith(502, 7))
+  })
+
+  it('moves down the list and assigns the second engineer', async () => {
+    const user = userEvent.setup()
+    vi.mocked(eventApi.assign).mockResolvedValue({ ...maersk, assignedEngineerId: 8 })
+    renderCustomerCards([maersk])
+
+    await user.click(await screen.findByRole('button', { name: /assign engineer/i }))
+    await user.type(screen.getByRole('combobox', { name: 'Search engineers' }), '{ArrowDown}{Enter}')
+
+    await waitFor(() => expect(eventApi.assign).toHaveBeenCalledWith(502, 8))
+  })
+
+  it('closes the search on Escape without assigning', async () => {
+    const user = userEvent.setup()
+    renderCustomerCards([maersk])
+
+    await user.click(await screen.findByRole('button', { name: /assign engineer/i }))
+    await user.type(screen.getByRole('combobox', { name: 'Search engineers' }), 'sid{Escape}')
+
+    await waitFor(() => expect(screen.queryByRole('combobox', { name: 'Search engineers' })).not.toBeInTheDocument())
+    expect(eventApi.assign).not.toHaveBeenCalled()
+  })
+
+  it('closes the search when clicking outside it', async () => {
+    const user = userEvent.setup()
+    renderCustomerCards([maersk])
+
+    await user.click(await screen.findByRole('button', { name: /assign engineer/i }))
+    expect(screen.getByRole('combobox', { name: 'Search engineers' })).toBeInTheDocument()
+    await user.click(screen.getByRole('heading', { name: 'Customer Meetings' }))
+
+    await waitFor(() => expect(screen.queryByRole('combobox', { name: 'Search engineers' })).not.toBeInTheDocument())
+    expect(eventApi.assign).not.toHaveBeenCalled()
+  })
+
   it('shows the agenda items in a modal', async () => {
     const user = userEvent.setup()
     renderCustomerCards([maersk])
@@ -1055,8 +1207,11 @@ describe('EventsPage details modal', () => {
     )
     expect(within(dialog).getByText('Reminder Status')).toBeInTheDocument()
     expect(within(dialog).getByText('Not set')).toBeInTheDocument()
-    expect(within(dialog).getByText('Share agenda')).toBeInTheDocument()
-    expect(within(dialog).getByText('Send pre-read')).toBeInTheDocument()
+    // The checklist is now the Plan of Action card, so both legacy todo lines
+    // render inside one pre-line paragraph rather than as separate list items.
+    expect(within(dialog).getByText('Plan of Action')).toBeInTheDocument()
+    expect(within(dialog).getByText(/Share agenda/)).toBeInTheDocument()
+    expect(within(dialog).getByText(/Send pre-read/)).toBeInTheDocument()
   })
 
   it('shows the assigned engineer on the card and in the details modal', async () => {
@@ -1089,7 +1244,8 @@ describe('EventsPage details modal', () => {
     await user.click(await screen.findByText('Voice Team Standup'))
 
     const dialog = await screen.findByRole('dialog')
-    expect(within(dialog).getByText('Unassigned')).toBeInTheDocument()
+    // The read-only label and the dropdown's placeholder option both say it.
+    expect(within(dialog).getAllByText('Unassigned').length).toBeGreaterThan(0)
   })
 
   it('never shows an assignee on holidays or birthdays', async () => {
@@ -1123,5 +1279,174 @@ describe('EventsPage details modal', () => {
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     })
+  })
+})
+
+describe('EventsPage event details dialog', () => {
+  /** Opens the details dialog for a card, defaulting to the internal standup. */
+  async function openDetails(subject = 'Voice Team Standup') {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click((await screen.findByText(subject)).closest('button')!)
+    return { user, dialog: await screen.findByRole('dialog') }
+  }
+
+  it('shows a category tag and the plan of action instead of a TO DO list', async () => {
+    const { dialog } = await openDetails()
+
+    expect(within(dialog).getByText('Upcoming Office Meeting')).toBeInTheDocument()
+    expect(within(dialog).getByText('Plan of Action')).toBeInTheDocument()
+    expect(within(dialog).queryByText('TO DO')).not.toBeInTheDocument()
+    expect(within(dialog).queryByText('No checklist items')).not.toBeInTheDocument()
+  })
+
+  it('prefers the description for the plan of action and falls back to the old list', async () => {
+    vi.mocked(eventApi.upcoming).mockResolvedValue(
+      response([
+        event({ description: 'Send the revised quote' }),
+        // Legacy row: written before the form had a description, so the
+        // line-split checklist is the only text available.
+        event({ id: 2, subject: 'Legacy sync', description: null, todoItems: ['Book room', 'Send notes'] }),
+      ]),
+    )
+    const { dialog } = await openDetails()
+
+    expect(within(dialog).getByText('Send the revised quote')).toBeInTheDocument()
+
+    const legacy = (await screen.findByText('Legacy sync')).closest('button')!
+    await userEvent.setup().click(legacy)
+    const reopened = await screen.findByRole('dialog')
+    expect(within(reopened).getByText(/Book room/)).toBeInTheDocument()
+  })
+
+  it('shows an empty plan of action message when there is nothing recorded', async () => {
+    const { dialog } = await openDetails()
+
+    expect(
+      within(dialog).getByText('No plan of action recorded'),
+    ).toBeInTheDocument()
+  })
+
+  it('keeps Save Changes disabled until something is edited', async () => {
+    const { dialog } = await openDetails()
+
+    const save = within(dialog).getByRole('button', { name: /save changes/i })
+    expect(save).toBeDisabled()
+
+    // Opening the editor on its own is not an edit.
+    await userEvent.setup().click(within(dialog).getByRole('button', { name: 'Edit' }))
+    expect(save).toBeDisabled()
+  })
+
+  it('reschedules to a new date and window on save', async () => {
+    const { user, dialog } = await openDetails()
+
+    await user.click(within(dialog).getByRole('button', { name: 'Edit' }))
+    fireEvent.change(within(dialog).getByLabelText('Date'), {
+      target: { value: '2026-10-09' },
+    })
+    fireEvent.change(within(dialog).getByLabelText('Start'), {
+      target: { value: '09:00' },
+    })
+    fireEvent.change(within(dialog).getByLabelText('End'), {
+      target: { value: '10:30' },
+    })
+
+    const save = within(dialog).getByRole('button', { name: /save changes/i })
+    expect(save).toBeEnabled()
+    await user.click(save)
+
+    await waitFor(() => expect(eventApi.reschedule).toHaveBeenCalledTimes(1))
+    expect(vi.mocked(eventApi.reschedule).mock.calls[0]).toEqual([
+      1,
+      {
+        date: '2026-10-09',
+        startTime: '2026-10-09T09:00:00',
+        endTime: '2026-10-09T10:30:00',
+      },
+    ])
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  })
+
+  it('reassigns the engineer on save and shows their initials', async () => {
+    const { user, dialog } = await openDetails()
+
+    await user.selectOptions(within(dialog).getByLabelText('Assigned To'), '7')
+    // Two matches once selected: the dropdown option and the avatar chip.
+    expect(within(dialog).getAllByText('Siddhesh Verma').length).toBeGreaterThan(0)
+    expect(within(dialog).getByText('SV')).toBeInTheDocument()
+
+    await user.click(within(dialog).getByRole('button', { name: /save changes/i }))
+
+    await waitFor(() => expect(eventApi.assign).toHaveBeenCalledWith(1, 7))
+    // Only the assignee changed, so no reschedule call is made.
+    expect(eventApi.reschedule).not.toHaveBeenCalled()
+  })
+
+  it('unassigns when the dropdown goes back to Unassigned', async () => {
+    // Starts assigned: reverting an unassigned meeting to Unassigned is a no-op,
+    // so there would be nothing for Save to persist.
+    vi.mocked(eventApi.upcoming).mockResolvedValue(
+      response([event({ assignedEngineerId: 7, assignedEngineerName: 'Siddhesh Verma' })]),
+    )
+    const { user, dialog } = await openDetails()
+
+    await user.selectOptions(within(dialog).getByLabelText('Assigned To'), '')
+    // Option and read-only label both read "Unassigned".
+    expect(within(dialog).getAllByText('Unassigned').length).toBeGreaterThan(0)
+
+    await user.click(within(dialog).getByRole('button', { name: /save changes/i }))
+
+    await waitFor(() => expect(eventApi.assign).toHaveBeenCalledWith(1, null))
+  })
+
+  it('leaves Save disabled when an edit is reverted to its original value', async () => {
+    const { user, dialog } = await openDetails()
+
+    await user.selectOptions(within(dialog).getByLabelText('Assigned To'), '7')
+    await user.selectOptions(within(dialog).getByLabelText('Assigned To'), '')
+
+    expect(within(dialog).getByRole('button', { name: /save changes/i })).toBeDisabled()
+    expect(eventApi.assign).not.toHaveBeenCalled()
+  })
+
+  it('sends both calls when the time and the assignee change together', async () => {
+    const { user, dialog } = await openDetails()
+
+    await user.selectOptions(within(dialog).getByLabelText('Assigned To'), '8')
+    await user.click(within(dialog).getByRole('button', { name: 'Edit' }))
+    fireEvent.change(within(dialog).getByLabelText('Date'), {
+      target: { value: '2026-10-12' },
+    })
+    await user.click(within(dialog).getByRole('button', { name: /save changes/i }))
+
+    await waitFor(() => expect(eventApi.reschedule).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(eventApi.assign).toHaveBeenCalledWith(1, 8))
+  })
+
+  it('closes without saving when Close is used', async () => {
+    const { user, dialog } = await openDetails()
+
+    await user.click(within(dialog).getByRole('button', { name: 'Edit' }))
+    fireEvent.change(within(dialog).getByLabelText('Date'), {
+      target: { value: '2026-10-20' },
+    })
+    // The Modal header renders its own Close X, so take the footer's button.
+    const closes = within(dialog).getAllByRole('button', { name: 'Close' })
+    await user.click(closes[closes.length - 1])
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(eventApi.reschedule).not.toHaveBeenCalled()
+  })
+
+  it('locks a holiday to read-only because it has no event row to patch', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click((await screen.findByText('Gandhi Jayanti')).closest('button')!)
+    const dialog = await screen.findByRole('dialog')
+
+    expect(within(dialog).queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
+    expect(within(dialog).queryByLabelText('Assigned To')).not.toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: /save changes/i })).toBeDisabled()
   })
 })
