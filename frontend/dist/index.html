@@ -4,6 +4,16 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/hpe-element.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Inter is vendored locally in public/fonts (see the @font-face rules in
+         src/index.css). Preloading the latin subset starts the fetch during HTML
+         parse instead of after the CSS is applied, avoiding a visible swap. -->
+    <link
+      rel="preload"
+      href="/fonts/inter-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
     <script>
       (function () {
         try {
@@ -16,10 +26,10 @@
       })();
     </script>
     <title>Employee management</title>
-    <script type="module" crossorigin src="/assets/index-CkMwv_Ok.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-COQNQ_Ev.css">
+    <script type="module" crossorigin src="/assets/index-Dmpdi6IO.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-DZgvkQrb.css">
   </head>
   <body class="bg-surface-50 text-surface-800 font-sans">
-    <div id="root"></div>
+    <div id="root"></div>
   </body>
 </html>
