@@ -44,6 +44,7 @@ public class EmployeeService {
     private final LeaveRequestRepository leaveRequestRepository;
     private final LeaveBalanceRepository leaveBalanceRepository;
     private final PasswordEncoder passwordEncoder;
+    private final ImportEmployeeRepository importEmployeeRepository;
     private final AppClock appClock;
     private final AuditService auditService;
 
@@ -206,6 +207,130 @@ public class EmployeeService {
         auditService.record("EMPLOYEE_STATUS_CHANGED", "Employee", String.valueOf(saved.getId()),
                 Map.of("status", old.employmentStatus().name()), Map.of("status", status.name()));
         return toSummary(saved);
+    }
+
+    @Transactional
+    public EmployeeDtos.ExitResponse setExit(Long employeeId, EmployeeDtos.ExitRequest request, Long adminId) {
+        Employee employee = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> ApiException.notFound("Employee not found"));
+
+        if (request.lastWorkingDate().isAfter(appClock.today())) {
+            throw ApiException.badRequest("Last working date cannot be in the future");
+        }
+        if (request.exitDate() != null && request.exitDate().isBefore(request.lastWorkingDate())) {
+            throw ApiException.badRequest("Exit date cannot be before last working date");
+        }
+
+        Map<String, Object> oldValue = new HashMap<>();
+        oldValue.put("employmentStatus", employee.getEmploymentStatus().name());
+        oldValue.put("lastWorkingDate", employee.getLastWorkingDate());
+        oldValue.put("exitDate", employee.getExitDate());
+        oldValue.put("exitReason", employee.getExitReason());
+
+        employee.setEmploymentStatus(EmploymentStatus.EXITED);
+        employee.setLastWorkingDate(request.lastWorkingDate());
+        employee.setExitDate(request.exitDate() != null ? request.exitDate() : request.lastWorkingDate());
+        employee.setExitReason(request.exitReason());
+        employee.setExitedBy(adminId);
+        employee.setExitedAt(appClock.now());
+
+        if (employee.getUser() != null) {
+            employee.getUser().setEnabled(false);
+            userRepository.save(employee.getUser());
+        }
+
+        Employee saved = employeeRepository.save(employee);
+
+        // Sync exit info to ImportEmployee for roster display
+        importEmployeeRepository.findById(saved.getEmployeeCode()).ifPresent(ie -> {
+            ie.setLastWorkingDate(saved.getLastWorkingDate());
+            ie.setExitDate(saved.getExitDate());
+            importEmployeeRepository.save(ie);
+        });
+
+        Map<String, Object> newValue = new HashMap<>();
+        newValue.put("employmentStatus", saved.getEmploymentStatus().name());
+        newValue.put("lastWorkingDate", saved.getLastWorkingDate());
+        newValue.put("exitDate", saved.getExitDate());
+        newValue.put("exitReason", saved.getExitReason());
+
+        auditService.record("EMPLOYEE_EXITED", "Employee", String.valueOf(saved.getId()), oldValue, newValue);
+
+        return toExitResponse(saved);
+    }
+
+    @Transactional
+    public EmployeeDtos.ExitResponse cancelExit(Long employeeId, Long adminId) {
+        Employee employee = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> ApiException.notFound("Employee not found"));
+
+        if (employee.getEmploymentStatus() != EmploymentStatus.EXITED) {
+            throw ApiException.badRequest("Employee is not in exited status");
+        }
+
+        Map<String, Object> oldValue = new HashMap<>();
+        oldValue.put("employmentStatus", employee.getEmploymentStatus().name());
+        oldValue.put("lastWorkingDate", employee.getLastWorkingDate());
+        oldValue.put("exitDate", employee.getExitDate());
+        oldValue.put("exitReason", employee.getExitReason());
+
+        employee.setEmploymentStatus(EmploymentStatus.ACTIVE);
+        employee.setLastWorkingDate(null);
+        employee.setExitDate(null);
+        employee.setExitReason(null);
+        employee.setExitedBy(adminId);
+        employee.setExitedAt(appClock.now());
+
+        if (employee.getUser() != null) {
+            employee.getUser().setEnabled(true);
+            userRepository.save(employee.getUser());
+        }
+
+        Employee saved = employeeRepository.save(employee);
+
+        // Clear exit info from ImportEmployee
+        importEmployeeRepository.findById(saved.getEmployeeCode()).ifPresent(ie -> {
+            ie.setLastWorkingDate(null);
+            ie.setExitDate(null);
+            importEmployeeRepository.save(ie);
+        });
+
+        Map<String, Object> newValue = new HashMap<>();
+        newValue.put("employmentStatus", saved.getEmploymentStatus().name());
+        newValue.put("lastWorkingDate", saved.getLastWorkingDate());
+        newValue.put("exitDate", saved.getExitDate());
+        newValue.put("exitReason", saved.getExitReason());
+
+        auditService.record("EMPLOYEE_EXIT_CANCELLED", "Employee", String.valueOf(saved.getId()), oldValue, newValue);
+
+        return toExitResponse(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public EmployeeDtos.ExitResponse getExitInfo(Long employeeId) {
+        Employee employee = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> ApiException.notFound("Employee not found"));
+        return toExitResponse(employee);
+    }
+
+    private EmployeeDtos.ExitResponse toExitResponse(Employee employee) {
+        String exitedByName = null;
+        if (employee.getExitedBy() != null) {
+            exitedByName = employeeRepository.findById(employee.getExitedBy())
+                    .map(Employee::getFullName)
+                    .orElse(null);
+        }
+        return new EmployeeDtos.ExitResponse(
+                employee.getId(),
+                employee.getEmployeeCode(),
+                employee.getFullName(),
+                employee.getEmploymentStatus(),
+                employee.getLastWorkingDate(),
+                employee.getExitDate(),
+                employee.getExitReason(),
+                employee.getExitedBy(),
+                exitedByName,
+                employee.getExitedAt());
     }
 
     @Transactional

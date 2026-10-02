@@ -3,6 +3,7 @@ package com.emplmgt.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.Instant;
 import java.time.LocalDate;
 
 @Entity
@@ -64,6 +65,21 @@ public class Employee extends BaseEntity {
     @Column(name = "employment_status", nullable = false, length = 20)
     @Builder.Default
     private EmploymentStatus employmentStatus = EmploymentStatus.ACTIVE;
+
+    @Column(name = "last_working_date")
+    private LocalDate lastWorkingDate;
+
+    @Column(name = "exit_date")
+    private LocalDate exitDate;
+
+    @Column(name = "exit_reason", length = 500)
+    private String exitReason;
+
+    @Column(name = "exited_by")
+    private Long exitedBy;
+
+    @Column(name = "exited_at")
+    private Instant exitedAt;
 
     @Column(name = "profile_picture", length = 500)
     private String profilePicture;

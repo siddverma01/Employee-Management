@@ -70,6 +70,7 @@ const monthly: RosterMonthlyData = {
       teamId: null,
       teamName: null,
       days: { [OFF_DATE]: 'CO' },
+      shiftChangesWithinMonth: false,
     },
     {
       employeeId: 'E2',
@@ -81,6 +82,7 @@ const monthly: RosterMonthlyData = {
       teamId: null,
       teamName: null,
       days: { [OFF_DATE]: 'CO' },
+      shiftChangesWithinMonth: false,
     },
   ],
   counters: { CO: 2 },
@@ -246,4 +248,32 @@ describe('AdminRosterPage CO status detail', () => {
     expect(dialog.getByText('Description')).toBeInTheDocument()
     expect(dialog.getByRole('textbox')).toBeInTheDocument()
   })
+  // Regression: a manually edited cell used to gain a coloured outline utility
+  // that sat on top of the status fill. An edited cell must now be visually
+  // identical to any other cell — only the status code it reports changes.
+  it('leaves a manually edited cell visually normal', async () => {
+    renderPage()
+    await openCoCell('Alice')
+
+    // The detail popup owns the admin status picker; pick a different code.
+    const wfh = await screen.findByRole('button', { name: 'WFH' })
+    await userEvent.click(wfh)
+
+    const edited = await waitFor(() => {
+      const el = document.querySelector('button[data-status="WFH"]')
+      expect(el).not.toBeNull()
+      return el as HTMLElement
+    })
+
+    // No border, outline, ring or marker class may be added for the pending edit.
+    expect(edited.className).not.toMatch(/outline|ring|border-|is-dirty/)
+    expect(edited.className).not.toMatch(/amber|orange|warning/)
+    // Only the base cell class: nothing visual is layered on top of the status.
+    expect(edited.className.trim()).toBe('attendance-cell')
+
+    // The status indication itself still updates, so the edit is not invisible.
+    expect(edited.dataset.status).toBe('WFH')
+    expect(edited.style.backgroundColor).toBeTruthy()
+  })
+
 })

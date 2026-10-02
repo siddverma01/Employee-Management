@@ -49,11 +49,43 @@ public final class HistoricalRosterParser {
                                String statusCode, String statusName, boolean unknown, String warning) {
     }
 
+    /**
+     * Why a sheet produced no records. {@code auxiliary} marks sheets that were
+     * never attendance rosters in the first place (indices, note pads, leave
+     * trackers, hidden helper tabs): they are reported as a warning and ignored.
+     * Everything else is a genuine parse failure and is reported as an error
+     * with {@link SheetResult#skipDetail()}.
+     */
+    public enum SkipReason {
+        EMPTY_SHEET("empty sheet", true),
+        NOT_A_ROSTER("not an attendance roster", true),
+        NO_HEADER("no employee/date header", false),
+        NO_DATE_COLUMNS("no date columns", false),
+        NO_MONTH("cannot determine month", false),
+        NO_ROWS("no data rows", false);
+
+        private final String label;
+        private final boolean auxiliary;
+
+        SkipReason(String label, boolean auxiliary) {
+            this.label = label;
+            this.auxiliary = auxiliary;
+        }
+
+        public String label() {
+            return label;
+        }
+
+        public boolean auxiliary() {
+            return auxiliary;
+        }
+    }
+
     public record SheetResult(String sheetName, YearMonth month, Integer headerRow,
                               int employeeColumnCount, int dateColumnCount, int employeeCount,
                               int cellCount, int unknownCodeCount, int emptyCellCount,
                               boolean skipped, String skipReason, boolean ignorable,
-                              List<String> employeeIds, List<ParsedRecord> records,
+                              String skipDetail, List<String> employeeIds, List<ParsedRecord> records,
                               List<String> warnings) {
     }
 
@@ -73,9 +105,14 @@ public final class HistoricalRosterParser {
 
     private enum Field {EMP_ID, EMP_NAME, EMP_EMAIL, LOCATION, SHIFT, WEEK_OFF, MANAGER}
 
-    /** Header detection window: columns 0..14 of rows 0..14. */
-    private static final int HEADER_WINDOW_ROWS = 15;
-    private static final int HEADER_WINDOW_COLS = 15;
+    /**
+     * Upper bound on the rows scanned while hunting for the header row. Headers
+     * are never assumed to sit on row 1: real workbooks bury them under titles,
+     * logos, weekday banners and spacer rows, so the whole sheet is searched
+     * (capped only to keep the scan cheap on pathological files).
+     */
+    private static final int HEADER_WINDOW_ROWS = 200;
+    private static final int HEADER_WINDOW_COLS = 64;
 
     private static final Map<String, Field> FIELD_BY_COMPACT = new HashMap<>();
 
@@ -96,7 +133,18 @@ public final class HistoricalRosterParser {
     }
 
     private static final List<String> IGNORABLE = List.of(
-            "rts", "index", "readme", "notes", "instruction", "cover", "title", "furlough");
+            "rts", "index", "readme", "notes", "instruction", "cover", "title", "furlough",
+            "leave", "holiday", "calendar", "summary", "dashboard", "backup", "old", "temp",
+            "draft", "test", "copy", "sheet");
+
+    /**
+     * Weekday labels that decorative banner rows carry above the date columns
+     * ("Sun", "Mon", ... "Sat"). They look exactly like unknown attendance codes
+     * to the status normaliser, so they must be recognised as layout, not data.
+     */
+    private static final Set<String> WEEKDAY_LABELS = Set.of(
+            "sun", "sunday", "mon", "monday", "tue", "tues", "tuesday", "wed", "wednesday",
+            "thu", "thur", "thurs", "thursday", "fri", "friday", "sat", "saturday");
 
     public static ParsedWorkbook parse(Workbook wb) {
         List<String> global = new ArrayList<>();
@@ -104,8 +152,11 @@ public final class HistoricalRosterParser {
         FormulaEvaluator ev = wb.getCreationHelper().createFormulaEvaluator();
         for (int i = 0; i < wb.getNumberOfSheets(); i++) {
             Sheet s = wb.getSheetAt(i);
+            // Hidden tabs are helper/scratch sheets; they are never the roster an
+            // admin means to import, so they are reported as ignored, not broken.
+            boolean hidden = wb.isSheetHidden(i) || wb.isSheetVeryHidden(i);
             try {
-                out.add(decodeSheet(s, ev));
+                out.add(decodeSheet(s, ev, hidden));
             } catch (Exception e) {
                 global.add("Sheet '" + s.getSheetName() + "' failed to parse and was skipped: " + e.getMessage());
             }
@@ -117,37 +168,61 @@ public final class HistoricalRosterParser {
     // Sheet decoding
     // ------------------------------------------------------------------
 
-    private static SheetResult decodeSheet(Sheet sheet, FormulaEvaluator ev) {
+    private static SheetResult decodeSheet(Sheet sheet, FormulaEvaluator ev, boolean hidden) {
         String name = sheet.getSheetName();
         if (sheet.getPhysicalNumberOfRows() == 0) {
-            return skipped(name, "empty sheet", List.of());
+            return skipped(name, SkipReason.EMPTY_SHEET, "The worksheet has no rows at all.", hidden);
         }
 
         Frame fr = materialize(sheet, ev);
         HeaderResult h = detectHeader(fr);
         if (h == null) {
-            return skipped(name, "no employee/date header",
-                    List.of("No header row detected."));
+            // No employee header anywhere in the sheet. A name that declares
+            // itself auxiliary (Index, Furlough Leave, ...) settles it. Otherwise
+            // decide structurally: sheets that were never rosters are warnings,
+            // while a sheet that still has the shape of one is a real failure.
+            if (ignorable(name) || hidden || !rosterShaped(fr)) {
+                return skipped(name, SkipReason.NOT_A_ROSTER,
+                        "No 'Emp ID'/'Emp Name' header found in rows 1–" + fr.rows
+                                + " (columns A–" + columnName(Math.max(fr.cols - 1, 0)) + "), and the sheet has "
+                                + describeShape(fr) + ". It holds no attendance grid, so it was ignored"
+                                + (hidden ? " (the sheet is hidden)." : "."), hidden);
+            }
+            return skipped(name, SkipReason.NO_HEADER,
+                    "No 'Emp ID' header found in rows 1–" + fr.rows + " (columns A–"
+                            + columnName(Math.max(fr.cols - 1, 0)) + "). The sheet looks like an attendance "
+                            + "roster (" + describeShape(fr) + ") but its header labels were not recognised. "
+                            + "Expected one of: Emp ID, Employee ID, Emp Code, Employee Code, Emp No, Code.",
+                    hidden);
         }
 
         Map<Field, Integer> fields = mapFields(fr, h);
         List<DayColumn> days = detectDayColumns(fr, h, fields);
+        List<String> preWarnings = new ArrayList<>();
         if (days.isEmpty()) {
-            return skipped(name, "no date columns",
-                    List.of("Header detected but no date/day columns."));
+            return skipped(name, SkipReason.NO_DATE_COLUMNS,
+                    "Header row " + (h.headerRow() + 1) + " was recognised ("
+                            + describeFields(fields) + ") but none of the columns after "
+                            + columnName(Math.max(metadataEnd(fields) - 1, 0))
+                            + " hold a date or a day number.", hidden);
         }
+        preWarnings.addAll(validateDateSequence(name, days, h, fr, fields));
 
         YearMonth month = resolveMonth(fr, name, h, days);
         if (month == null) {
-            return skipped(name, "cannot determine month",
-                    List.of("Attendance uses day numbers but the month could not be determined."));
+            return skipped(name, SkipReason.NO_MONTH,
+                    "The " + days.size() + " day column(s) after " + columnName(Math.max(metadataEnd(fields) - 1, 0))
+                            + " are bare day numbers and neither the sheet name '" + name
+                            + "' nor any row above the header states a month/year.", hidden);
         }
+        preWarnings.addAll(checkMonthAgreement(name, month, days));
 
-        List<String> warnings = new ArrayList<>();
+        List<String> warnings = new ArrayList<>(preWarnings);
         List<ParsedRecord> records = new ArrayList<>();
         List<String> employeeIds = new ArrayList<>();
         int emptyCells = 0;
         int sectionRows = 0;
+        int weekdayRows = 0;
         Set<String> seenEmployees = new HashSet<>();
         Set<String> duplicateWarned = new HashSet<>();
 
@@ -158,6 +233,12 @@ public final class HistoricalRosterParser {
                 sectionRows++;
                 continue;
             }
+            // Decorative weekday banners above a team block ("Sun Mon Tue ...")
+            // are layout, not attendance — they must never become employee rows.
+            if (isWeekdayBanner(fr, r, days)) {
+                weekdayRows++;
+                continue;
+            }
             // Rows that carry no attendance values at all are banners, blanks
             // or filler — they are not employees.
             boolean hasVal = hasDayValues(fr, r, days);
@@ -166,7 +247,9 @@ public final class HistoricalRosterParser {
             }
             String rawEmp = fr.text(r, fields.getOrDefault(Field.EMP_ID, -1));
             if (rawEmp == null || rawEmp.isBlank()) {
-                warnings.add("Row " + (r + 1) + " has attendance values but no employee id — skipped.");
+                warnings.add("Row " + (r + 1) + " holds attendance values but column "
+                        + columnName(Math.max(fields.getOrDefault(Field.EMP_ID, 0), 0))
+                        + " has no employee id — the row was not imported.");
                 continue;
             }
             String empId = HistoricalImportCodes.normaliseText(rawEmp);
@@ -205,7 +288,10 @@ public final class HistoricalRosterParser {
         }
 
         if (sectionRows > 0) {
-            warnings.add(sectionRows + " section/header row(s) inside the sheet were ignored.");
+            warnings.add(sectionRows + " repeated header/section row(s) inside the sheet were ignored.");
+        }
+        if (weekdayRows > 0) {
+            warnings.add(weekdayRows + " weekday banner row(s) above a team block were ignored.");
         }
 
         // Surface per-record warnings (e.g. invalid days) on the sheet too.
@@ -216,21 +302,28 @@ public final class HistoricalRosterParser {
         }
 
         if (records.isEmpty()) {
-            return skipped(name, "no data rows",
-                    List.of("Header/date columns found but no records to import."));
+            return skipped(name, SkipReason.NO_ROWS,
+                    "Header row " + (h.headerRow() + 1) + " and " + days.size() + " date column(s) were detected, "
+                            + "but no row below the header holds an employee id with attendance data. "
+                            + "The first data row expected below row " + (h.dayCellsRow + 2) + ".",
+                    hidden);
         }
-        return ready(name, month, h, fields, days, employeeIds, emptyCells, records, warnings);
+        return ready(name, month, h, fields, days, employeeIds, emptyCells, records, warnings, hidden);
     }
 
-    private static SheetResult skipped(String name, String reason, List<String> warnings) {
+    private static SheetResult skipped(String name, SkipReason reason, String detail, boolean hidden) {
+        // An explicitly non-roster name (Index, Furlough Leave, ...) or a hidden
+        // tab is auxiliary by intent; everything else is judged on structure.
+        boolean ignorable = reason.auxiliary() || ignorable(name) || hidden;
         return new SheetResult(name, null, null, 0, 0, 0, 0, 0, 0,
-                true, reason, ignorable(name), List.of(), List.of(), warnings);
+                true, reason.label(), ignorable, detail, List.of(), List.of(), List.of());
     }
 
     private static SheetResult ready(String name, YearMonth month, HeaderResult h,
                                      Map<Field, Integer> fields, List<DayColumn> days,
                                      List<String> employeeIds, int emptyCells,
-                                     List<ParsedRecord> records, List<String> warnings) {
+                                     List<ParsedRecord> records, List<String> warnings,
+                                     boolean hidden) {
         Set<String> distinct = new HashSet<>(employeeIds);
         int unknown = 0;
         for (ParsedRecord rec : records) {
@@ -239,8 +332,173 @@ public final class HistoricalRosterParser {
             }
         }
         return new SheetResult(name, month, h.headerRow() + 1, fields.size(), days.size(),
-                distinct.size(), records.size(), unknown, emptyCells, false, null, ignorable(name),
-                List.copyOf(employeeIds), records, warnings);
+                distinct.size(), records.size(), unknown, emptyCells, false, null, ignorable(name) || hidden,
+                null, List.copyOf(employeeIds), records, warnings);
+    }
+
+    // ------------------------------------------------------------------
+    // Structural classification helpers
+    // ------------------------------------------------------------------
+
+    /**
+     * A weekday banner: every populated cell across the date columns holds a
+     * weekday name. Real attendance rows never look like this, and without this
+     * check such rows are mistaken for employees with unknown statuses.
+     */
+    private static boolean isWeekdayBanner(Frame fr, int r, List<DayColumn> days) {
+        if (days.isEmpty()) {
+            return false;
+        }
+        int labelled = 0, other = 0;
+        for (DayColumn dc : days) {
+            String v = fr.text(r, dc.index);
+            if (isEmpty(v)) {
+                continue;
+            }
+            if (WEEKDAY_LABELS.contains(v.trim().toLowerCase(Locale.ROOT))) {
+                labelled++;
+            } else {
+                other++;
+            }
+        }
+        return labelled > 0 && other == 0;
+    }
+
+    /**
+     * Whether the sheet still carries the shape of an attendance roster even
+     * though no header was recognised: several identity labels somewhere, or a
+     * wide run of date-like cells, or many rows that start with an id-shaped
+     * value. Used to tell "this was never a roster" from "this roster defeated
+     * the header scan" — the latter must stay an error.
+     */
+    private static boolean rosterShaped(Frame fr) {
+        int labels = 0, idShapedRows = 0;
+        for (int r = 0; r < fr.rows; r++) {
+            int rowDates = 0, rowDays = 0;
+            for (int c = 0; c < fr.cols; c++) {
+                String t = fr.text(r, c);
+                if (isEmpty(t)) {
+                    continue;
+                }
+                if (FIELD_BY_COMPACT.containsKey(HistoricalImportCodes.compactCode(t))) {
+                    labels++;
+                }
+                if (fr.isDate[r][c] || parseFullDate(t) != null) {
+                    rowDates++;
+                }
+                // Day numbers survive even when the header's date formatting is
+                // lost, and a long run of them is unmistakably a calendar header.
+                if (parseFullDate(t) == null && dayNumber(t) != null) {
+                    rowDays++;
+                }
+            }
+            if (rowDates >= 10 || rowDays >= 10) {
+                return true;
+            }
+            String first = fr.text(r, 0);
+            if (first != null && ID_SHAPED.matcher(first.trim()).matches()) {
+                idShapedRows++;
+            }
+        }
+        return labels >= 2 || idShapedRows >= 5;
+    }
+
+    private static final java.util.regex.Pattern ID_SHAPED =
+            java.util.regex.Pattern.compile("\\d{4,}|[A-Za-z]+[-_ ]?\\d{2,}");
+
+    /** Human-readable size/shape summary used in skip diagnostics. */
+    private static String describeShape(Frame fr) {
+        int filled = 0;
+        for (int r = 0; r < fr.rows; r++) {
+            for (int c = 0; c < fr.cols; c++) {
+                if (!isEmpty(fr.text[r][c])) {
+                    filled++;
+                }
+            }
+        }
+        return fr.rows + " row(s) x " + fr.cols + " column(s), " + filled + " populated cell(s)";
+    }
+
+    private static String describeFields(Map<Field, Integer> fields) {
+        List<String> parts = new ArrayList<>();
+        fields.forEach((f, idx) -> parts.add(columnName(idx) + "=" + f.name().toLowerCase(Locale.ROOT)));
+        return parts.isEmpty() ? "no labelled columns" : String.join(", ", parts);
+    }
+
+    /** Spreadsheet column name for a 0-based index (0 -> A, 26 -> AA). */
+    static String columnName(int index) {
+        StringBuilder sb = new StringBuilder();
+        int n = index;
+        while (n >= 0) {
+            sb.insert(0, (char) ('A' + n % 26));
+            n = n / 26 - 1;
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Checks the detected date columns form a usable sequence: adjacent columns,
+     * and — when the header carries real dates — strictly increasing. Cross-month
+     * spans are legitimate (a June roster often runs into the first days of July)
+     * and are reported, never truncated.
+     */
+    private static List<String> validateDateSequence(String sheetName, List<DayColumn> days,
+                                                     HeaderResult h, Frame fr, Map<Field, Integer> fields) {
+        List<String> out = new ArrayList<>();
+        for (int i = 1; i < days.size(); i++) {
+            if (days.get(i).index() != days.get(i - 1).index() + 1) {
+                out.add("Date columns are not contiguous: column " + columnName(days.get(i - 1).index())
+                        + " is followed by " + columnName(days.get(i).index()) + ".");
+                break;
+            }
+        }
+        LocalDate first = null, last = null;
+        int badOrder = 0;
+        for (DayColumn dc : days) {
+            if (dc.date == null) {
+                continue;
+            }
+            if (first == null) {
+                first = dc.date;
+            }
+            if (last != null && !dc.date.isAfter(last)) {
+                badOrder++;
+            }
+            last = dc.date;
+        }
+        if (badOrder > 0) {
+            out.add(badOrder + " date column(s) are out of order or repeated between " + first + " and " + last
+                    + "; every value is still imported at the date written in the header.");
+        }
+        if (first != null && last != null && !YearMonth.from(first).equals(YearMonth.from(last))) {
+            out.add("Date columns span more than one calendar month (" + first + " to " + last
+                    + "); every value is imported at its own date rather than being truncated to one month.");
+        }
+        boolean anyFullDate = days.stream().anyMatch(d -> d.date != null);
+        if (!anyFullDate) {
+            int maxDay = days.stream().map(DayColumn::day).filter(java.util.Objects::nonNull)
+                    .mapToInt(Integer::intValue).max().orElse(0);
+            if (maxDay > 31) {
+                out.add("Day-number columns reach " + maxDay + "; values above 31 cannot be dates.");
+            }
+        }
+        return out;
+    }
+
+    /**
+     * When the sheet name states a different month than its own date columns
+     * (a mislabelled tab), the data is kept exactly as written and the conflict
+     * is surfaced so an admin can decide.
+     */
+    private static List<String> checkMonthAgreement(String sheetName, YearMonth month, List<DayColumn> days) {
+        YearMonth fromName = parseYearMonth(sheetName);
+        if (fromName == null || fromName.equals(month)) {
+            return List.of();
+        }
+        LocalDate first = days.stream().map(DayColumn::date).filter(java.util.Objects::nonNull)
+                .findFirst().orElse(null);
+        return List.of("Sheet name '" + sheetName + "' reads as " + fromName + " but its date columns start at "
+                + first + "; records were imported at the dates written in the header (" + month + ").");
     }
 
     private static String blankToNull(String s) {
@@ -307,7 +565,11 @@ public final class HistoricalRosterParser {
                 cols = row.getLastCellNum();
             }
         }
-        Frame fr = new Frame(last - first + 1, cols);
+        // Index rows absolutely (0-based == the real sheet row) so every row
+        // number the parser reports back to the user is the row they see in
+        // Excel. Sheets often start with empty rows; anchoring to the first
+        // *populated* row would shift every reported row number.
+        Frame fr = new Frame(last + 1, cols);
 
         for (int r = first; r <= last; r++) {
             Row row = sheet.getRow(r);
@@ -315,14 +577,14 @@ public final class HistoricalRosterParser {
             for (int c = 0; c < cols; c++) {
                 Cell cell = row.getCell(c);
                 if (cell == null) continue;
-                readCell(cell, ev, fr, r - first, c);
+                readCell(cell, ev, fr, r, c);
             }
         }
 
         // Expand merged regions by propagating the top-left value.
         for (CellRangeAddress rg : sheet.getMergedRegions()) {
-            int r0 = rg.getFirstRow() - first;
-            int r1 = rg.getLastRow() - first;
+            int r0 = rg.getFirstRow();
+            int r1 = rg.getLastRow();
             int c0 = rg.getFirstColumn();
             int c1 = rg.getLastColumn();
             if (r0 < 0) continue;
@@ -389,22 +651,66 @@ public final class HistoricalRosterParser {
     }
 
     /**
-     * Detection pipeline: inspect the first {@link #HEADER_WINDOW_ROWS} rows and
-     * the first {@link #HEADER_WINDOW_COLS} columns, score every row on how many
-     * expected employee-header tokens (Emp ID, Emp Name, Employee Name, Email,
-     * Location, Shift, WeekOff, Manager, ...) it contains, and pick the highest
-     * scoring row that actually carries an employee-id column.
+     * How many employee rows a candidate header would capture: rows beneath it
+     * that carry an employee id and at least one attendance value across that
+     * candidate's own date columns. Used to pick the header that holds the real
+     * roster when a workbook repeats (and mislabels) it.
+     */
+    private static int employeeRowsBelow(Frame fr, int headerRow, int cols) {
+        Map<Field, Integer> fields = new EnumMap<>(Field.class);
+        for (int c = 0; c < cols; c++) {
+            Field f = FIELD_BY_COMPACT.get(HistoricalImportCodes.compactCode(fr.text(headerRow, c)));
+            if (f != null) {
+                fields.putIfAbsent(f, c);
+            }
+        }
+        Integer idCol = fields.get(Field.EMP_ID);
+        if (idCol == null) {
+            return 0;
+        }
+        List<DayColumn> days = detectDayColumns(fr, new HeaderResult(headerRow, headerRow), fields);
+        if (days.isEmpty()) {
+            return 0;
+        }
+        int n = 0;
+        for (int r = headerRow + 1; r < fr.rows; r++) {
+            String id = fr.text(r, idCol);
+            if (isEmpty(id) || isRepeatedHeader(fr, r) || isWeekdayBanner(fr, r, days)) {
+                continue;
+            }
+            if (hasDayValues(fr, r, days)) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    /**
+     * Detection pipeline: inspect every row of the sheet (headers are never
+     * assumed to be on row 1 — titles, logos, spacer rows and weekday banners
+     * routinely precede them) and every column, scoring each row on how many
+     * expected identity tokens (Emp ID, Emp Name, Employee Name, Email,
+     * Location, Shift, WeekOff, Manager, ...) it carries plus how many date
+     * columns follow.
      *
      * <p>A pure title row such as "VOICE ROSTER FOR May-26" scores 0 (no
      * identity tokens); the row holding the real header scores high.</p>
+     *
+     * <p>Ties are broken by <em>how much data each candidate would capture</em>.
+     * Workbooks often repeat the header for a second team block, and one copy
+     * can be mislabelled — picking the prettiest header instead of the one that
+     * actually holds the roster would silently drop most of the employees. The
+     * candidate framing the most employee rows therefore wins, and header
+     * quality only breaks ties.</p>
      */
     private static HeaderResult detectHeader(Frame fr) {
-        int best = -1, bestScore = -1;
         int maxRow = Math.min(fr.rows, HEADER_WINDOW_ROWS);
+        int cols = Math.min(fr.cols, HEADER_WINDOW_COLS);
+        List<Integer> candidates = new ArrayList<>();
+        Map<Integer, Integer> quality = new HashMap<>();
         for (int r = 0; r < maxRow; r++) {
             boolean hasId = false, hasName = false;
             int metadata = 0, dates = 0;
-            int cols = Math.min(fr.cols, HEADER_WINDOW_COLS);
             for (int c = 0; c < cols; c++) {
                 Field f = FIELD_BY_COMPACT.get(HistoricalImportCodes.compactCode(fr.text(r, c)));
                 if (f == Field.EMP_ID) {
@@ -421,13 +727,26 @@ public final class HistoricalRosterParser {
             if (!hasId) {
                 continue;
             }
-            int score = metadata * 100 + (hasName ? 250 : 0) + dates;
-            if (score > bestScore) {
-                bestScore = score;
+            candidates.add(r);
+            quality.put(r, metadata * 100 + (hasName ? 250 : 0) + dates);
+        }
+        if (candidates.isEmpty()) {
+            return null;
+        }
+
+        int best = candidates.get(0);
+        int bestVolume = -1, bestQuality = -1;
+        for (int r : candidates) {
+            int volume = employeeRowsBelow(fr, r, cols);
+            int q = quality.get(r);
+            // More captured employees wins; a better-formed header breaks ties;
+            // the earlier row breaks remaining ties so the top block is used.
+            if (volume > bestVolume || (volume == bestVolume && q > bestQuality)) {
                 best = r;
+                bestVolume = volume;
+                bestQuality = q;
             }
         }
-        if (best < 0) return null;
 
         // Two-line headers: prefer real (full) dates on the row below the
         // header over bare day numbers when the next row actually carries them.

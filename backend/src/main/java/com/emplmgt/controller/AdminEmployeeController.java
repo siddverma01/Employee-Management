@@ -52,4 +52,30 @@ public class AdminEmployeeController {
                                                           @RequestParam EmploymentStatus status) {
         return ResponseEntity.ok(employeeService.setStatus(id, status));
     }
+
+    @PostMapping("/{id}/exit")
+    public ResponseEntity<EmployeeDtos.ExitResponse> setExit(@PathVariable Long id,
+                                                             @Valid @RequestBody EmployeeDtos.ExitRequest request) {
+        Long adminId = getCurrentUserId();
+        return ResponseEntity.ok(employeeService.setExit(id, request, adminId));
+    }
+
+    @DeleteMapping("/{id}/exit")
+    public ResponseEntity<EmployeeDtos.ExitResponse> cancelExit(@PathVariable Long id) {
+        Long adminId = getCurrentUserId();
+        return ResponseEntity.ok(employeeService.cancelExit(id, adminId));
+    }
+
+    @GetMapping("/{id}/exit")
+    public ResponseEntity<EmployeeDtos.ExitResponse> getExitInfo(@PathVariable Long id) {
+        return ResponseEntity.ok(employeeService.getExitInfo(id));
+    }
+
+    private Long getCurrentUserId() {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof com.emplmgt.entity.User user) {
+            return user.getId();
+        }
+        return null;
+    }
 }

@@ -17,20 +17,30 @@ public interface HolidayRepository extends JpaRepository<Holiday, Long> {
 
     List<Holiday> findByHolidayDateBetween(LocalDate from, LocalDate to);
 
-    @Query("select h from Holiday h where h.holidayDate >= :from and h.holidayDate <= :to and (:country is null or h.country = :country)")
+    // Every range query ends in `order by h.holidayDate, h.id`. A JPQL query with
+    // no ordering has no guaranteed result order, so without this the admin
+    // Holidays & events table came back in whatever order Postgres happened to
+    // return. h.id breaks ties on same-day rows so the order is stable across
+    // requests rather than merely non-descending.
+
+    @Query("select h from Holiday h where h.holidayDate >= :from and h.holidayDate <= :to " +
+            "and (:country is null or h.country = :country) " +
+            "order by h.holidayDate asc, h.id asc")
     List<Holiday> findInRange(@Param("from") LocalDate from, @Param("to") LocalDate to, @Param("country") String country);
 
     @Query("select h from Holiday h where h.holidayDate >= :from and h.holidayDate <= :to " +
             "and (:country is null or h.country = :country) " +
             "and (h.scope = com.emplmgt.entity.ScopeType.GLOBAL " +
-            "     or (h.scope = com.emplmgt.entity.ScopeType.TEAM and (:teamId is null or h.team.id = :teamId)))")
+            "     or (h.scope = com.emplmgt.entity.ScopeType.TEAM and (:teamId is null or h.team.id = :teamId))) " +
+            "order by h.holidayDate asc, h.id asc")
     List<Holiday> findVisibleInRange(@Param("from") LocalDate from, @Param("to") LocalDate to,
                                      @Param("country") String country, @Param("teamId") Long teamId);
 
     @Query("select h from Holiday h where h.holidayDate >= :from and h.holidayDate <= :to " +
             "and (:country is null or h.country = :country) " +
             "and (:scope is null or h.scope = :scope) " +
-            "and (:scope is null or :scope <> com.emplmgt.entity.ScopeType.TEAM or :teamId is null or h.team.id = :teamId)")
+            "and (:scope is null or :scope <> com.emplmgt.entity.ScopeType.TEAM or :teamId is null or h.team.id = :teamId) " +
+            "order by h.holidayDate asc, h.id asc")
     List<Holiday> findInRangeScoped(@Param("from") LocalDate from, @Param("to") LocalDate to,
                                     @Param("country") String country,
                                     @Param("scope") ScopeType scope, @Param("teamId") Long teamId);

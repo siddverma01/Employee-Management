@@ -317,7 +317,7 @@ class HistoricalRosterRealStructuresTest {
             assertThat(result.month()).isEqualTo(YearMonth.of(2026, 4));
             assertThat(result.records()).hasSize(9);
             assertThat(result.employeeIds()).containsExactly("E1", "E2", "E3");
-            assertThat(result.warnings()).anyMatch(w -> w.contains("section/header row"));
+            assertThat(result.warnings()).anyMatch(w -> w.contains("repeated header/section row"));
             assertThat(result.records().get(6).statusCode()).isEqualTo("SW OFF");
             assertThat(result.records().get(8).statusCode()).isEqualTo("PL");
         }

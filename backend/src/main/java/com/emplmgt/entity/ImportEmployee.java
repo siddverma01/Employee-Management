@@ -10,6 +10,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDate;
+
 /**
  * Historical employee snapshot imported from attendance workbooks.
  * <code>employeeId</code> holds the employee <em>code</em> (e.g. "25106149").
@@ -53,4 +55,10 @@ public class ImportEmployee extends BaseEntity {
 
     @Column(name = "team_id")
     private Long teamId;
+
+    @Column(name = "last_working_date")
+    private LocalDate lastWorkingDate;
+
+    @Column(name = "exit_date")
+    private LocalDate exitDate;
 }

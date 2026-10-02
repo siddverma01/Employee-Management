@@ -4,17 +4,23 @@ import com.emplmgt.dto.HistoricalImportDtos;
 import com.emplmgt.entity.AttendanceImportHistory;
 import com.emplmgt.entity.AttendanceImportRow;
 import com.emplmgt.entity.AttendanceRecord;
+import com.emplmgt.entity.AttendanceShiftAssignment;
+import com.emplmgt.entity.AttendanceWeekOffAssignment;
 import com.emplmgt.entity.AttendanceStatus;
 import com.emplmgt.entity.ImportEmployee;
 import com.emplmgt.exception.ApiException;
 import com.emplmgt.repository.AttendanceImportHistoryRepository;
 import com.emplmgt.repository.AttendanceImportRowRepository;
 import com.emplmgt.repository.AttendanceRecordRepository;
+import com.emplmgt.repository.AttendanceShiftAssignmentRepository;
+import com.emplmgt.repository.AttendanceWeekOffAssignmentRepository;
 import com.emplmgt.repository.AttendanceStatusRepository;
 import com.emplmgt.repository.ImportEmployeeRepository;
 import com.emplmgt.util.AppClock;
 import com.emplmgt.util.HistoricalImportCodes;
 import com.emplmgt.util.HistoricalRosterParser;
+import com.emplmgt.util.ShiftTime;
+import com.emplmgt.util.WeekOffUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +43,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -62,6 +69,7 @@ public class HistoricalImportService {
     private static final String WARN = "WARNING";
 
     private static final String T_READABLE = "UNREADABLE_SHEET";
+    private static final String T_NOT_ROSTER = "NOT_AN_ATTENDANCE_ROSTER";
     private static final String T_NO_EMP = "NO_EMPLOYEE_ID";
     private static final String T_NO_DATES = "NO_DATE_COLUMNS";
     private static final String T_NO_MONTH = "NO_MONTH";
@@ -72,6 +80,10 @@ public class HistoricalImportService {
     private static final String T_UNKNOWN_CODE = "UNKNOWN_CODE";
     private static final String T_DUP_EMP = "DUPLICATE_EMPLOYEE_ID";
     private static final String T_INCONSISTENT_NAME = "INCONSISTENT_NAME";
+    private static final String T_SHIFT_MISSING = "MISSING_SHIFT";
+    private static final String T_SHIFT_INVALID = "UNPARSED_SHIFT";
+    private static final String T_WEEK_OFF_MISSING = "MISSING_WEEK_OFF";
+    private static final String T_WEEK_OFF_INVALID = "UNPARSED_WEEK_OFF";
 
     private static final DateTimeFormatter MONTH_FMT =
             DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH);
@@ -79,6 +91,9 @@ public class HistoricalImportService {
     private final AttendanceStatusRepository statusRepository;
     private final ImportEmployeeRepository importEmployeeRepository;
     private final AttendanceRecordRepository recordRepository;
+    private final AttendanceShiftAssignmentRepository shiftAssignmentRepository;
+    private final AttendanceWeekOffAssignmentRepository weekOffAssignmentRepository;
+    private final WeekOffUtil weekOffUtil;
     private final AttendanceImportHistoryRepository historyRepository;
     private final AttendanceImportRowRepository rowRepository;
     private final AuditService auditService;
@@ -297,6 +312,18 @@ public class HistoricalImportService {
         return rows;
     }
 
+    /** Last-resort text when a sheet was skipped without a parser diagnostic. */
+    private static String messageFallback(String type) {
+        return switch (type) {
+            case T_NO_DATES -> "The header row was found but it has no date or day-number columns.";
+            case T_NO_MONTH -> "The sheet has day-number columns but no month/year could be determined.";
+            case T_NO_EMP -> "Rows were found but none carries an employee id.";
+            case T_NO_ROWS -> "The header was found but no employee rows carry attendance data.";
+            case T_NOT_ROSTER -> "The sheet holds no attendance roster.";
+            default -> "The sheet could not be read as an attendance roster.";
+        };
+    }
+
     // -------------------------------------------------- analysis & validation
 
     private static List<HistoricalImportDtos.SheetAnalysis> buildAnalysis(
@@ -333,32 +360,30 @@ public class HistoricalImportService {
             }
             if (s.ignorable()) {
                 issues.add(new HistoricalImportDtos.ValidationIssue(WARN, "IGNORED_SHEET",
-                        "Sheet skipped (not an attendance sheet): " + s.skipReason(),
+                        "Sheet '" + s.sheetName() + "' ignored — "
+                                + (s.skipDetail() == null || s.skipDetail().isBlank()
+                                ? "it is not an attendance roster (" + s.skipReason() + ")."
+                                : s.skipDetail()),
                         s.sheetName(), null, null, 1));
                 continue;
             }
             String type;
-            String message;
             switch (s.skipReason() == null ? "" : s.skipReason()) {
-                case "no date columns" -> {
-                    type = T_NO_DATES;
-                    message = "No date columns found";
-                }
-                case "cannot determine month" -> {
-                    type = T_NO_MONTH;
-                    message = "Attendance uses day numbers but the month could not be determined";
-                }
+                case "no date columns" -> type = T_NO_DATES;
+                case "cannot determine month" -> type = T_NO_MONTH;
                 case "no data rows" -> {
-                    boolean noEmp = s.warnings().stream().anyMatch(w -> w.contains("no employee id"));
+                    boolean noEmp = s.skipDetail() != null && s.skipDetail().contains("no employee id");
                     type = noEmp ? T_NO_EMP : T_NO_ROWS;
-                    message = noEmp ? "No employee identifier found" : "No data rows found";
                 }
-                default -> {
-                    type = T_READABLE;
-                    message = "Completely unreadable sheet";
-                }
+                case "not an attendance roster", "empty sheet" -> type = T_NOT_ROSTER;
+                default -> type = T_READABLE;
             }
-            issues.add(new HistoricalImportDtos.ValidationIssue(ERR, type, message,
+            // Always name the worksheet and state what was actually inspected, so
+            // an admin never has to guess which tab failed or why.
+            String text = s.skipDetail() == null || s.skipDetail().isBlank()
+                    ? messageFallback(type)
+                    : s.skipDetail();
+            issues.add(new HistoricalImportDtos.ValidationIssue(ERR, type, text,
                     s.sheetName(), null, null, 1));
         }
 
@@ -429,7 +454,98 @@ public class HistoricalImportService {
                     null, null, null, inconsistent));
         }
 
+        // Shift problems, per employee per period. Shift is a property of the
+        // rostered month, so a missing value here would otherwise be silently
+        // inherited from another month instead of being reported.
+        shiftIssues(issues, sheets);
+        weekOffIssues(issues, sheets);
+
         return mergeIssues(issues);
+    }
+
+    /**
+     * Flags every employee/period whose week off is absent or does not name a real
+     * weekday. Nothing is substituted for the missing value - the point is to
+     * surface it so an admin can fix the workbook rather than have the employee
+     * inherit a different month's schedule.
+     */
+    private void weekOffIssues(List<HistoricalImportDtos.ValidationIssue> issues,
+                               List<HistoricalRosterParser.SheetResult> sheets) {
+        // Keyed by employee|period so one issue is reported per person per month.
+        Map<String, String[]> gaps = new LinkedHashMap<>();
+
+        for (HistoricalRosterParser.SheetResult s : sheets) {
+            if (s.skipped()) {
+                continue;
+            }
+            for (HistoricalRosterParser.ParsedRecord rec : s.records()) {
+                if (rec.employeeId() == null || rec.attendanceDate() == null) {
+                    continue;
+                }
+                String weekOff = rec.weekOff();
+                if (weekOff != null && !weekOff.isBlank() && weekOffUtil.isRecognised(weekOff)) {
+                    continue;
+                }
+                String period = YearMonth.from(rec.attendanceDate()).toString();
+                gaps.putIfAbsent(rec.employeeId() + "|" + period,
+                        new String[]{rec.employeeId(), period, s.sheetName(),
+                                String.valueOf(rec.sourceRow()), weekOff == null ? "" : weekOff.trim()});
+            }
+        }
+
+        for (String[] g : gaps.values()) {
+            boolean missing = g[4].isEmpty();
+            issues.add(new HistoricalImportDtos.ValidationIssue(
+                    WARN, missing ? T_WEEK_OFF_MISSING : T_WEEK_OFF_INVALID,
+                    missing
+                            ? "No week off in the source roster for employee " + g[0] + " in " + g[1]
+                            + " - left blank rather than carried over from another month"
+                            : "Unrecognised week off '" + g[4] + "' for employee " + g[0] + " in " + g[1]
+                            + " - not stored, please check the workbook",
+                    g[2], Integer.valueOf(g[3]), g[0], 1));
+        }
+    }
+
+    /**
+     * Flags every employee/period whose shift is absent or not a parsable
+     * {@code HH:mm-HH:mm} range. Nothing is substituted for the missing value -
+     * the point is to surface it so an admin can fix the workbook rather than
+     * have the employee inherit a different month's shift.
+     */
+    private static void shiftIssues(List<HistoricalImportDtos.ValidationIssue> issues,
+                                    List<HistoricalRosterParser.SheetResult> sheets) {
+        // Keyed by employee|period so one issue is reported per person per month.
+        Map<String, String[]> gaps = new LinkedHashMap<>();
+
+        for (HistoricalRosterParser.SheetResult s : sheets) {
+            if (s.skipped()) {
+                continue;
+            }
+            for (HistoricalRosterParser.ParsedRecord rec : s.records()) {
+                if (rec.employeeId() == null || rec.attendanceDate() == null) {
+                    continue;
+                }
+                String shift = rec.shift();
+                if (shift != null && !shift.isBlank() && ShiftTime.isTimeRange(shift)) {
+                    continue;
+                }
+                String period = YearMonth.from(rec.attendanceDate()).toString();
+                gaps.putIfAbsent(rec.employeeId() + "|" + period,
+                        new String[]{rec.employeeId(), period, s.sheetName(),
+                                String.valueOf(rec.sourceRow()), shift == null ? "" : shift.trim()});
+            }
+        }
+
+        for (String[] g : gaps.values()) {
+            boolean missing = g[4].isEmpty();
+            issues.add(new HistoricalImportDtos.ValidationIssue(
+                    WARN, missing ? T_SHIFT_MISSING : T_SHIFT_INVALID,
+                    missing
+                            ? "No shift in the source roster for employee " + g[0] + " in " + g[1]
+                            + " - left blank rather than inherited from another month"
+                            : "Unrecognised shift '" + g[4] + "' for employee " + g[0] + " in " + g[1],
+                    g[2], Integer.valueOf(g[3]), g[0], 1));
+        }
     }
 
     private static List<HistoricalImportDtos.ValidationIssue> mergeIssues(
@@ -635,7 +751,8 @@ public class HistoricalImportService {
             views.add(new HistoricalImportDtos.RowView(r.getId(), r.getSheetName(), r.getSourceRow(),
                     r.getEmployeeId(), r.getEmployeeName(), r.getAttendanceDate(), r.getExistingStatus(),
                     r.getIncomingStatus(), r.getStatusName(), r.getAction(), r.getWarning(),
-                    Boolean.TRUE.equals(r.getIsUnknown()), r.getEmployeeLocation(), r.getEmployeeShift()));
+                    Boolean.TRUE.equals(r.getIsUnknown()), r.getEmployeeLocation(), r.getEmployeeShift(),
+                    r.getEmployeeWeekOff()));
         }
         return views;
     }
@@ -781,6 +898,12 @@ public class HistoricalImportService {
         int inserted = 0, updated = 0, failed = 0;
         int unknown = 0;
         Set<String> employees = new LinkedHashSet<>();
+        // employee|period -> the staged row carrying that month's shift. Collected
+        // while walking the day rows so the assignment is written once per month.
+        Map<String, AttendanceImportRow> shiftRows = new LinkedHashMap<>();
+        // Same idea for week off: it rotates independently of shift, so it gets its
+        // own per-month collection rather than riding along with the shift rows.
+        Map<String, AttendanceImportRow> weekOffRows = new LinkedHashMap<>();
         Instant now = appClock.now();
 
         for (AttendanceImportRow r : rows) {
@@ -793,6 +916,16 @@ public class HistoricalImportService {
                 unknown++;
             }
             upsertEmployee(r, teamId, now);
+            if (r.getAttendanceDate() != null) {
+                String periodKey = r.getEmployeeId() + "|" + YearMonth.from(r.getAttendanceDate());
+                shiftRows.putIfAbsent(periodKey, r);
+                // Prefer the first row that actually carries a usable week off, so a
+                // blank cell at the top of the block cannot hide a real value further
+                // down, and placeholder text from a non-roster sheet cannot mask one.
+                if (weekOffUtil.isRecognised(r.getEmployeeWeekOff())) {
+                    weekOffRows.putIfAbsent(periodKey, r);
+                }
+            }
             AttendanceRecord rec = recordRepository
                     .findByEmployeeIdAndAttendanceDate(r.getEmployeeId(), r.getAttendanceDate())
                     .orElse(null);
@@ -820,6 +953,12 @@ public class HistoricalImportService {
             recordRepository.save(rec);
         }
 
+        // Shift is a per-period property, so it is persisted per employee+month
+        // rather than on the employee master. Each month this import touches is
+        // written; every other month is left exactly as its own import left it.
+        Map<String, String> latestShift = upsertShiftAssignments(shiftRows.values(), h, now);
+        upsertWeekOffAssignments(weekOffRows.values(), h, now);
+
         h.setInsertedRecords(inserted);
         h.setUpdatedRecords(updated);
         h.setUnknownCodes(unknown);
@@ -845,11 +984,168 @@ public class HistoricalImportService {
     }
 
     /**
+     * Writes one shift assignment per employee per period from the staged rows,
+     * and returns each employee's most recent period's shift so the employee
+     * master can be refreshed to the current shift.
+     *
+     * <p>The unique key (employee_id, period_start) makes this idempotent:
+     * re-importing a workbook corrects that month instead of adding a second,
+     * possibly conflicting, row. A period whose source shift is blank never
+     * overwrites an existing assignment and never invents one - the gap was
+     * already reported as a preview warning.
+     */
+    private Map<String, String> upsertShiftAssignments(java.util.Collection<AttendanceImportRow> rows,
+                                                       AttendanceImportHistory h, Instant now) {
+        Map<String, AttendanceShiftAssignment> byPeriod = new LinkedHashMap<>();
+        for (AttendanceImportRow r : rows) {
+            YearMonth period = YearMonth.from(r.getAttendanceDate());
+            AttendanceShiftAssignment a = byPeriod.computeIfAbsent(r.getEmployeeId() + "|" + period,
+                    k -> AttendanceShiftAssignment.builder()
+                            .employeeId(r.getEmployeeId())
+                            .periodStart(period.atDay(1))
+                            .createdAt(now)
+                            .build());
+            String shift = normaliseEmployeeValue(r.getEmployeeShift());
+            if (shift == null) {
+                continue;
+            }
+            a.setShiftValue(shift);
+            a.setShiftKey(ShiftTime.comparisonKey(shift));
+            a.setImportId(h.getId());
+            a.setSourceSheet(r.getSheetName());
+            a.setSourceRow(r.getSourceRow());
+            a.setSourceFile(h.getFileName());
+        }
+
+        Map<String, String> latest = new HashMap<>();
+        Map<String, YearMonth> latestPeriod = new HashMap<>();
+        for (AttendanceShiftAssignment a : byPeriod.values()) {
+            if (a.getShiftValue() == null) {
+                continue;
+            }
+            YearMonth current = latestPeriod.get(a.getEmployeeId());
+            YearMonth candidate = YearMonth.from(a.getPeriodStart());
+            if (current == null || candidate.isAfter(current)) {
+                latestPeriod.put(a.getEmployeeId(), candidate);
+                latest.put(a.getEmployeeId(), a.getShiftValue());
+            }
+        }
+
+        for (AttendanceShiftAssignment a : byPeriod.values()) {
+            if (a.getShiftValue() == null) {
+                // Source had no shift this month. Persist nothing, and never
+                // overwrite a shift a previous import already stored.
+                continue;
+            }
+            AttendanceShiftAssignment existing = shiftAssignmentRepository
+                    .findByEmployeeIdAndPeriodStart(a.getEmployeeId(), a.getPeriodStart())
+                    .orElse(null);
+            if (existing == null) {
+                shiftAssignmentRepository.save(a);
+                continue;
+            }
+            existing.setShiftValue(a.getShiftValue());
+            existing.setShiftKey(a.getShiftKey());
+            existing.setImportId(a.getImportId());
+            existing.setSourceSheet(a.getSourceSheet());
+            existing.setSourceRow(a.getSourceRow());
+            existing.setSourceFile(a.getSourceFile());
+            existing.setUpdatedAt(now);
+            shiftAssignmentRepository.save(existing);
+        }
+
+        latest.forEach(importEmployeeRepository::refreshMasterShift);
+        return latest;
+    }
+
+    /**
+     * Persists week off per employee and month, mirroring
+     * {@link #upsertShiftAssignments}. Each month this import touches is written;
+     * every other month is left exactly as its own import left it.
+     *
+     * <p>Only a recognised schedule is stored. A value such as "WeekOff" or a
+     * manager's name that reached this column from a non-roster sheet would put
+     * nonsense in the roster's Week Off column, so it is reported as a warning at
+     * inspection time instead and the month is left unassigned.
+     */
+    private void upsertWeekOffAssignments(java.util.Collection<AttendanceImportRow> rows,
+                                          AttendanceImportHistory h, Instant now) {
+        Map<String, AttendanceWeekOffAssignment> byPeriod = new LinkedHashMap<>();
+        for (AttendanceImportRow r : rows) {
+            String weekOff = normaliseEmployeeValue(r.getEmployeeWeekOff());
+            if (weekOff == null || !weekOffUtil.isRecognised(weekOff)) {
+                // Blank, or placeholder text from a non-roster sheet. Storing that
+                // would put a person's name in the roster's Week Off column, so the
+                // admin's UNPARSED_WEEK_OFF warning is the only response. A month
+                // with nothing usable stays unassigned rather than inheriting one.
+                continue;
+            }
+            YearMonth period = YearMonth.from(r.getAttendanceDate());
+            AttendanceWeekOffAssignment a =
+                    byPeriod.computeIfAbsent(r.getEmployeeId() + "|" + period,
+                            k -> AttendanceWeekOffAssignment.builder()
+                                    .employeeId(r.getEmployeeId())
+                                    .periodStart(period.atDay(1))
+                                    .createdAt(now)
+                                    .build());
+            a.setWeekOffValue(weekOff);
+            a.setWeekOffKey(WeekOffUtil.comparisonKey(weekOff));
+            a.setImportId(h.getId());
+            a.setSourceSheet(r.getSheetName());
+            a.setSourceRow(r.getSourceRow());
+            a.setSourceFile(h.getFileName());
+        }
+
+        Map<String, String> latest = new HashMap<>();
+        Map<String, YearMonth> latestPeriod = new HashMap<>();
+        for (AttendanceWeekOffAssignment a : byPeriod.values()) {
+            if (a.getWeekOffValue() == null) {
+                continue;
+            }
+            YearMonth current = latestPeriod.get(a.getEmployeeId());
+            YearMonth candidate = YearMonth.from(a.getPeriodStart());
+            if (current == null || candidate.isAfter(current)) {
+                latestPeriod.put(a.getEmployeeId(), candidate);
+                latest.put(a.getEmployeeId(), a.getWeekOffValue());
+            }
+        }
+
+        for (AttendanceWeekOffAssignment a : byPeriod.values()) {
+            if (a.getWeekOffValue() == null) {
+                // Source had no week off this month. Persist nothing, and never
+                // overwrite a schedule a previous import already stored.
+                continue;
+            }
+            AttendanceWeekOffAssignment existing = weekOffAssignmentRepository
+                    .findByEmployeeIdAndPeriodStart(a.getEmployeeId(), a.getPeriodStart())
+                    .orElse(null);
+            if (existing == null) {
+                weekOffAssignmentRepository.save(a);
+                continue;
+            }
+            existing.setWeekOffValue(a.getWeekOffValue());
+            existing.setWeekOffKey(a.getWeekOffKey());
+            existing.setImportId(a.getImportId());
+            existing.setSourceSheet(a.getSourceSheet());
+            existing.setSourceRow(a.getSourceRow());
+            existing.setSourceFile(a.getSourceFile());
+            existing.setUpdatedAt(now);
+            weekOffAssignmentRepository.save(existing);
+        }
+
+        latest.forEach(importEmployeeRepository::refreshMasterWeekOff);
+    }
+
+    /**
      * Upsert the employee master snapshot. Master metadata is separately
      * normalised (whitespace collapsed, email lower-cased) and only filled
      * when currently empty — the first seen month wins, so later monthly
      * rosters never blindly overwrite master information. Each attendance
      * record still carries the metadata applicable to its own monthly roster.
+     *
+     * <p>Shift is deliberately not handled here: it rotates month to month, so
+     * it belongs to the period (see {@link AttendanceShiftAssignment}). The
+     * master's shift is refreshed separately to the latest imported period.
      */
     private void upsertEmployee(AttendanceImportRow r, Long teamId, Instant now) {
         ImportEmployee emp = importEmployeeRepository.findById(r.getEmployeeId()).orElse(null);
@@ -886,20 +1182,11 @@ public class HistoricalImportService {
                 touched = true;
             }
         }
-        if (isNew || isBlank(emp.getDefaultShift())) {
-            String shift = normaliseEmployeeValue(r.getEmployeeShift());
-            if (shift != null) {
-                emp.setDefaultShift(shift);
-                touched = true;
-            }
-        }
-        if (isNew || isBlank(emp.getWeekOff())) {
-            String weekOff = normaliseEmployeeValue(r.getEmployeeWeekOff());
-            if (weekOff != null) {
-                emp.setWeekOff(weekOff);
-                touched = true;
-            }
-        }
+        // week_off is deliberately NOT latched here. It rotates per month, so it
+        // is persisted per period in attendance_week_off_assignments and the
+        // master is refreshed from the latest imported period by
+        // upsertWeekOffAssignments; writing it once here would pin the first
+        // month ever seen.
         if (emp.getActive() == null) {
             emp.setActive(Boolean.TRUE);
             touched = true;

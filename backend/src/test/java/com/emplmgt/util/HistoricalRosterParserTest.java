@@ -325,7 +325,7 @@ class HistoricalRosterParserTest {
             assertThat(result.records()).hasSize(3);
             assertThat(result.records()).allMatch(r -> r.employeeId().equals("60179401"));
             assertThat(result.warnings())
-                    .anyMatch(w -> w.contains("3 section/header row(s)"));
+                    .anyMatch(w -> w.contains("3 repeated header/section row(s)"));
         }
     }
 }

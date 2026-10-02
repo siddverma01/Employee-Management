@@ -3,13 +3,14 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import {
-  AlertTriangle, CalendarRange, Check, ChevronLeft, ChevronRight, Eraser, Save, Search, X,
+  AlertTriangle, CalendarRange, Check, ChevronLeft, ChevronRight, Eraser, Save, Search, X, Download, ChevronDown,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import type { RosterCellEdit, RosterEmployeeRow, RosterPageMeta, RosterStatusDetail, RosterMonthlyData, RosterTodayData, RosterDayInfo } from '@/types'
 import { adminApi } from '@/api'
 import { extractMessage } from '@/api/client'
 import { cn, formatDate } from '@/utils'
+import { downloadBlob, filenameFromDisposition } from '@/utils/download'
 import { formatShiftDisplay, formatShiftTime } from '@/utils/shift'
 import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Select'
@@ -53,6 +54,15 @@ function weekOffDisplay(weekOff: string | null | undefined): string {
   return cleaned || weekOff.trim()
 }
 
+/** Tooltip for the Shift cell. The value shown is the shift held for most of the
+ *  selected month; a dagger means it changed part-way through. */
+function shiftTitle(employee: RosterEmployeeRow): string {
+  const base = employee.shift ? formatShiftTime(employee.shift) ?? employee.shift : 'No shift'
+  return employee.shiftChangesWithinMonth
+    ? `${base} — shift changed part-way through this month`
+    : base
+}
+
 const SHIFT_GROUP_COUNT = 6
 
 /** Normalize a shift string so harmless formatting differences (case, extra
@@ -60,7 +70,9 @@ const SHIFT_GROUP_COUNT = 6
 function normalizeShift(shift: string | null | undefined): string | null {
   if (!shift) return null
   const s = shift.trim().toLowerCase().replace(/\s+/g, ' ')
-  return s || null
+  // Normalize dash spacing so "19:00- 04:00" and "19:00-04:00" map to the same group
+  const normalized = s.replace(/\s*-\s*/g, '-')
+  return normalized || null
 }
 
 /**
@@ -510,6 +522,110 @@ function StatusDetailPopup({
   )
 }
 
+/** What the Excel export should cover. MONTH / CURRENT_MONTH follow the roster
+ *  selection; FULL_YEAR writes one sheet per month of the selected year. */
+type ExportScope = 'MONTH' | 'CURRENT_MONTH' | 'FULL_YEAR'
+
+const EXPORT_SCOPES: { scope: ExportScope; label: string; hint: string }[] = [
+  { scope: 'MONTH', label: 'Selected month', hint: 'one sheet for the month shown above' },
+  { scope: 'CURRENT_MONTH', label: 'Current month', hint: 'the calendar month of today' },
+  { scope: 'FULL_YEAR', label: 'Full roster for the year', hint: 'one sheet per month that has attendance' },
+]
+
+/** Download control for the roster. Admin-only, and every option exports the
+ *  data currently filtered on screen — never the originally uploaded workbook. */
+function RosterExportMenu({
+  month,
+  disabled,
+  filterParams,
+}: {
+  month: string
+  disabled: boolean
+  filterParams: Record<string, unknown>
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    window.addEventListener('mousedown', onDown)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('mousedown', onDown)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  const [pending, setPending] = useState<ExportScope | null>(null)
+  const close = () => setOpen(false)
+
+  const run = async (scope: ExportScope) => {
+    close()
+    setPending(scope)
+    try {
+      const year = month.slice(0, 4)
+      const res = await adminApi.rosterMonthlyExport({ ...filterParams, scope, month, year })
+      // The backend owns the filename; fall back only if the header is missing.
+      const fallback = `Employee_Attendance_${month}_${year}.xlsx`
+      downloadBlob(res.data, filenameFromDisposition(res.headers?.['content-disposition'], fallback))
+      toast.success(scope === 'FULL_YEAR' ? 'Full-year roster downloaded.' : 'Roster downloaded.')
+    } catch (e) {
+      toast.error(extractMessage(e))
+    } finally {
+      setPending(null)
+    }
+  }
+
+  return (
+    <div className="relative shrink-0" ref={ref}>
+      <Button
+        size="sm"
+        variant="secondary"
+        disabled={disabled || pending !== null}
+        loading={pending !== null}
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        <Download className="h-3.5 w-3.5" />
+        {pending ? 'Exporting…' : 'Export Excel'}
+        <ChevronDown className="h-3.5 w-3.5" />
+      </Button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 z-40 mt-1 w-72 overflow-hidden rounded-lg border border-surface-200 bg-surface-0 shadow-hpe-lg dark:border-[#20252E] dark:bg-[#1B1E23] dark:shadow-none"
+        >
+          <p className="border-b border-surface-200 px-3 py-2 text-[11px] text-surface-500 dark:border-white/[0.06]">
+            Downloads a formatted Excel file in the same layout the historical importer reads, so it can be
+            uploaded again without changes.
+          </p>
+          {EXPORT_SCOPES.map((o) => (
+            <button
+              key={o.scope}
+              type="button"
+              role="menuitem"
+              className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left transition-colors hover:bg-surface-100 dark:hover:bg-white/[0.06]"
+              onClick={() => run(o.scope)}
+            >
+              <span className="text-[13px] font-medium text-surface-700 dark:text-[#E8EDF3]">{o.label}</span>
+              <span className="text-[11px] text-surface-400">
+                {o.scope === 'MONTH' ? `${monthLabel(month)} — ${o.hint}` : o.hint}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function AdminRosterPage() {
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -584,6 +700,19 @@ export function AdminRosterPage() {
   )
 
   const todayParams: Record<string, unknown> = useMemo(
+    () => ({
+      teamId: teamId ?? undefined,
+      q: debouncedSearch || undefined,
+      status: statusFilter || undefined,
+      location: locationFilter || undefined,
+      shift: shiftFilter || undefined,
+    }),
+    [teamId, debouncedSearch, statusFilter, locationFilter, shiftFilter],
+  )
+
+  /** The export honours the same filters as the grid — but never the page
+   *  window, since a download split across 30-row pages would be misleading. */
+  const exportParams: Record<string, unknown> = useMemo(
     () => ({
       teamId: teamId ?? undefined,
       q: debouncedSearch || undefined,
@@ -765,7 +894,10 @@ export function AdminRosterPage() {
           className={cn(
             'attendance-cell',
             !canEdit && 'cursor-default hover:shadow-none',
-            edited !== undefined && 'outline outline-2 outline-offset-[-2px] outline-amber-400 dark:outline-[color:rgba(120,160,180,0.45)]',
+            // Deliberately no extra class for a pending edit: the cell keeps its
+            // normal fill and gridline, with no coloured border or marker. The
+            // edited status itself is the feedback, and the save banner carries
+            // the unsaved count.
           )}
           style={getAttendanceCellStyle(code)}
           title={canEdit ? (code ? `${statusLabel(code)} — ${date}` : `Set status — ${date}`) : `${statusLabel(code)} — ${date}`}
@@ -923,6 +1055,13 @@ export function AdminRosterPage() {
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
         <RosterLegend className="min-w-0 flex-1" />
         <div className="flex shrink-0 items-center gap-1.5 text-xs text-surface-500">
+          {canEdit && (
+            <RosterExportMenu
+              month={month}
+              disabled={!months.includes(month)}
+              filterParams={exportParams}
+            />
+          )}
           {dirtyCount > 0 ? (
             <>
               <span className="flex items-center gap-1.5 rounded-md bg-amber-50 px-2 py-1 text-amber-700 dark:border dark:border-[#4E4524] dark:bg-[#38301E] dark:text-[#E4C76A]">
@@ -1006,7 +1145,17 @@ export function AdminRosterPage() {
                             <div className="truncate text-[11px] leading-snug text-surface-500 dark:text-[#7D8794]" title={employee.email ?? undefined}>{employee.email ? employee.email : '—'}</div>
                           </td>
                           <td className={`${FROZEN_COL.loc} ${INFO_TINT} roster-info-cell ${groupClass} truncate text-xs text-surface-500`}>{employee.location ?? '—'}</td>
-                          <td className={`${FROZEN_COL.shift} ${INFO_TINT} roster-info-cell ${groupClass} whitespace-nowrap text-xs text-surface-500`}>{formatShiftTime(employee.shift) ?? '—'}</td>
+                          <td className={`${FROZEN_COL.shift} ${INFO_TINT} roster-info-cell ${groupClass} whitespace-nowrap text-xs text-surface-500`}>
+                            <span title={shiftTitle(employee)}>{formatShiftTime(employee.shift) ?? '—'}</span>
+                            {employee.shiftChangesWithinMonth && (
+                              <span
+                                className="ml-1 cursor-help align-middle text-[9px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400"
+                                title="Shift changed part-way through this month"
+                              >
+                                †
+                              </span>
+                            )}
+                          </td>
                           <td className={`${FROZEN_COL.weekOff} ${INFO_TINT} roster-info-cell ${groupClass} ${FROZEN_LAST} truncate text-xs text-surface-500`}>{employee.weekOff ? weekOffDisplay(employee.weekOff) : '—'}</td>
                         </tr>
                       )

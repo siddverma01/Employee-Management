@@ -472,6 +472,12 @@ export interface RosterEmployeeRow {
   teamId: number | null
   teamName: string | null
   days: Record<string, string>
+  /**
+   * True when the employee's shift moved part-way through the selected month.
+   * The source workbooks roster in five-week blocks that straddle months, so
+   * `shift` is the shift held for most of the month and this flag says so.
+   */
+  shiftChangesWithinMonth: boolean
 }
 
 export interface RosterMonthlyData {

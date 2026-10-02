@@ -266,11 +266,6 @@
   .dark .attendance-cell:focus-visible {
     box-shadow: inset 0 0 0 2px rgba(152, 176, 200, 0.38);
   }
-  /* Edited (unsaved) cell — DARK: soft cool focus ring keeps the status fill
-     visible instead of a bright amber outline. */
-  .dark .attendance-cell.outline {
-    outline-color: rgba(152, 176, 200, 0.4);
-  }
   /* Roster status cell borders — DARK: subtle per-status tinted edges.
      Elements carry data-status="{code}" (matrix cells + legend chips), so the
      border swaps reactively with the theme, exactly as the fills do. */

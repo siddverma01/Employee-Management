@@ -36,4 +36,56 @@ class ShiftTimeTest {
         assertThat(ShiftTime.parseShiftStartTime("05:30-25:00")).isNull();
         assertThat(ShiftTime.parseShiftStartTime("05:99-14:30")).isNull();
     }
+
+
+    @Test
+    void canonicaliseNormalisesTheWorkbooksSpellings() {
+        assertThat(ShiftTime.canonicalise("05:30-14:30")).isEqualTo("05:30-14:30");
+        assertThat(ShiftTime.canonicalise("21:00 - 06:00")).isEqualTo("21:00-06:00");
+        assertThat(ShiftTime.canonicalise("21:00-06:00")).isEqualTo("21:00-06:00");
+        assertThat(ShiftTime.canonicalise("  19:00- 04:00 ")).isEqualTo("19:00-04:00");
+        assertThat(ShiftTime.canonicalise("9:00-18:00")).isEqualTo("09:00-18:00");
+    }
+
+    @Test
+    void canonicaliseReturnsNullWhenTheValueIsNotATimeRange() {
+        assertThat(ShiftTime.canonicalise(null)).isNull();
+        assertThat(ShiftTime.canonicalise("")).isNull();
+        assertThat(ShiftTime.canonicalise("General Shift")).isNull();
+        assertThat(ShiftTime.canonicalise("24:00-14:30")).isNull();
+        assertThat(ShiftTime.canonicalise("05:30")).isNull();
+    }
+
+    @Test
+    void comparisonKeyCollapsesCosmeticallyDifferentSpellingsOfOneShift() {
+        assertThat(ShiftTime.comparisonKey("21:00 - 06:00"))
+                .isEqualTo(ShiftTime.comparisonKey("21:00-06:00"));
+        assertThat(ShiftTime.comparisonKey("  19:00- 04:00 "))
+                .isEqualTo(ShiftTime.comparisonKey("19:00-04:00"));
+    }
+
+    @Test
+    void comparisonKeyStillDistinguishesGenuinelyDifferentShifts() {
+        assertThat(ShiftTime.comparisonKey("05:30-14:30"))
+                .isNotEqualTo(ShiftTime.comparisonKey("13:30-22:30"));
+    }
+
+    @Test
+    void comparisonKeyFallsBackToATokenForNamedShifts() {
+        assertThat(ShiftTime.comparisonKey("General Shift")).isEqualTo("generalshift");
+        assertThat(ShiftTime.comparisonKey("general shift")).isEqualTo("generalshift");
+    }
+
+    @Test
+    void comparisonKeyIsNullOnlyForBlankValues() {
+        assertThat(ShiftTime.comparisonKey(null)).isNull();
+        assertThat(ShiftTime.comparisonKey("")).isNull();
+        assertThat(ShiftTime.comparisonKey("  ")).isNull();
+    }
+
+    @Test
+    void isTimeRangeDistinguishesRealShiftsFromLabels() {
+        assertThat(ShiftTime.isTimeRange("21:00 - 06:00")).isTrue();
+        assertThat(ShiftTime.isTimeRange("General Shift")).isFalse();
+    }
 }

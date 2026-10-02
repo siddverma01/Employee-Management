@@ -2,6 +2,8 @@ package com.emplmgt.service;
 
 import com.emplmgt.dto.AttendanceRosterDtos;
 import com.emplmgt.entity.AttendanceRecord;
+import com.emplmgt.entity.AttendanceShiftAssignment;
+import com.emplmgt.entity.AttendanceWeekOffAssignment;
 import com.emplmgt.entity.AttendanceStatus;
 import com.emplmgt.entity.Department;
 import com.emplmgt.entity.Employee;
@@ -9,6 +11,9 @@ import com.emplmgt.entity.Holiday;
 import com.emplmgt.entity.ImportEmployee;
 import com.emplmgt.exception.ApiException;
 import com.emplmgt.repository.AttendanceRecordRepository;
+import com.emplmgt.repository.AttendanceShiftAssignmentRepository;
+import com.emplmgt.repository.AttendanceWeekOffAssignmentRepository;
+import com.emplmgt.util.WeekOffUtil;
 import com.emplmgt.repository.AttendanceStatusRepository;
 import com.emplmgt.repository.DepartmentRepository;
 import com.emplmgt.repository.EmployeeRepository;
@@ -16,6 +21,7 @@ import com.emplmgt.repository.HolidayRepository;
 import com.emplmgt.repository.ImportEmployeeRepository;
 import com.emplmgt.util.AppClock;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -47,12 +53,25 @@ import static org.mockito.Mockito.when;
 @MockitoSettings(strictness = Strictness.LENIENT)
 class AttendanceRosterServiceTest {
 
+    private static AttendanceShiftAssignment assignment(String id, String period, String shift) {
+        return AttendanceShiftAssignment.builder().employeeId(id)
+                .periodStart(YearMonth.parse(period).atDay(1)).shiftValue(shift).build();
+    }
+
+    private static AttendanceWeekOffAssignment weekOffAssignment(String id, String period, String weekOff) {
+        return AttendanceWeekOffAssignment.builder().employeeId(id)
+                .periodStart(YearMonth.parse(period).atDay(1)).weekOffValue(weekOff)
+                .weekOffKey(WeekOffUtil.comparisonKey(weekOff)).build();
+    }
+
     @Mock AttendanceRecordRepository recordRepository;
     @Mock ImportEmployeeRepository importEmployeeRepository;
     @Mock EmployeeRepository employeeRepository;
     @Mock DepartmentRepository departmentRepository;
     @Mock AttendanceStatusRepository statusRepository;
     @Mock HolidayRepository holidayRepository;
+    @Mock AttendanceShiftAssignmentRepository shiftAssignmentRepository;
+    @Mock AttendanceWeekOffAssignmentRepository weekOffAssignmentRepository;
     @Mock AuditService auditService;
     @Mock AppClock appClock;
 
@@ -69,12 +88,16 @@ class AttendanceRosterServiceTest {
     void setUp() {
         when(appClock.now()).thenReturn(NOW);
         when(holidayRepository.findVisibleInRange(any(), any(), any(), any())).thenReturn(List.of());
-        service = new AttendanceRosterService(recordRepository, importEmployeeRepository,
-                employeeRepository, departmentRepository, statusRepository, holidayRepository, auditService, appClock);
+        when(shiftAssignmentRepository.findByEmployeeIdIn(any())).thenReturn(List.of());
+        service = new AttendanceRosterService(recordRepository, shiftAssignmentRepository,
+                weekOffAssignmentRepository, importEmployeeRepository, employeeRepository, departmentRepository,
+                statusRepository, holidayRepository, auditService, appClock);
     }
 
     private void stubStaff(List<ImportEmployee> employees) {
-        when(importEmployeeRepository.findRosterEmployees(any(), any(), any(), any(),
+        when(importEmployeeRepository.findRosterEmployees(any(), any(), any(),
+                any(), any(), any())).thenReturn(employees);
+        when(importEmployeeRepository.findEmployeesForRosterWithExit(any(), any(), any(),
                 any(), any(), any())).thenReturn(employees);
     }
 
@@ -94,11 +117,9 @@ class AttendanceRosterServiceTest {
         r2.setStatusCode("WO");
         when(recordRepository.findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(
                 any(), any(), anyList())).thenReturn(List.of(r1, r2));
-        when(importEmployeeRepository.findFilteredEmployeeIds(any(), any(), any(), any()))
-                .thenReturn(List.of("E1"));
         when(recordRepository.countByStatusCodes(any(), any(), any(), any()))
                 .thenReturn(List.of(new Object[]{"WFO", 1L}, new Object[]{"WO", 1L}));
-        when(importEmployeeRepository.countEmployeeRows(any(), any(), any(), any(), any(), any()))
+        when(importEmployeeRepository.countEmployeeRows(any(), any(), any(), any(), any()))
                 .thenReturn(2L);
         when(departmentRepository.findById(1L)).thenReturn(Optional.of(voice));
         when(departmentRepository.findAllById(any())).thenReturn(List.of(voice));
@@ -123,7 +144,7 @@ class AttendanceRosterServiceTest {
         assertThat(res.counters().get("WO")).isEqualTo(1L);
         assertThat(res.counters().get("PL")).isZero();
         assertThat(res.totalEmployees()).isEqualTo(2L);
-        assertThat(res.matchedEmployees()).isEqualTo(2L);
+        assertThat(res.matchedEmployees()).isEqualTo(1L);
     }
 
     @Test
@@ -133,9 +154,7 @@ class AttendanceRosterServiceTest {
         stubStaff(List.of(bob));
         when(recordRepository.findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(
                 any(), any(), anyList())).thenReturn(List.of());
-        when(importEmployeeRepository.findFilteredEmployeeIds(any(), any(), any(), any()))
-                .thenReturn(List.of());
-        when(importEmployeeRepository.countEmployeeRows(any(), any(), any(), any(), any(), any()))
+        when(importEmployeeRepository.countEmployeeRows(any(), any(), any(), any(), any()))
                 .thenReturn(1L);
         Employee master = Employee.builder()
                 .employeeCode("E2").email("bob@hpe.com").build();
@@ -160,7 +179,7 @@ class AttendanceRosterServiceTest {
         stubStaff(List.of(alice));
         when(recordRepository.findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(
                 any(), any(), anyList())).thenReturn(List.of());
-        when(importEmployeeRepository.findFilteredEmployeeIds(any(), any(), any(), any()))
+        when(importEmployeeRepository.findFilteredEmployeeIds(any(), any(), any()))
                 .thenReturn(List.of());
         Holiday h = Holiday.builder().name("HPE Foundation Day")
                 .holidayDate(LocalDate.of(2025, 9, 15)).build();
@@ -188,12 +207,18 @@ class AttendanceRosterServiceTest {
         ImportEmployee troy = ImportEmployee.builder().employeeId("E8")
                 .employeeName("Troy").defaultShift("Unknown Band").build();
         stubStaff(List.of(bob, zoe, cathy, troy, dana, adam));
+        when(shiftAssignmentRepository.findByEmployeeIdIn(any())).thenReturn(List.of(
+                assignment("E7", "2025-09", "05:30-14:30"),
+                assignment("E3", "2025-09", "05:30-14:30"),
+                assignment("E6", "2025-09", "19:00-04:00"),
+                assignment("E4", "2025-09", "21:00-06:00"),
+                assignment("E8", "2025-09", "Unknown Band")));
 
         when(recordRepository.findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(
                 any(), any(), anyList())).thenReturn(List.of());
-        when(importEmployeeRepository.findFilteredEmployeeIds(any(), any(), any(), any()))
+        when(importEmployeeRepository.findFilteredEmployeeIds(any(), any(), any()))
                 .thenReturn(List.of());
-        when(importEmployeeRepository.countEmployeeRows(any(), any(), any(), any(), any(), any()))
+        when(importEmployeeRepository.countEmployeeRows(any(), any(), any(), any(), any()))
                 .thenReturn(6L);
 
         AttendanceRosterDtos.MonthlyResponse res = service.monthly(null, "2025-09", null, null, null, null, 0, 25);
@@ -215,9 +240,9 @@ class AttendanceRosterServiceTest {
 
         when(recordRepository.findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(
                 any(), any(), anyList())).thenReturn(List.of());
-        when(importEmployeeRepository.findFilteredEmployeeIds(any(), any(), any(), any()))
+        when(importEmployeeRepository.findFilteredEmployeeIds(any(), any(), any()))
                 .thenReturn(List.of());
-        when(importEmployeeRepository.countEmployeeRows(any(), any(), any(), any(), any(), any()))
+        when(importEmployeeRepository.countEmployeeRows(any(), any(), any(), any(), any()))
                 .thenReturn(8L);
 
         // Shift grouping survives pagination: page 1 holds the tail of the
@@ -242,7 +267,7 @@ class AttendanceRosterServiceTest {
                 LocalDate.of(2025, 1, 15), LocalDate.of(2025, 9, 20)));
         when(importEmployeeRepository.findDistinctLocationsInMonth(any(), any(), any()))
                 .thenReturn(List.of("HYD"));
-        when(importEmployeeRepository.findDistinctShiftsInMonth(any(), any(), any()))
+        when(shiftAssignmentRepository.findDistinctShiftValuesInPeriod(any(), any(), any(), any()))
                 .thenReturn(List.of("UK Shift"));
         AttendanceStatus pl = AttendanceStatus.builder().code("PL").name("Privilege Leave").build();
         when(statusRepository.findAllByOrderByCodeAsc()).thenReturn(List.of(pl));
@@ -327,4 +352,383 @@ class AttendanceRosterServiceTest {
         assertThat(res.saved()).isEqualTo(1);
         verify(recordRepository).save(argThat(r -> "PL".equals(r.getStatusCode())));
     }
+
+    // ------------------------------------------------------------------ monthly shift
+
+    /**
+     * Shift rotates month to month, so the grid must show the shift rostered for
+     * the selected month. Regression cover for the defect where every month
+     * rendered the employee master's current shift.
+     */
+    @Nested
+    class MonthlyShiftResolution {
+
+        private static final String AM = "05:30-14:30";
+        private static final String NIGHT = "19:00-04:00";
+        private static final String PM = "13:30-22:30";
+
+        /** Alice's current master shift; historical months must never fall back to it. */
+        private final ImportEmployee rotating = ImportEmployee.builder()
+                .employeeId("E1").employeeName("Alice").location("Pune")
+                .defaultShift(PM).weekOff("Sun-Mon").active(Boolean.TRUE).build();
+
+        private final ImportEmployee legacy = ImportEmployee.builder()
+                .employeeId("E2").employeeName("Bob").location("Pune")
+                .defaultShift(NIGHT).active(Boolean.TRUE).build();
+
+        private void stub(List<ImportEmployee> staff, String month, AttendanceShiftAssignment... assignments) {
+            stubStaff(staff);
+            when(recordRepository.findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(
+                    any(), any(), anyList())).thenReturn(List.of());
+            when(shiftAssignmentRepository.findByEmployeeIdIn(any())).thenReturn(List.of(assignments));
+            when(importEmployeeRepository.countEmployeeRows(any(), any(), any(), any(), any()))
+                    .thenReturn((long) staff.size());
+        }
+
+        @Test
+        void septemberOctoberNovemberShowTheirOwnShift() {
+            stub(List.of(rotating), "2026-09",
+                    assignment("E1", "2026-09", AM),
+                    assignment("E1", "2026-10", NIGHT),
+                    assignment("E1", "2026-11", PM));
+
+            assertThat(service.monthly(null, "2026-09", null, null, null, null, 0, 25)
+                    .employees().get(0).shift()).isEqualTo(AM);
+            assertThat(service.monthly(null, "2026-10", null, null, null, null, 0, 25)
+                    .employees().get(0).shift()).isEqualTo(NIGHT);
+            assertThat(service.monthly(null, "2026-11", null, null, null, null, 0, 25)
+                    .employees().get(0).shift()).isEqualTo(PM);
+        }
+
+        @Test
+        void historicalMonthDoesNotFallBackToTheCurrentMasterShift() {
+            stub(List.of(rotating), "2026-09",
+                    assignment("E1", "2026-09", AM),
+                    assignment("E1", "2026-10", NIGHT),
+                    assignment("E1", "2026-11", PM));
+
+            assertThat(service.monthly(null, "2026-09", null, null, null, null, 0, 25)
+                    .employees().get(0).shift())
+                    .isEqualTo(AM)
+                    .isNotEqualTo(rotating.getDefaultShift());
+        }
+
+        @Test
+        void monthWithNoAssignmentIsLeftBlankRatherThanInherited() {
+            stub(List.of(rotating), "2026-09", assignment("E1", "2026-09", AM));
+
+            // December has no assignment of its own; October's shift must not leak in.
+            assertThat(service.monthly(null, "2026-12", null, null, null, null, 0, 25)
+                    .employees().get(0).shift()).isNull();
+        }
+
+        @Test
+        void employeeWithNoPeriodDataAtAllIsLeftBlankRatherThanGivenTheMasterShift() {
+            stub(List.of(legacy), "2026-09");
+
+            // The source never rostered them for this month, so a shift must not
+            // appear on the grid just because their master record carries one.
+            assertThat(service.monthly(null, "2026-09", null, null, null, null, 0, 25)
+                    .employees().get(0).shift()).isNull();
+        }
+
+        @Test
+        void engineersWithDifferentShiftsInTheSameMonthAreIndependent() {
+            ImportEmployee second = ImportEmployee.builder().employeeId("E2").employeeName("Bob")
+                    .defaultShift(PM).active(Boolean.TRUE).build();
+            stubStaff(List.of(rotating, second));
+            when(recordRepository.findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(
+                    any(), any(), anyList())).thenReturn(List.of());
+            when(shiftAssignmentRepository.findByEmployeeIdIn(any())).thenReturn(List.of(
+                    assignment("E1", "2026-09", AM),
+                    assignment("E2", "2026-09", NIGHT)));
+            when(importEmployeeRepository.countEmployeeRows(any(), any(), any(), any(), any())).thenReturn(2L);
+
+            assertThat(service.monthly(null, "2026-09", null, null, null, null, 0, 25).employees())
+                    .extracting(AttendanceRosterDtos.EmployeeRow::shift)
+                    .containsExactlyInAnyOrder(AM, NIGHT);
+        }
+
+        @Test
+        void shiftFilterMatchesTheMonthsValueNotTheMasterValue() {
+            stubStaff(List.of(rotating));
+            when(recordRepository.findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(
+                    any(), any(), anyList())).thenReturn(List.of());
+            when(shiftAssignmentRepository.findByEmployeeIdIn(any())).thenReturn(List.of(
+                    assignment("E1", "2026-09", AM), assignment("E1", "2026-10", NIGHT)));
+            when(importEmployeeRepository.countEmployeeRows(any(), any(), any(), any(), any())).thenReturn(1L);
+
+            // Filtering September by the master PM shift must return nobody, even
+            // though the employee's master value really is PM.
+            assertThat(service.monthly(null, "2026-09", null, null, null, PM, 0, 25).employees()).isEmpty();
+            assertThat(service.monthly(null, "2026-09", null, null, null, AM, 0, 25).employees()).hasSize(1);
+        }
+
+        @Test
+        void shiftFilterToleratesTheWorkbooksLooseSpelling() {
+            stubStaff(List.of(rotating));
+            when(recordRepository.findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(
+                    any(), any(), anyList())).thenReturn(List.of());
+            when(shiftAssignmentRepository.findByEmployeeIdIn(any())).thenReturn(List.of(
+                    assignment("E1", "2026-10", "19:00 - 04:00")));
+            when(importEmployeeRepository.countEmployeeRows(any(), any(), any(), any(), any())).thenReturn(1L);
+
+            assertThat(service.monthly(null, "2026-10", null, null, null, NIGHT, 0, 25).employees())
+                    .hasSize(1);
+        }
+
+        @Test
+        void rowsAreOrderedByTheMonthsShift() {
+            ImportEmployee late = ImportEmployee.builder().employeeId("E2").employeeName("Zoe")
+                    .defaultShift(AM).active(Boolean.TRUE).build();
+            stubStaff(List.of(rotating, late));
+            when(recordRepository.findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(
+                    any(), any(), anyList())).thenReturn(List.of());
+            // Both masters say AM, but October rosters Zoe to the night shift, so
+            // Zoe must sort after Alice.
+            when(shiftAssignmentRepository.findByEmployeeIdIn(any())).thenReturn(List.of(
+                    assignment("E1", "2026-10", AM),
+                    assignment("E2", "2026-10", NIGHT)));
+            when(importEmployeeRepository.countEmployeeRows(any(), any(), any(), any(), any())).thenReturn(2L);
+
+            assertThat(service.monthly(null, "2026-10", null, null, null, null, 0, 25).employees())
+                    .extracting(AttendanceRosterDtos.EmployeeRow::employeeId)
+                    .containsExactly("E1", "E2");
+        }
+
+        /**
+         * The workbooks roster in five-week blocks, so a block routinely straddles
+         * two months and an engineer can change shift part-way through the month
+         * on screen. The Shift cell shows the dominant one and flags the change
+         * rather than quietly presenting it as a single shift for the month.
+         */
+        @Test
+        void midMonthShiftChangeShowsTheDominantShiftAndIsFlagged() {
+            List<AttendanceRecord> days = new ArrayList<>();
+            // Roster block rolled over on the 3rd: two days AM, the rest Night.
+            days.add(record("E1", LocalDate.of(2026, 9, 1), AM));
+            days.add(record("E1", LocalDate.of(2026, 9, 2), AM));
+            for (int d = 3; d <= 30; d++) {
+                days.add(record("E1", LocalDate.of(2026, 9, d), NIGHT));
+            }
+            stubStaff(List.of(rotating));
+            when(shiftAssignmentRepository.findByEmployeeIdIn(any()))
+                    .thenReturn(List.of(assignment("E1", "2026-09", NIGHT)));
+            when(recordRepository.findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(
+                    any(), any(), anyList())).thenReturn(days);
+            when(importEmployeeRepository.countEmployeeRows(any(), any(), any(), any(), any())).thenReturn(1L);
+
+            AttendanceRosterDtos.EmployeeRow row = service
+                    .monthly(null, "2026-09", null, null, null, null, 0, 25).employees().get(0);
+
+            assertThat(row.shift()).isEqualTo(NIGHT);
+            assertThat(row.shiftChangesWithinMonth()).isTrue();
+        }
+
+        @Test
+        void stableMonthIsNotFlaggedAsChanging() {
+            List<AttendanceRecord> days = new ArrayList<>();
+            for (int d = 1; d <= 28; d++) {
+                days.add(record("E1", LocalDate.of(2026, 9, d), AM));
+            }
+            stubStaff(List.of(rotating));
+            when(shiftAssignmentRepository.findByEmployeeIdIn(any()))
+                    .thenReturn(List.of(assignment("E1", "2026-09", AM)));
+            when(recordRepository.findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(
+                    any(), any(), anyList())).thenReturn(days);
+            when(importEmployeeRepository.countEmployeeRows(any(), any(), any(), any(), any())).thenReturn(1L);
+
+            AttendanceRosterDtos.EmployeeRow row = service
+                    .monthly(null, "2026-09", null, null, null, null, 0, 25).employees().get(0);
+
+            assertThat(row.shiftChangesWithinMonth()).isFalse();
+        }
+
+        @Test
+        void cosmeticSpellingsAreNotTreatedAsAChange() {
+            List<AttendanceRecord> days = List.of(
+                    record("E1", LocalDate.of(2026, 9, 1), "19:00 - 04:00"),
+                    record("E1", LocalDate.of(2026, 9, 2), "19:00-04:00"));
+            stubStaff(List.of(rotating));
+            when(shiftAssignmentRepository.findByEmployeeIdIn(any()))
+                    .thenReturn(List.of(assignment("E1", "2026-09", "19:00 - 04:00")));
+            when(recordRepository.findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(
+                    any(), any(), anyList())).thenReturn(days);
+            when(importEmployeeRepository.countEmployeeRows(any(), any(), any(), any(), any())).thenReturn(1L);
+
+            AttendanceRosterDtos.EmployeeRow row = service
+                    .monthly(null, "2026-09", null, null, null, null, 0, 25).employees().get(0);
+
+            assertThat(row.shift()).isEqualTo("19:00 - 04:00");
+            assertThat(row.shiftChangesWithinMonth()).isFalse();
+        }
+
+        private static AttendanceRecord record(String id, LocalDate date, String shift) {
+            AttendanceRecord r = new AttendanceRecord();
+            r.setEmployeeId(id);
+            r.setAttendanceDate(date);
+            r.setStatusCode("WFO");
+            r.setShift(shift);
+            return r;
+        }
+
+        @Test
+        void blankNameAndBlankShiftStillSortInsteadOfFailing() {
+            // Two real imported rows carry no name at all; the comparator used to
+            // NPE on the null name and 500 the whole month.
+            ImportEmployee noName = ImportEmployee.builder().employeeId("E9")
+                    .employeeName(null).location("Pune").defaultShift(null).active(Boolean.TRUE).build();
+            stubStaff(List.of(noName, rotating));
+            when(recordRepository.findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(
+                    any(), any(), anyList())).thenReturn(List.of());
+            when(shiftAssignmentRepository.findByEmployeeIdIn(any())).thenReturn(List.of(
+                    assignment("E1", "2026-09", AM)));
+            when(importEmployeeRepository.countEmployeeRows(any(), any(), any(), any(), any())).thenReturn(2L);
+
+            assertThat(service.monthly(null, "2026-09", null, null, null, null, 0, 25).employees())
+                    .extracting(AttendanceRosterDtos.EmployeeRow::employeeId)
+                    .containsExactly("E1", "E9");
+        }
+
+        @Test
+        void metaOffersOnlyTheShiftsRosteredInThatMonth() {
+            when(importEmployeeRepository.findDistinctTeamIds()).thenReturn(List.of());
+            when(recordRepository.findDistinctAttendanceDatesAsc())
+                    .thenReturn(List.of(LocalDate.of(2026, 9, 1)));
+            when(importEmployeeRepository.findDistinctLocationsInMonth(any(), any(), any()))
+                    .thenReturn(List.of("Pune"));
+            when(shiftAssignmentRepository.findDistinctShiftValuesInPeriod(any(), any(), any(), any()))
+                    .thenReturn(List.of(AM, NIGHT));
+            when(importEmployeeRepository.findDistinctShiftsInMonth(any(), any(), any()))
+                    .thenReturn(List.of());
+            when(statusRepository.findAllByOrderByCodeAsc()).thenReturn(List.of());
+
+            assertThat(service.meta(null, "2026-09").shifts()).containsExactly(AM, NIGHT);
+        }
+
+        @Test
+        void metaCollapsesCosmeticVariantsOfOneShift() {
+            when(importEmployeeRepository.findDistinctTeamIds()).thenReturn(List.of());
+            when(recordRepository.findDistinctAttendanceDatesAsc())
+                    .thenReturn(List.of(LocalDate.of(2026, 9, 1)));
+            when(importEmployeeRepository.findDistinctLocationsInMonth(any(), any(), any()))
+                    .thenReturn(List.of());
+            when(shiftAssignmentRepository.findDistinctShiftValuesInPeriod(any(), any(), any(), any()))
+                    .thenReturn(List.of("19:00 - 04:00", "19:00-04:00"));
+            when(importEmployeeRepository.findDistinctShiftsInMonth(any(), any(), any()))
+                    .thenReturn(List.of());
+            when(statusRepository.findAllByOrderByCodeAsc()).thenReturn(List.of());
+
+            assertThat(service.meta(null, "2026-09").shifts()).hasSize(1);
+        }
+    }
+
+    /**
+     * Week off rotates month to month independently of shift, so the grid must show
+     * the schedule rostered for the selected month. Regression cover for the defect
+     * where every month rendered the employee master's first-imported week off.
+     */
+    @Nested
+    class MonthlyWeekOffResolution {
+
+        /** Alice's current master week off; historical months must never fall back to it. */
+        private final ImportEmployee rotating = ImportEmployee.builder()
+                .employeeId("E1").employeeName("Alice").location("Pune")
+                .defaultShift("13:30-22:30").weekOff("Mon-Tues").active(Boolean.TRUE).build();
+
+        private void stubWeekOff(AttendanceWeekOffAssignment... assignments) {
+            stubStaff(List.of(rotating));
+            when(recordRepository.findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(
+                    any(), any(), anyList())).thenReturn(List.of());
+            when(shiftAssignmentRepository.findByEmployeeIdIn(any())).thenReturn(List.of());
+            when(weekOffAssignmentRepository.findByEmployeeIdIn(any())).thenReturn(List.of(assignments));
+            when(importEmployeeRepository.countEmployeeRows(any(), any(), any(), any(), any())).thenReturn(1L);
+        }
+
+        @Test
+        void septemberOctoberNovemberShowTheirOwnWeekOff() {
+            stubWeekOff(
+                    weekOffAssignment("E1", "2026-09", "Sat-Sun"),
+                    weekOffAssignment("E1", "2026-10", "Wed-Thurs"),
+                    weekOffAssignment("E1", "2026-11", "Mon-Tues"));
+
+            assertThat(service.monthly(null, "2026-09", null, null, null, null, 0, 25)
+                    .employees().get(0).weekOff()).isEqualTo("Sat-Sun");
+            assertThat(service.monthly(null, "2026-10", null, null, null, null, 0, 25)
+                    .employees().get(0).weekOff()).isEqualTo("Wed-Thurs");
+            assertThat(service.monthly(null, "2026-11", null, null, null, null, 0, 25)
+                    .employees().get(0).weekOff()).isEqualTo("Mon-Tues");
+        }
+
+        @Test
+        void historicalMonthDoesNotFallBackToTheCurrentMasterWeekOff() {
+            stubWeekOff(weekOffAssignment("E1", "2026-09", "Sat-Sun"));
+
+            assertThat(service.monthly(null, "2026-09", null, null, null, null, 0, 25)
+                    .employees().get(0).weekOff())
+                    .isEqualTo("Sat-Sun")
+                    .isNotEqualTo(rotating.getWeekOff());
+        }
+
+        @Test
+        void aMonthWithNoAssignmentDoesNotCarryThePreviousMonthForward() {
+            stubWeekOff(weekOffAssignment("E1", "2026-09", "Sat-Sun"));
+
+            // October was never rostered, so September must not leak into it.
+            assertThat(service.monthly(null, "2026-10", null, null, null, null, 0, 25)
+                    .employees().get(0).weekOff()).isNull();
+        }
+
+        @Test
+        void navigatingBackAndForthKeepsEachMonthStable() {
+            stubWeekOff(
+                    weekOffAssignment("E1", "2026-09", "Sat-Sun"),
+                    weekOffAssignment("E1", "2026-11", "Mon-Tues"));
+
+            for (int i = 0; i < 3; i++) {
+                assertThat(service.monthly(null, "2026-09", null, null, null, null, 0, 25)
+                        .employees().get(0).weekOff()).isEqualTo("Sat-Sun");
+                assertThat(service.monthly(null, "2026-11", null, null, null, null, 0, 25)
+                        .employees().get(0).weekOff()).isEqualTo("Mon-Tues");
+            }
+        }
+
+        @Test
+        void employeesKeepIndependentWeekOffsInTheSameMonth() {
+            ImportEmployee second = ImportEmployee.builder().employeeId("E2").employeeName("Bob")
+                    .weekOff("Sun-Mon").active(Boolean.TRUE).build();
+            stubStaff(List.of(rotating, second));
+            when(recordRepository.findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(
+                    any(), any(), anyList())).thenReturn(List.of());
+            when(shiftAssignmentRepository.findByEmployeeIdIn(any())).thenReturn(List.of());
+            when(weekOffAssignmentRepository.findByEmployeeIdIn(any())).thenReturn(List.of(
+                    weekOffAssignment("E1", "2026-09", "Sat-Sun"),
+                    weekOffAssignment("E2", "2026-09", "Wed-Thurs")));
+            when(importEmployeeRepository.countEmployeeRows(any(), any(), any(), any(), any())).thenReturn(2L);
+
+            assertThat(service.monthly(null, "2026-09", null, null, null, null, 0, 25).employees())
+                    .extracting(AttendanceRosterDtos.EmployeeRow::weekOff)
+                    .containsExactlyInAnyOrder("Sat-Sun", "Wed-Thurs");
+        }
+
+        @Test
+        void weekOffResolutionDoesNotDisturbTheMonthShift() {
+            stubStaff(List.of(rotating));
+            when(recordRepository.findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(
+                    any(), any(), anyList())).thenReturn(List.of());
+            when(shiftAssignmentRepository.findByEmployeeIdIn(any()))
+                    .thenReturn(List.of(assignment("E1", "2026-09", "05:30-14:30")));
+            when(weekOffAssignmentRepository.findByEmployeeIdIn(any()))
+                    .thenReturn(List.of(weekOffAssignment("E1", "2026-09", "Sat-Sun")));
+            when(importEmployeeRepository.countEmployeeRows(any(), any(), any(), any(), any())).thenReturn(1L);
+
+            AttendanceRosterDtos.EmployeeRow row = service
+                    .monthly(null, "2026-09", null, null, null, null, 0, 25).employees().get(0);
+
+            assertThat(row.shift()).isEqualTo("05:30-14:30");
+            assertThat(row.weekOff()).isEqualTo("Sat-Sun");
+        }
+    }
+
+
 }

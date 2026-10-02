@@ -831,9 +831,9 @@ describe('Customer Meeting cards', () => {
     endTime: '2026-10-05T15:30:00',
     meetingLink: 'https://teams.example.com/vertex',
     assignedEngineerId: 7,
-    assignedEngineerName: 'Sarah Jenkins',
+    assignedEngineerName: 'Siddhesh Verma',
     assignedEngineerDepartment: 'Voice',
-    assignedEngineerDesignation: 'Lead Architect',
+    assignedEngineerDesignation: 'L1 Compute Engineer',
     daysUntil: 4,
   })
 
@@ -953,14 +953,14 @@ describe('Customer Meeting cards', () => {
     // The title is preferred: a department says where someone sits, a title says
     // what they are there to do. Name and role sit in sibling spans so the role
     // can be muted independently, so assert on the wrapping chip's full text.
-    const name = await screen.findByText('Sarah Jenkins')
-    expect(name.parentElement).toHaveTextContent('Sarah Jenkins (Lead Architect)')
+    const name = await screen.findByText('Siddhesh Verma')
+    expect(name.parentElement).toHaveTextContent('Siddhesh Verma (L1 Compute Engineer)')
   })
 
   it('falls back to the department when the assignee has no job title', async () => {
     renderCustomerCards([{ ...vertex, assignedEngineerDesignation: null }])
-    const name = await screen.findByText('Sarah Jenkins')
-    expect(name.parentElement).toHaveTextContent('Sarah Jenkins (Voice)')
+    const name = await screen.findByText('Siddhesh Verma')
+    expect(name.parentElement).toHaveTextContent('Siddhesh Verma (Voice)')
   })
 
   it('shows a countdown pill derived from daysUntil', async () => {
@@ -972,8 +972,8 @@ describe('Customer Meeting cards', () => {
   it('shows the assignee avatar chip and the Reassign / Join Call actions when assigned', async () => {
     renderCustomerCards()
     expect(await screen.findByText(/^Assigned:/)).toBeInTheDocument()
-    expect(screen.getByText('SJ')).toBeInTheDocument()
-    expect(screen.getByText(/Sarah Jenkins/)).toBeInTheDocument()
+    expect(screen.getByText('SV')).toBeInTheDocument()
+    expect(screen.getByText(/Siddhesh Verma/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /reassign/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /join call/i })).toBeInTheDocument()
   })
@@ -1026,7 +1026,7 @@ describe('Customer Meeting cards', () => {
 
     await user.click(await screen.findByRole('button', { name: /assign engineer/i }))
 
-    expect(await screen.findByRole('heading', { name: /assign an engineer/i })).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: /assign an engineer/i })).toBeInTheDocument()
     await user.click(await screen.findByRole('button', { name: /Siddhesh Verma/ }))
 
     await waitFor(() =>
@@ -1071,13 +1071,13 @@ describe('Customer Meeting cards', () => {
     await waitFor(() => expect(eventApi.assign).toHaveBeenCalledWith(501, null))
   })
 
-  it('opens the inline search in place and marks the current engineer', async () => {
+  it('opens a floating popover over the card and marks the current engineer', async () => {
     const user = userEvent.setup()
     renderCustomerCards([vertex])
 
     await user.click(await screen.findByRole('button', { name: /reassign/i }))
 
-    expect(await screen.findByRole('heading', { name: /reassign engineer/i })).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: /reassign engineer/i })).toBeInTheDocument()
     const search = screen.getByRole('combobox', { name: 'Search engineers' })
     expect(search).toHaveFocus()
     expect(screen.getByText('Current')).toBeInTheDocument()
@@ -1164,6 +1164,53 @@ describe('Customer Meeting cards', () => {
 
     await waitFor(() => expect(screen.queryByRole('combobox', { name: 'Search engineers' })).not.toBeInTheDocument())
     expect(eventApi.assign).not.toHaveBeenCalled()
+  })
+
+  it('toggles the popover closed when the trigger is clicked again', async () => {
+    const user = userEvent.setup()
+    renderCustomerCards([maersk])
+
+    const trigger = await screen.findByRole('button', { name: /assign engineer/i })
+    await user.click(trigger)
+    expect(screen.getByRole('combobox', { name: 'Search engineers' })).toBeInTheDocument()
+
+    // The trigger sits inside the dismissal wrapper, so this must close rather
+    // than count as an outside click and immediately reopen.
+    await user.click(trigger)
+    await waitFor(() =>
+      expect(screen.queryByRole('combobox', { name: 'Search engineers' })).not.toBeInTheDocument(),
+    )
+    expect(eventApi.assign).not.toHaveBeenCalled()
+  })
+
+  it('closes the popover from its own Cancel button', async () => {
+    const user = userEvent.setup()
+    renderCustomerCards([vertex])
+
+    await user.click(await screen.findByRole('button', { name: /reassign/i }))
+    await user.click(await screen.findByRole('button', { name: /^cancel$/i }))
+
+    await waitFor(() =>
+      expect(screen.queryByRole('combobox', { name: 'Search engineers' })).not.toBeInTheDocument(),
+    )
+    expect(eventApi.assign).not.toHaveBeenCalled()
+  })
+
+  it('renders the popover as an anchored overlay rather than an in-flow panel', async () => {
+    const user = userEvent.setup()
+    renderCustomerCards([vertex])
+
+    await user.click(await screen.findByRole('button', { name: /reassign/i }))
+    const popover = await screen.findByRole('dialog', { name: /reassign engineer/i })
+
+    // Asserted on the class, not getComputedStyle: jsdom applies no stylesheet,
+    // so it would report an empty position for any class at all.
+    expect(popover).toHaveClass('absolute')
+    expect(popover.className).toContain('z-50')
+    // The anchor is the relative wrapper the trigger sits in.
+    const wrapper = popover.parentElement as HTMLElement
+    expect(wrapper).toHaveClass('relative')
+    expect(wrapper).toHaveTextContent('Reassign')
   })
 
   it('shows the agenda items in a modal', async () => {

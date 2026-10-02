@@ -56,8 +56,12 @@ public class DataSeeder implements ApplicationRunner {
     /** Titles double as the idempotency key for the sample Customer Meeting cards. */
     private static final String VERTEX_TITLE = "Q4 Architecture & Solution Review";
     private static final String MAERSK_TITLE = "Global Logistics Cloud Migration Check-in";
-    private static final String LEAD_ARCHITECT_CODE = "25102288";
-    private static final String LEAD_ARCHITECT_EMAIL = "sarah.jenkins-ext@hpe.com";
+    /**
+     * Assignee for the first sample card. A real roster member rather than a
+     * stand-in: the picker lists live employees, so seeding a name that is not on
+     * the roster would put a card in a state the UI cannot reproduce.
+     */
+    private static final String SAMPLE_ASSIGNEE_CODE = "25102404";
 
     @Override
     @Transactional
@@ -87,8 +91,7 @@ public class DataSeeder implements ApplicationRunner {
 
         List<SeedEmployee> roster = List.of(
                 new SeedEmployee("25106149", "masher.choudary-ext@hpe.com", "Masher Choudary", "Pune", "05:30-14:30", "Sun-Mon"),
-                new SeedEmployee("25102404", "siddhesh.verma-ext@hpe.com", "Siddhesh Verma", "Pune", "05:30-14:30", "Fri-Sat"),
-                new SeedEmployee(LEAD_ARCHITECT_CODE, LEAD_ARCHITECT_EMAIL, "Sarah Jenkins", "Lead Architect", "Pune", "05:30-14:30", "Tue-Wed"),
+                new SeedEmployee(SAMPLE_ASSIGNEE_CODE, "siddhesh.verma-ext@hpe.com", "Siddhesh Verma", "Pune", "05:30-14:30", "Fri-Sat"),
                 new SeedEmployee("25101553", "pradnya.mane-ext@hpe.com", "Pradnya Mane", "Pune", "05:30-14:30", "Sun-Mon"),
                 new SeedEmployee("60179491", "rutuja.ashish-palaye@hpe.com", "Rutuja Palaye", "Pune", "13:30-22:30", "Sat-Sun"),
                 new SeedEmployee("25098410", "ritik.raina@hpe.com", "Ritik Raina", "Pune", "13:30-22:30", "Fri-Sat"),
@@ -187,7 +190,10 @@ public class DataSeeder implements ApplicationRunner {
         holiday(y, 7, 3, "Independence Day (observed)", "US", null);
         holiday(y, 9, 7, "Labor Day", "US", null);
         holiday(y, 11, 26, "Thanksgiving Day", "US", null);
-        holiday(y, 12, 25, "Christmas Day", "US", null);
+        // "Christmas", not "Christmas Day": V22 renamed the US row to match the
+        // HPE one seeded in V14, since the console collapses same-date
+        // same-name rows and the two names would render as two holidays.
+        holiday(y, 12, 25, "Christmas", "US", null);
         holiday(LocalDate.now().plusDays(14), "Company Foundation Day", "US", null);
         // Team-scoped holiday visible only to the Voice team.
         holiday(LocalDate.now().plusDays(18), "Voice Team Offsite", "US", voiceTeam);
@@ -245,7 +251,7 @@ public class DataSeeder implements ApplicationRunner {
         Department voice = departmentRepository.findByNameIgnoreCase("Voice")
                 .orElseGet(() -> departmentRepository.save(Department.builder()
                         .name("Voice").description("Voice operations").build()));
-        Employee leadArchitect = findOrCreateLeadArchitect(voice);
+        Employee sampleAssignee = findSampleAssignee(voice);
         LocalDate today = LocalDate.now();
 
         if (!vertexSeeded) {
@@ -265,7 +271,7 @@ public class DataSeeder implements ApplicationRunner {
                             "Confirm POS integration test coverage",
                             "Share the Q4 capacity model",
                             "Agree the phased cutover plan")))
-                    .assignedTo(leadArchitect)
+                    .assignedTo(sampleAssignee)
                     .build());
         }
 
@@ -296,14 +302,14 @@ public class DataSeeder implements ApplicationRunner {
      * The assignee on the first sample card, created on demand.
      *
      * <p>Found by employee code because that column is UNIQUE, so a populated
-     * database that already has her reuses the row instead of failing the insert
+     * database that already has them reuses the row instead of failing the insert
      * and taking the whole seeder down with it.</p>
      */
-    private Employee findOrCreateLeadArchitect(Department voice) {
-        return employeeRepository.findByEmployeeCodeIgnoreCase(LEAD_ARCHITECT_CODE)
-                .orElseGet(() -> createEmployee(LEAD_ARCHITECT_CODE, "Sarah Jenkins",
-                        LEAD_ARCHITECT_EMAIL, null, voice, "Lead Architect", "Pune",
-                        null, null, null, "05:30-14:30", "Tue-Wed"));
+    private Employee findSampleAssignee(Department voice) {
+        return employeeRepository.findByEmployeeCodeIgnoreCase(SAMPLE_ASSIGNEE_CODE)
+                .orElseGet(() -> createEmployee(SAMPLE_ASSIGNEE_CODE, "Siddhesh Verma",
+                        "siddhesh.verma-ext@hpe.com", null, voice, "L1 Compute Engineer",
+                        "Pune", null, null, null, "05:30-14:30", "Fri-Sat"));
     }
 
     /**

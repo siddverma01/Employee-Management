@@ -174,10 +174,10 @@ const DEV_SAMPLE_EVENTS: UpcomingEvent[] = [
         'Agree the phased cutover plan',
       ],
       employeeName: null,
-      assignedEngineerId: 901,
-      assignedEngineerName: 'Sarah Jenkins',
+      assignedEngineerId: 902,
+      assignedEngineerName: 'Siddhesh Verma',
       assignedEngineerDepartment: 'Voice',
-      assignedEngineerDesignation: 'Lead Architect',
+      assignedEngineerDesignation: 'L1 Compute Engineer',
     },
     [14, 0, 15, 30],
   ),
@@ -332,12 +332,6 @@ function withSampleFallback(
 /** Keeps the assign picker usable when GET /api/events/assignable-engineers is down. */
 const DEV_SAMPLE_ENGINEERS = [
   {
-    id: 901,
-    employeeCode: '25102288',
-    fullName: 'Sarah Jenkins',
-    department: 'Voice',
-  },
-  {
     id: 902,
     employeeCode: '25102404',
     fullName: 'Siddhesh Verma',
@@ -347,6 +341,12 @@ const DEV_SAMPLE_ENGINEERS = [
     id: 903,
     employeeCode: '25106149',
     fullName: 'Masher Choudary',
+    department: 'Voice',
+  },
+  {
+    id: 904,
+    employeeCode: '25101553',
+    fullName: 'Pradnya Mane',
     department: 'Voice',
   },
 ]
@@ -1395,7 +1395,7 @@ function countdownLabel(daysUntil: number): string {
   return `In ${daysUntil} days`
 }
 
-/** Up to two initials, e.g. "Sarah Jenkins" -> "SJ". Tolerates a missing name. */
+/** Up to two initials, e.g. "Siddhesh Verma" -> "SV". Tolerates a missing name. */
 function initialsOf(name: string | null | undefined): string {
   if (!name) return ''
   return name
@@ -1407,16 +1407,22 @@ function initialsOf(name: string | null | undefined): string {
 }
 
 /**
- * Inline engineer autocomplete shared by the "Reassign" and "+ Assign Engineer"
- * actions.
+ * Floating engineer picker shared by the "Reassign" and "+ Assign Engineer"
+ * card actions.
  *
- * <p>Opens in place of the card action instead of in a dialog, so searching never
- * covers the meeting being edited. Reuses the existing `assignable-engineers`
- * query rather than adding a second source of truth, and writes through
+ * <p>Anchored to the button as an absolutely positioned popover rather than an
+ * in-flow panel, so opening it neither pushes down the rest of the card nor
+ * changes the card's height. Reuses the existing `assignable-engineers` query
+ * rather than adding a second source of truth, and writes through
  * `eventApi.assign` so the change is persisted rather than only held in local
  * state.</p>
+ *
+ * <p>Outside-click and Escape are handled by the card, on the wrapper that
+ * holds both the button and this popover. Handling them here instead would
+ * make the button itself read as "outside", so dismissing and re-toggling would
+ * cancel out.</p>
  */
-function AssignEngineerSearch({
+function EngineerAssignPopover({
   event,
   onClose,
 }: {
@@ -1437,10 +1443,8 @@ function AssignEngineerSearch({
       : engineersRaw
 
   const [query, setQuery] = useState('')
-  const [open, setOpen] = useState(true)
   const [activeIndex, setActiveIndex] = useState(0)
   const [error, setError] = useState<string | null>(null)
-  const rootRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // A single keystroke filters. Prefix hits outrank substring hits so typing
@@ -1463,18 +1467,11 @@ function AssignEngineerSearch({
   // Shortening the list must not leave the highlight past the last option.
   useEffect(() => setActiveIndex(0), [matches])
 
+  // The popover only exists once it is open, so focusing the search on mount is
+  // what makes it keyboard-reachable without a second Tab stop.
   useEffect(() => {
     inputRef.current?.focus()
   }, [])
-
-  // Anywhere outside the panel is a cancel, same as Escape.
-  useEffect(() => {
-    const onPointerDown = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) onClose()
-    }
-    document.addEventListener('mousedown', onPointerDown)
-    return () => document.removeEventListener('mousedown', onPointerDown)
-  }, [onClose])
 
   const mutation = useMutation({
     mutationFn: (engineerId: number | null) =>
@@ -1508,14 +1505,8 @@ function AssignEngineerSearch({
   const choose = (engineerId: number | null) => mutation.mutate(engineerId)
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Escape') {
-      e.preventDefault()
-      onClose()
-      return
-    }
     if (e.key === 'ArrowDown') {
       e.preventDefault()
-      setOpen(true)
       setActiveIndex((i) => (matches.length ? Math.min(i + 1, matches.length - 1) : 0))
       return
     }
@@ -1534,114 +1525,117 @@ function AssignEngineerSearch({
 
   return (
     <div
-      ref={rootRef}
-      className="border-t border-surface-200 bg-surface-50 px-4 py-3 dark:border-[#222936] dark:bg-[#12161C]"
+      role="dialog"
+      aria-label={
+        event.assignedEngineerId ? 'Reassign engineer' : 'Assign an engineer'
+      }
+      className="absolute right-0 top-full z-50 mt-2 flex max-h-96 w-80 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-[#23252b] dark:bg-[#16171b]"
     >
-      <h4 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-surface-500 dark:text-slate-400">
-        {event.assignedEngineerId ? 'Reassign engineer' : 'Assign an engineer'}
-      </h4>
-
-      <div className="flex items-center gap-2">
-        <div className="relative min-w-0 flex-1">
+      <div className="border-b border-slate-100 p-2.5 dark:border-[#23252b]">
+        <div className="relative">
           <Search
             aria-hidden="true"
-            className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-surface-400 dark:text-slate-500"
+            className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"
           />
           <input
             ref={inputRef}
             value={query}
             role="combobox"
             aria-label="Search engineers"
-            aria-expanded={open}
+            aria-expanded
             aria-controls="assign-engineer-listbox"
             aria-autocomplete="list"
             autoComplete="off"
-            placeholder="Search by name or role…"
-            onChange={(e) => {
-              setQuery(e.target.value)
-              setOpen(true)
-            }}
+            placeholder="Search by name or role..."
+            onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
-            className="w-full rounded-md border border-surface-300 bg-surface-0 py-1.5 pl-8 pr-2 text-sm text-surface-800 outline-none transition-colors placeholder:text-surface-400 focus:border-brand-500 focus:ring-[3px] focus:ring-brand-500/20 dark:border-[#222936] dark:bg-[#0D0F12] dark:text-white"
+            className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#00B388] dark:border-[#2e323b] dark:bg-[#1e2025] dark:text-slate-100"
           />
         </div>
-        <Button variant="secondary" size="sm" onClick={onClose}>
-          Cancel
-        </Button>
       </div>
 
-      {open && (
-        <ul
-          id="assign-engineer-listbox"
-          role="listbox"
-          aria-label="Engineers"
-          className="mt-2 max-h-56 overflow-y-auto rounded-md border border-surface-200 bg-surface-0 dark:border-[#222936] dark:bg-[#12161C]"
-        >
-          {isLoading && (
-            <li className="px-3 py-2.5 text-sm text-surface-400">Loading engineers…</li>
-          )}
+      <ul
+        id="assign-engineer-listbox"
+        role="listbox"
+        aria-label="Engineers"
+        className="max-h-56 flex-1 divide-y divide-slate-100 overflow-y-auto p-1 dark:divide-[#23252b]/60"
+      >
+        {isLoading && (
+          <li className="px-3 py-2.5 text-xs text-slate-400">Loading engineers…</li>
+        )}
 
-          {!isLoading && matches.length === 0 && (
-            <li className="px-3 py-2.5 text-sm text-surface-500 dark:text-slate-400">
-              No engineer matches “{query.trim()}”
-            </li>
-          )}
+        {!isLoading && matches.length === 0 && (
+          <li className="px-3 py-2.5 text-xs text-slate-400">
+            No engineer matches “{query.trim()}”
+          </li>
+        )}
 
-          {!isLoading &&
-            matches.map((e, i) => {
-              const isCurrent = e.id === event.assignedEngineerId
-              const isActive = i === activeIndex
-              return (
-                <li key={e.id} role="option" aria-selected={isActive}>
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    disabled={mutation.isPending}
-                    onMouseEnter={() => setActiveIndex(i)}
-                    onClick={() => choose(e.id)}
-                    className={cn(
-                      'flex w-full items-center gap-3 px-3 py-2 text-left transition-colors disabled:opacity-60',
-                      isActive
-                        ? 'bg-surface-100 dark:bg-[#1a1f27]'
-                        : 'hover:bg-surface-100 dark:hover:bg-[#161a20]',
-                    )}
-                  >
-                    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-brand-100 text-[10px] font-semibold text-brand-700 dark:bg-[#00E599] dark:text-[#0D0F12] dark:font-bold">
+        {!isLoading &&
+          matches.map((e, i) => {
+            const isCurrent = e.id === event.assignedEngineerId
+            const isActive = i === activeIndex
+            return (
+              <li key={e.id} role="option" aria-selected={isActive}>
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  disabled={mutation.isPending}
+                  onMouseEnter={() => setActiveIndex(i)}
+                  onClick={() => choose(e.id)}
+                  className={cn(
+                    'flex w-full cursor-pointer items-center justify-between p-2 text-left transition disabled:opacity-60',
+                    isActive
+                      ? 'bg-slate-50 dark:bg-[#1e2025]'
+                      : 'hover:bg-slate-50 dark:hover:bg-[#1e2025]',
+                  )}
+                >
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand-100 text-[10px] font-semibold text-brand-700 dark:bg-[#00E599] dark:text-[#0D0F12] dark:font-bold">
                       {initialsOf(e.fullName)}
                     </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium text-surface-800 dark:text-white">
+                    <span className="min-w-0">
+                      <span className="block truncate text-xs font-medium text-slate-800 dark:text-slate-100">
                         {e.fullName}
                       </span>
-                      <span className="block truncate text-xs text-surface-500 dark:text-slate-400">
+                      <span className="block truncate text-[11px] text-slate-400">
                         {e.department ?? e.employeeCode}
                       </span>
                     </span>
-                    {isCurrent && (
-                      <span className="shrink-0 text-[11px] font-semibold text-brand-600 dark:text-[#00E599]">
-                        Current
-                      </span>
-                    )}
-                  </button>
-                </li>
-              )
-            })}
-        </ul>
-      )}
+                  </span>
+                  {isCurrent && (
+                    <span className="shrink-0 rounded-full bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold text-brand-600 dark:bg-[#12161C] dark:text-[#00E599]">
+                      Current
+                    </span>
+                  )}
+                </button>
+              </li>
+            )
+          })}
+      </ul>
 
-      {event.assignedEngineerId && (
-        <Button
-          variant="secondary"
-          size="sm"
-          className="mt-2"
-          disabled={mutation.isPending}
-          onClick={() => choose(null)}
+      {error && <p className="px-2.5 pb-1 text-[11px] text-error-600">{error}</p>}
+
+      <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/50 p-2 dark:border-[#23252b] dark:bg-[#121316]">
+        {event.assignedEngineerId ? (
+          <button
+            type="button"
+            disabled={mutation.isPending}
+            onClick={() => choose(null)}
+            className="rounded p-1 text-[11px] font-medium text-rose-600 hover:text-rose-700"
+          >
+            Remove assignment
+          </button>
+        ) : (
+          <span />
+        )}
+        <button
+          type="button"
+          onClick={onClose}
+          className="ml-auto rounded p-1 text-[11px] font-medium text-slate-500 hover:text-slate-700"
         >
-          Remove assignment
-        </Button>
-      )}
-
-      {error && <p className="mt-2 text-sm text-error-600">{error}</p>}
+          Cancel
+        </button>
+      </div>
     </div>
   )
 }
@@ -1736,6 +1730,27 @@ function CustomerMeetingCard({
   const [assigning, setAssigning] = useState(false)
   const [agendaOpen, setAgendaOpen] = useState(false)
   const [joinError, setJoinError] = useState<string | null>(null)
+  const assignWrapRef = useRef<HTMLDivElement>(null)
+
+  // Dismissal is owned here rather than in the popover, because the wrapper
+  // spans both the button and the panel. A click handler on the panel alone
+  // would treat the button as an outside target, so dismissing would immediately
+  // re-toggle back open.
+  useEffect(() => {
+    if (!assigning) return
+    const onPointerDown = (e: MouseEvent) => {
+      if (!assignWrapRef.current?.contains(e.target as Node)) setAssigning(false)
+    }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setAssigning(false)
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [assigning])
 
   const isAssigned = Boolean(event.assignedEngineerId)
   const countdown = countdownLabel(event.daysUntil)
@@ -1760,8 +1775,11 @@ function CustomerMeetingCard({
   }
 
   return (
-<article className="flex flex-col overflow-hidden rounded-lg border border-surface-200 bg-surface-0 shadow-sm dark:rounded-xl dark:bg-[#161a20] dark:border-[#222731]">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-surface-100 bg-surface-50 px-4 py-2.5 dark:border-[#1e232b] dark:bg-[#121519]">
+// No overflow-hidden here: it would clip the assignment popover, which escapes
+// the card bounds by design. The rounded header and footer bands below clip
+// themselves instead, which keeps the same silhouette.
+    <article className="flex flex-col rounded-lg border border-surface-200 bg-surface-0 shadow-sm dark:rounded-xl dark:bg-[#161a20] dark:border-[#222731]">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-t-lg border-b border-surface-100 bg-surface-50 px-4 py-2.5 dark:rounded-t-xl dark:border-[#1e232b] dark:bg-[#121519]">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             {!isAssigned && (
               <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-warning-200 bg-warning-50 px-2 py-0.5 text-[10px] font-semibold text-warning-700 dark:border-[#5c3a0a] dark:bg-[#3b2506] dark:text-[#fbbf24]">
@@ -1803,7 +1821,7 @@ function CustomerMeetingCard({
                 {initialsOf(event.assignedEngineerName)}
               </span>
               {/* Name and role stay inside one truncating element so the chip reads as a
-                  single unit ("Sarah Jenkins (Lead Architect)") rather than two
+                  single unit ("Siddhesh Verma (L1 Compute Engineer)") rather than two
                   fragments, while the role can still drop to muted slate on its own. */}
               <span className="truncate text-xs font-medium text-brand-800 dark:text-white dark:font-semibold">
                 {event.assignedEngineerName}
@@ -1822,7 +1840,7 @@ function CustomerMeetingCard({
         {joinError && <p className="text-xs text-error-600">{joinError}</p>}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-surface-100 bg-surface-50 px-4 py-2.5 dark:border-[#1e232b] dark:bg-[#121519]">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-b-lg border-t border-surface-100 bg-surface-50 px-4 py-2.5 dark:rounded-b-xl dark:border-[#1e232b] dark:bg-[#121519]">
         <p className="flex min-w-0 items-center gap-1.5 text-xs text-surface-500 dark:text-[#8a99ad]">
           <Video className="h-3.5 w-3.5 shrink-0" />
           <span className="truncate">
@@ -1832,13 +1850,23 @@ function CustomerMeetingCard({
         <div className="flex shrink-0 items-center gap-2">
           {isAssigned ? (
             <>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setAssigning(true)}
-              >
-                Reassign
-              </Button>
+              <div ref={assignWrapRef} className="relative inline-block text-left">
+                <button
+                  type="button"
+                  aria-haspopup="dialog"
+                  aria-expanded={assigning}
+                  onClick={() => setAssigning((v) => !v)}
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium transition hover:bg-slate-50"
+                >
+                  Reassign
+                </button>
+                {assigning && (
+                  <EngineerAssignPopover
+                    event={event}
+                    onClose={() => setAssigning(false)}
+                  />
+                )}
+              </div>
               <Button size="sm" onClick={joinCall}>
                 Join Call
               </Button>
@@ -1852,21 +1880,28 @@ function CustomerMeetingCard({
               >
                 View Agenda
               </Button>
-              <Button size="sm" onClick={() => setAssigning(true)}>
-                <Plus className="h-4 w-4" />
-                Assign Engineer
-              </Button>
+              <div ref={assignWrapRef} className="relative inline-block text-left">
+                <button
+                  type="button"
+                  aria-haspopup="dialog"
+                  aria-expanded={assigning}
+                  onClick={() => setAssigning((v) => !v)}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#00B388] px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#059669]"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Assign Engineer
+                </button>
+                {assigning && (
+                  <EngineerAssignPopover
+                    event={event}
+                    onClose={() => setAssigning(false)}
+                  />
+                )}
+              </div>
             </>
           )}
         </div>
       </div>
-
-      {assigning && (
-        <AssignEngineerSearch
-          event={event}
-          onClose={() => setAssigning(false)}
-        />
-      )}
       {agendaOpen && (
         <AgendaModal event={event} onClose={() => setAgendaOpen(false)} />
       )}

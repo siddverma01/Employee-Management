@@ -424,7 +424,7 @@ class UpcomingEventsServiceTest {
         @Test
         void storesTheOrganizationLocationAndEndTimeOnTheEventRow() {
             givenCreatorIsAuthenticated();
-            when(employeeRepository.findById(any())).thenReturn(Optional.of(engineer(99L, "Sarah Jenkins", "EMP-99")));
+            when(employeeRepository.findById(any())).thenReturn(Optional.of(engineer(99L, "Siddhesh Verma", "EMP-99")));
 
             CalendarDtos.UpcomingEvent created = service.create(new CalendarDtos.CreateEventRequest(
                     "Q4 Architecture Review", null, TODAY.plusDays(1),
@@ -478,7 +478,7 @@ class UpcomingEventsServiceTest {
                     .id(11L).title("Q4 Architecture Review").eventDate(TODAY.plusDays(1))
                     .eventType(EventType.CUSTOMER_REMOTE_SESSION).scope(ScopeType.TEAM)
                     .team(Department.builder().id(TEAM_ID).build())
-                    .assignedTo(engineer(99L, "Sarah Jenkins", "EMP-99"))
+                    .assignedTo(engineer(99L, "Siddhesh Verma", "EMP-99"))
                     .build());
             when(employeeRepository.findById(77L)).thenReturn(Optional.of(engineer(77L, "Aarav Mehta", "EMP-77")));
 
@@ -494,11 +494,11 @@ class UpcomingEventsServiceTest {
                     .id(11L).title("Q4 Architecture Review").eventDate(TODAY.plusDays(1))
                     .eventType(EventType.CUSTOMER_REMOTE_SESSION).scope(ScopeType.TEAM)
                     .team(Department.builder().id(TEAM_ID).build())
-                    .assignedTo(engineer(99L, "Sarah Jenkins", "EMP-99"))
+                    .assignedTo(engineer(99L, "Siddhesh Verma", "EMP-99"))
                     .build());
-            when(employeeRepository.findById(99L)).thenReturn(Optional.of(engineer(99L, "Sarah Jenkins", "EMP-99")));
+            when(employeeRepository.findById(99L)).thenReturn(Optional.of(engineer(99L, "Siddhesh Verma", "EMP-99")));
 
-            assertThat(service.assign(11L, 99L).assignedEngineerName()).isEqualTo("Sarah Jenkins");
+            assertThat(service.assign(11L, 99L).assignedEngineerName()).isEqualTo("Siddhesh Verma");
         }
 
         @Test
@@ -507,7 +507,7 @@ class UpcomingEventsServiceTest {
                     .id(11L).title("Q4 Architecture Review").eventDate(TODAY.plusDays(1))
                     .eventType(EventType.CUSTOMER_REMOTE_SESSION).scope(ScopeType.TEAM)
                     .team(Department.builder().id(TEAM_ID).build())
-                    .assignedTo(engineer(99L, "Sarah Jenkins", "EMP-99"))
+                    .assignedTo(engineer(99L, "Siddhesh Verma", "EMP-99"))
                     .build());
 
             CalendarDtos.UpcomingEvent updated = service.assign(11L, null);
@@ -571,6 +571,26 @@ class UpcomingEventsServiceTest {
             when(employeeRepository.findById(77L)).thenReturn(Optional.of(engineer(77L, "Aarav Mehta", "EMP-77")));
 
             assertThat(service.assign(13L, 77L).assignedEngineerName()).isEqualTo("Aarav Mehta");
+        }
+
+        @Test
+        void letsACallerWithNoTeamReassignATeamMeeting() {
+            // Regression: the feed admits a team event whenever the caller's team is
+            // unknown, so a caller without one -- the admin has no employee profile --
+            // is shown the meeting and must not get a 404 when acting on it.
+            when(securityUtils.currentUserId()).thenReturn(USER_ID);
+            lenient().when(securityUtils.currentTeamId()).thenReturn(null);
+            lenient().when(securityUtils.isAdmin()).thenReturn(true);
+            when(eventRepository.findById(15L)).thenReturn(Optional.of(Event.builder()
+                    .id(15L).title("Team meeting seen by a teamless caller")
+                    .eventDate(TODAY.plusDays(1))
+                    .eventType(EventType.CUSTOMER_REMOTE_SESSION).scope(ScopeType.TEAM)
+                    .team(Department.builder().id(TEAM_ID).build())
+                    .build()));
+            when(eventRepository.save(any(Event.class))).thenAnswer(i -> i.getArgument(0));
+            when(employeeRepository.findById(77L)).thenReturn(Optional.of(engineer(77L, "Aarav Mehta", "EMP-77")));
+
+            assertThat(service.assign(15L, 77L).assignedEngineerName()).isEqualTo("Aarav Mehta");
         }
 
         @Test
@@ -711,7 +731,7 @@ class UpcomingEventsServiceTest {
             when(holidayService.listForEmployee(any(), any(), any())).thenReturn(List.of());
             when(employeeService.upcomingBirthdays(anyInt())).thenReturn(List.of());
             Employee leadArchitect = Employee.builder()
-                    .id(99L).fullName("Sarah Jenkins").employeeCode("EMP-99")
+                    .id(99L).fullName("Siddhesh Verma").employeeCode("EMP-99")
                     .designation("Lead Architect")
                     .department(Department.builder().name("Voice").build())
                     .build();
@@ -726,7 +746,7 @@ class UpcomingEventsServiceTest {
             CalendarDtos.UpcomingEvent listed = service.upcoming(30, null).events().get(0);
 
             assertThat(listed.assignedEngineerId()).isEqualTo(99L);
-            assertThat(listed.assignedEngineerName()).isEqualTo("Sarah Jenkins");
+            assertThat(listed.assignedEngineerName()).isEqualTo("Siddhesh Verma");
             // The card chip prefers the job title over the department.
             assertThat(listed.assignedEngineerDesignation()).isEqualTo("Lead Architect");
             assertThat(listed.assignedEngineerDepartment()).isEqualTo("Voice");

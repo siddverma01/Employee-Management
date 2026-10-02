@@ -10,6 +10,8 @@ import com.emplmgt.exception.ApiException;
 import com.emplmgt.repository.AttendanceImportHistoryRepository;
 import com.emplmgt.repository.AttendanceImportRowRepository;
 import com.emplmgt.repository.AttendanceRecordRepository;
+import com.emplmgt.repository.AttendanceShiftAssignmentRepository;
+import com.emplmgt.repository.AttendanceWeekOffAssignmentRepository;
 import com.emplmgt.repository.AttendanceStatusRepository;
 import com.emplmgt.repository.ImportEmployeeRepository;
 import com.emplmgt.util.AppClock;
@@ -52,10 +54,15 @@ class HistoricalImportServiceTest {
     @Mock AttendanceStatusRepository statusRepository;
     @Mock ImportEmployeeRepository importEmployeeRepository;
     @Mock AttendanceRecordRepository recordRepository;
+    @Mock AttendanceShiftAssignmentRepository shiftAssignmentRepository;
+    @Mock AttendanceWeekOffAssignmentRepository weekOffAssignmentRepository;
+    @Mock com.emplmgt.util.LeaveDaysCalculator leaveDaysCalculator;
     @Mock AttendanceImportHistoryRepository historyRepository;
     @Mock AttendanceImportRowRepository rowRepository;
     @Mock AuditService auditService;
     @Mock AppClock appClock;
+
+    private com.emplmgt.util.WeekOffUtil weekOffUtil;
 
     HistoricalImportService service;
     AttendanceImportHistory savedImportHistory;
@@ -63,6 +70,7 @@ class HistoricalImportServiceTest {
 
     @BeforeEach
     void setUp() {
+        weekOffUtil = new com.emplmgt.util.WeekOffUtil(leaveDaysCalculator);
         when(appClock.now()).thenReturn(NOW);
         when(historyRepository.save(any(AttendanceImportHistory.class))).thenAnswer(inv -> {
             AttendanceImportHistory h = inv.getArgument(0);
@@ -83,8 +91,10 @@ class HistoricalImportServiceTest {
             }
             return rows;
         });
+        when(shiftAssignmentRepository.findByEmployeeIdAndPeriodStart(any(), any())).thenReturn(java.util.Optional.empty());
         service = new HistoricalImportService(statusRepository, importEmployeeRepository, recordRepository,
-                historyRepository, rowRepository, auditService, appClock, new com.fasterxml.jackson.databind.ObjectMapper());
+                shiftAssignmentRepository, weekOffAssignmentRepository, weekOffUtil, historyRepository,
+                rowRepository, auditService, appClock, new com.fasterxml.jackson.databind.ObjectMapper());
     }
 
     private static CellStyle dateStyle(XSSFWorkbook wb) {

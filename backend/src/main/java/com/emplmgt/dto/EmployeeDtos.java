@@ -112,4 +112,23 @@ public final class EmployeeDtos {
 
     public record Simple(Long id, String employeeCode, String fullName, String department) {
     }
+
+    public record ExitRequest(
+            @NotNull(message = "Last working date is required") LocalDate lastWorkingDate,
+            LocalDate exitDate,
+            String exitReason) {
+    }
+
+    public record ExitResponse(
+            Long id,
+            String employeeCode,
+            String fullName,
+            EmploymentStatus employmentStatus,
+            LocalDate lastWorkingDate,
+            LocalDate exitDate,
+            String exitReason,
+            Long exitedBy,
+            String exitedByName,
+            java.time.Instant exitedAt) {
+    }
 }

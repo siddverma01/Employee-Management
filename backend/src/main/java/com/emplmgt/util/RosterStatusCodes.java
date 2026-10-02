@@ -118,6 +118,13 @@ public final class RosterStatusCodes {
         return IS_ATR.matcher(code.trim()).matches();
     }
 
+    public static boolean isAtr(String code) {
+        if (code == null || code.isBlank()) {
+            return false;
+        }
+        return IS_ATR.matcher(code.trim()).matches();
+    }
+
     /**
      * Human label for a stored/selent code (ATRn shares the attrition label).
      */

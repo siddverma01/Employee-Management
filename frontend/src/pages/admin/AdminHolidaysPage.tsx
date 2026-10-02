@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { z } from 'zod'
@@ -36,6 +36,27 @@ const APPLICABLE_LOCATIONS = [
   { value: 'US', label: 'US' },
 ]
 
+/**
+ * Several stored holidays that share a date and name, collapsed into one row.
+ *
+ * <p>"New Year's Day" exists once per country, so the same date can arrive as
+ * several rows that a reader considers a single holiday. The row shows every
+ * distinct type and country as its own tag.</p>
+ */
+interface MergedHoliday {
+  /** Every underlying row, ascending by id; the first one drives edit. */
+  holidays: Holiday[]
+  /** Resolved display types, e.g. ['US', 'PUBLIC'] -> "US Holiday", "Public Holiday". */
+  types: string[]
+  countries: string[]
+  applicableTo: string
+}
+
+/** Distinct, order-preserving. Keeps duplicate tags off a merged row. */
+function unique(values: string[]): string[] {
+  return Array.from(new Set(values))
+}
+
 function ScopeBadge({ scope, team }: { scope: string; team?: string }) {
   return (
     <span
@@ -59,6 +80,59 @@ export function AdminHolidaysPage() {
   const holidaysQuery = useQuery({ queryKey: ['admin', 'holidays', from, to], queryFn: () => adminApi.holidays({ from, to }) })
   const eventsQuery = useQuery({ queryKey: ['admin', 'events', from, to], queryFn: () => adminApi.events({ from, to }) })
   const { data: departments = [] } = useQuery({ queryKey: ['teams'], queryFn: departmentApi.list })
+
+  /**
+   * One table row, which may stand for several stored holidays.
+   *
+   * <p>`holidays` is the representative row (lowest id) and drives the edit
+   * form, since the fields shown are identical across the group. `rows` keeps
+   * every underlying id so a delete can remove the whole group rather than
+   * leaving orphans behind.</p>
+   */
+  const mergedHolidays = useMemo<MergedHoliday[]>(() => {
+    const groups = new Map<string, Holiday[]>()
+    for (const h of holidaysQuery.data ?? []) {
+      // Name is trimmed and lowercased so "Republic Day" and "republic day " are
+      // one group. The date is already a normalised ISO date from the API.
+      const key = `${h.date}_${h.name.trim().toLowerCase()}`
+      const group = groups.get(key)
+      if (group) group.push(h)
+      else groups.set(key, [h])
+    }
+
+    return Array.from(groups.values())
+      .map((rows): MergedHoliday => {
+        const sorted = [...rows].sort((a, b) => a.id - b.id)
+        const first = sorted[0]
+        return {
+          holidays: sorted,
+          // Display type is resolved per row, not read off the raw column: it
+          // depends on country and applicableLocations, so the same holidayType
+          // can render as "US Holiday" on one row and "Public Holiday" on another.
+          types: unique(sorted.map((h) => resolveHolidayDisplayType(h))),
+          countries: unique(sorted.map((h) => h.country).filter(Boolean)),
+          applicableTo: unique(sorted.map((h) => h.applicableLocations).filter(Boolean)).join(', ') || 'ALL',
+        }
+      })
+      .sort((a, b) => {
+        const byDate = new Date(a.holidays[0].date).getTime() - new Date(b.holidays[0].date).getTime()
+        // Same-day groups sort by name, then id, so the order is deterministic
+        // rather than dependent on Map insertion order.
+        if (byDate !== 0) return byDate
+        const byName = a.holidays[0].name.localeCompare(b.holidays[0].name)
+        return byName !== 0 ? byName : a.holidays[0].id - b.holidays[0].id
+      })
+  }, [holidaysQuery.data])
+
+  const sortedEvents = useMemo(
+    () =>
+      [...(eventsQuery.data ?? [])].sort(
+        (a, b) =>
+          new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime() ||
+          a.id - b.id,
+      ),
+    [eventsQuery.data],
+  )
 
   const [holidayModal, setHolidayModal] = useState<{ open: boolean; holiday: Holiday | null }>({ open: false, holiday: null })
   const [eventModal, setEventModal] = useState<{ open: boolean; event: CompanyEvent | null }>({ open: false, event: null })
@@ -142,7 +216,7 @@ export function AdminHolidaysPage() {
 
       {tab === 'holidays' ? (
         <div className="card overflow-hidden">
-          {!holidaysQuery.data?.length ? (
+          {!mergedHolidays.length ? (
             <EmptyState title="No holidays" description="Add a holiday for this year." />
           ) : (
             <div className="overflow-x-auto">
@@ -159,24 +233,52 @@ export function AdminHolidaysPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-surface-200">
-                  {holidaysQuery.data.map((h) => (
-                    <tr key={h.id} className="transition-colors duration-150 hover:bg-rowhover">
+                  {mergedHolidays.map((m) => {
+                    const h = m.holidays[0]
+                    return (
+                    <tr key={m.holidays.map((r) => r.id).join('-')} className="transition-colors duration-150 hover:bg-rowhover">
                       <td className="td font-medium text-surface-800">{h.name}</td>
                       <td className="td">{formatDate(h.date)}</td>
-                      <td className="td"><StatusBadge status={resolveHolidayDisplayType(h)} /></td>
-                      <td className="td text-xs text-surface-500">{h.country || '—'}</td>
-                      <td className="td text-xs text-surface-500">{h.applicableLocations || 'ALL'}</td>
+                      <td className="td">
+                        {/* One badge per distinct type: a merged row can be a US
+                            holiday and an Indian one on the same day. */}
+                        <div className="flex flex-wrap gap-1">
+                          {m.types.map((t) => (
+                            <StatusBadge key={t} status={t} />
+                          ))}
+                        </div>
+                      </td>
+                      <td className="td text-xs text-surface-500">{m.countries.length ? m.countries.join(', ') : '—'}</td>
+                      <td className="td text-xs text-surface-500">{m.applicableTo}</td>
                       <td className="td text-xs">
+                        {/* Only one scope is shown, since the group's rows can
+                            disagree; the widest is the least misleading. */}
                         <ScopeBadge scope={h.scope} team={departments.find((d) => d.id === h.teamId)?.name} />
                       </td>
                       <td className="td text-right">
                         <div className="flex justify-end gap-1">
                           <button className="icon-btn" title="Edit" onClick={() => openHolidayModal(h)}><Pencil className="h-4 w-4" /></button>
-                          <button className="icon-btn" title="Delete" onClick={() => { if (confirm(`Delete holiday "${h.name}"?`)) deleteHoliday.mutate(h.id); }}><Trash2 className="h-4 w-4 text-red-600" /></button>
+                          <button
+                            className="icon-btn"
+                            title="Delete"
+                            onClick={() => {
+                              // Deletes every row in the group, otherwise the
+                              // duplicates resurface as separate entries on reload.
+                              const label = m.holidays.length > 1
+                                ? `Delete all ${m.holidays.length} entries for "${h.name}"?`
+                                : `Delete holiday "${h.name}"?`
+                              if (confirm(label)) {
+                                m.holidays.forEach((row) => deleteHoliday.mutate(row.id))
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-600" />
+                          </button>
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -184,7 +286,7 @@ export function AdminHolidaysPage() {
         </div>
       ) : (
         <div className="card overflow-hidden">
-          {!eventsQuery.data?.length ? (
+          {!sortedEvents.length ? (
             <EmptyState title="No events" description="Add a company event for this year." />
           ) : (
             <div className="overflow-x-auto">
@@ -200,7 +302,7 @@ export function AdminHolidaysPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-surface-200">
-                  {eventsQuery.data.map((e) => (
+                  {sortedEvents.map((e) => (
                     <tr key={e.id} className="transition-colors duration-150 hover:bg-rowhover">
                       <td className="td font-medium text-surface-800">{e.title}</td>
                       <td className="td">{formatDate(e.eventDate)}</td>

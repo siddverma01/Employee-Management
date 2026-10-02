@@ -299,8 +299,19 @@ public class UpcomingEventsService {
         if (event.getCreatedBy() != null && event.getCreatedBy().getId().equals(userId)) {
             return true;
         }
-        Long teamId = event.getTeam() == null ? null : event.getTeam().getId();
+        if (securityUtils.isAdmin()) {
+            return true;
+        }
+        // Must mirror EventRepository.findVisibleInRange, which admits a team event
+        // whenever the caller's team is unknown (`:teamId is null`). A caller with no
+        // team -- the admin, who has no employee profile -- therefore sees every team
+        // event on the feed, and a stricter check here made Reassign and Reschedule
+        // 404 on rows the feed had just rendered.
         Long callerTeamId = securityUtils.currentTeamId();
+        if (callerTeamId == null) {
+            return true;
+        }
+        Long teamId = event.getTeam() == null ? null : event.getTeam().getId();
         return teamId != null && teamId.equals(callerTeamId);
     }
 

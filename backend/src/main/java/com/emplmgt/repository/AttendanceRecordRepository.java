@@ -74,6 +74,18 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
     @Query("select distinct r.attendanceDate from AttendanceRecord r order by r.attendanceDate asc")
     List<LocalDate> findDistinctAttendanceDatesAsc();
 
+    /** Employees holding {@code status} at least once in the range. Used by the
+     *  roster export so a status filter narrows the row set exactly as it does on
+     *  the grid, without dropping the other days of those employees' months. */
+    @Query("""
+            select distinct r.employeeId from AttendanceRecord r
+            where r.attendanceDate between :from and :to
+              and r.statusCode = :status
+            """)
+    List<String> findDistinctEmployeeIdsByStatusInRange(@Param("from") LocalDate from,
+                                                        @Param("to") LocalDate to,
+                                                        @Param("status") String status);
+
     List<AttendanceRecord> findByEmployeeIdAndAttendanceDateBetweenOrderByAttendanceDateAsc(
             String employeeId, LocalDate from, LocalDate to);
 

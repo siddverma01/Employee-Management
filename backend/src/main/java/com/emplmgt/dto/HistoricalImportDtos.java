@@ -104,7 +104,8 @@ public final class HistoricalImportDtos {
             String warning,
             boolean unknown,
             String location,
-            String shift) {
+            String shift,
+            String weekOff) {
     }
 
     public record PreviewResponse(

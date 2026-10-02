@@ -223,6 +223,12 @@ export const adminApi = {
   rosterToday: (params: Record<string, unknown>) =>
     api.get<RosterTodayData>('/roster/today', { params }).then((r) => r.data),
 
+  /** Admin-only Excel export of the live roster. Resolves the whole Axios
+   *  response (not just `data`) because the server-derived filename arrives in
+   *  the Content-Disposition header. */
+  rosterMonthlyExport: (params: Record<string, unknown>) =>
+    api.get<Blob>('/admin/roster/monthly/export', { params, responseType: 'blob' }),
+
   rosterStatusDetail: (employeeId: string, date: string) =>
     api.get<RosterStatusDetail>('/roster/status-detail', { params: { employeeId, date } }).then((r) => r.data),
   saveRosterStatusDetail: (employeeId: string, date: string, description: string) =>

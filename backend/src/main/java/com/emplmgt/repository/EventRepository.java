@@ -15,15 +15,21 @@ public interface EventRepository extends JpaRepository<Event, Long> {
 
     boolean existsByTitle(String title);
 
+    // `order by` here for the same reason as HolidayRepository: an unordered JPQL
+    // query has no guaranteed order, so the admin events table relied on Postgres
+    // returning rows in whatever order suited the plan.
+
     @Query("select e from Event e where e.eventDate >= :from and e.eventDate <= :to " +
             "and (e.scope = com.emplmgt.entity.ScopeType.GLOBAL " +
-            "     or (e.scope = com.emplmgt.entity.ScopeType.TEAM and (:teamId is null or e.team.id = :teamId)))")
+            "     or (e.scope = com.emplmgt.entity.ScopeType.TEAM and (:teamId is null or e.team.id = :teamId))) " +
+            "order by e.eventDate asc, e.id asc")
     List<Event> findVisibleInRange(@Param("from") LocalDate from, @Param("to") LocalDate to,
                                    @Param("teamId") Long teamId);
 
     @Query("select e from Event e where e.eventDate >= :from and e.eventDate <= :to " +
             "and (:scope is null or e.scope = :scope) " +
-            "and (:scope is null or :scope <> com.emplmgt.entity.ScopeType.TEAM or :teamId is null or e.team.id = :teamId)")
+            "and (:scope is null or :scope <> com.emplmgt.entity.ScopeType.TEAM or :teamId is null or e.team.id = :teamId) " +
+            "order by e.eventDate asc, e.id asc")
     List<Event> findInRangeScoped(@Param("from") LocalDate from, @Param("to") LocalDate to,
                                   @Param("scope") ScopeType scope, @Param("teamId") Long teamId);
 }
