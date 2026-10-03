@@ -26,7 +26,7 @@ public final class AttendanceHistoryDtos {
                              Long teamId, String teamName, String location, String shift,
                              String statusCode, String statusName, String sourceMonth,
                              String sourceSheet, String sourceFile, Integer sourceRow,
-                             String importedAt, boolean unknown) {
+                             String importedAt, boolean unknown, String description) {
     }
 
     public record Summary(long total, Map<String, Long> byStatus) {

@@ -15,6 +15,29 @@ import java.util.Optional;
 
 public interface AttendanceRecordRepository extends JpaRepository<AttendanceRecord, Long> {
 
+    /**
+     * Just the shift an employee was rostered to on each day of a range.
+     *
+     * <p>The roster has to know every candidate's dominant shift <em>before</em> it
+     * can sort and paginate them, but only needs the cells of the page it is about to
+     * return. This projection keeps the sort pass to two columns instead of loading
+     * every status cell for every employee in the month.</p>
+     */
+    interface EmployeeShiftView {
+        String getEmployeeId();
+
+        String getShift();
+    }
+
+    @Query("""
+            select r.employeeId as employeeId, r.shift as shift from AttendanceRecord r
+            where r.attendanceDate between :from and :to
+              and r.employeeId in :employeeIds
+              and r.shift is not null
+            """)
+    List<EmployeeShiftView> findShiftsInRange(@Param("employeeIds") List<String> employeeIds,
+                                              @Param("from") LocalDate from, @Param("to") LocalDate to);
+
     Optional<AttendanceRecord> findByEmployeeIdAndAttendanceDate(String employeeId, LocalDate attendanceDate);
 
     boolean existsByEmployeeIdAndAttendanceDate(String employeeId, LocalDate attendanceDate);

@@ -87,28 +87,34 @@ public class AttendanceRosterService {
         List<ImportEmployee> candidates = importEmployeeRepository
                 .findEmployeesForRosterWithExit(teamId, query, loc, from, to, code);
 
-        // Filter out employees whose exit month is before the selected month
-        // (i.e., employees who exited in a previous month should not appear)
+        // Hide employees only from months entirely after their exit month. Every month up to
+        // and including the exit month still lists them, so past rosters keep their history.
         candidates = candidates.stream()
-                .filter(e -> {
-                    LocalDate exitDate = e.getExitDate();
-                    if (exitDate == null) {
-                        return true; // Active employee, include
-                    }
-                    // Include if exit month is the same as or after the selected month
-                    YearMonth exitMonth = YearMonth.from(exitDate);
-                    return !exitMonth.isBefore(ym);
-                })
+                .filter(e -> belongsInMonth(e, ym))
                 .toList();
 
         Map<String, String> periodShifts = resolvePeriodShifts(candidates, from);
         Map<String, String> periodWeekOffs = resolvePeriodWeekOffs(candidates, from);
 
+        // The Shift column shows the dominant shift actually rostered in this month
+        // (falling back to the period assignment), so the sort key and the shift filter
+        // must use that same value. Sorting by the assignment instead made the grid look
+        // unsorted whenever the two disagreed, which is most months once shifts rotate.
+        List<String> candidateIds = candidates.stream().map(ImportEmployee::getEmployeeId).toList();
+        Map<String, ShiftInPeriod> rosteredShifts = candidateIds.isEmpty() ? Map.of()
+                : dominantShiftsFromViews(recordRepository.findShiftsInRange(candidateIds, from, to));
+        Map<String, String> displayShifts = new HashMap<>();
+        for (ImportEmployee e : candidates) {
+            ShiftInPeriod rostered = rosteredShifts.get(e.getEmployeeId());
+            displayShifts.put(e.getEmployeeId(),
+                    rostered != null ? rostered.dominant() : periodShifts.get(e.getEmployeeId()));
+        }
+
         String wantedShiftKey = ShiftTime.comparisonKey(sh);
         List<ImportEmployee> sorted = candidates.stream()
                 .filter(e -> wantedShiftKey == null
-                        || wantedShiftKey.equals(ShiftTime.comparisonKey(periodShifts.get(e.getEmployeeId()))))
-                .sorted(rosterOrder(periodShifts))
+                        || wantedShiftKey.equals(ShiftTime.comparisonKey(displayShifts.get(e.getEmployeeId()))))
+                .sorted(rosterOrder(displayShifts))
                 .toList();
 
         int total = sorted.size();
@@ -169,15 +175,12 @@ public class AttendanceRosterService {
             }
         }
 
-        Map<String, ShiftInPeriod> rosteredShifts = dominantShifts(pageRecords);
-
         Map<Long, String> teamNames = teamNames(pageList);
 
         List<AttendanceRosterDtos.EmployeeRow> rows = pageList.stream()
                 .map(e -> {
                     ShiftInPeriod rostered = rosteredShifts.get(e.getEmployeeId());
-                    String rowShift = rostered != null ? rostered.dominant()
-                            : periodShifts.get(e.getEmployeeId());
+                    String rowShift = displayShifts.get(e.getEmployeeId());
                     return new AttendanceRosterDtos.EmployeeRow(
                         e.getEmployeeId(), e.getEmployeeName(),
                         resolveEmail(e.getEmail(), masterEmailsByCode.get(e.getEmployeeId())),
@@ -370,6 +373,23 @@ public class AttendanceRosterService {
 
     // ------------------------------------------------------------------ helpers
 
+    /**
+     * Whether an employee still belongs on the roster for {@code ym}.
+     *
+     * <p>Attrition must never rewrite history: an employee stays listed for every
+     * month up to and including the month they exited, and only disappears from
+     * months that begin after their exit date. The current {@code active} flag is
+     * deliberately not consulted here — it reflects today's status, not who was
+     * rostered in the past.</p>
+     */
+    static boolean belongsInMonth(ImportEmployee e, YearMonth ym) {
+        LocalDate exitDate = e.getExitDate();
+        if (exitDate == null) {
+            return true;
+        }
+        return !YearMonth.from(exitDate).isBefore(ym);
+    }
+
     private static YearMonth parseMonth(String month) {
         if (month == null || month.isBlank()) {
             throw ApiException.badRequest("Month is required (yyyy-MM)");
@@ -400,22 +420,49 @@ public class AttendanceRosterService {
      * shown and the change is flagged instead of being hidden.
      */
     private static Map<String, ShiftInPeriod> dominantShifts(List<AttendanceRecord> records) {
+        Map<String, List<String>> pairs = new HashMap<>();
+        for (AttendanceRecord r : records) {
+            pairs.computeIfAbsent(r.getEmployeeId(), k -> new ArrayList<>()).add(r.getShift());
+        }
+        return collapseDominantShifts(pairs);
+    }
+
+    /**
+     * Same collapse as {@link #dominantShifts(List)}, but over the lightweight
+     * {@code (employeeId, shift)} projection so the sort pass can run across every
+     * candidate before pagination.
+     */
+    private static Map<String, ShiftInPeriod> dominantShiftsFromViews(
+            List<AttendanceRecordRepository.EmployeeShiftView> views) {
+        Map<String, List<String>> pairs = new HashMap<>();
+        for (AttendanceRecordRepository.EmployeeShiftView v : views) {
+            pairs.computeIfAbsent(v.getEmployeeId(), k -> new ArrayList<>()).add(v.getShift());
+        }
+        return collapseDominantShifts(pairs);
+    }
+
+    private static Map<String, ShiftInPeriod> collapseDominantShifts(Map<String, List<String>> byEmployee) {
         // employee -> canonical key -> [days, original spelling of the first day]
         Map<String, Map<String, int[]>> counts = new HashMap<>();
         Map<String, Map<String, String>> spellings = new HashMap<>();
-        for (AttendanceRecord r : records) {
-            if (r.getShift() == null || r.getShift().isBlank()) {
-                continue;
+        byEmployee.forEach((employee, shifts) -> {
+            if (shifts == null) {
+                return;
             }
-            String key = ShiftTime.comparisonKey(r.getShift());
-            if (key == null) {
-                continue;
+            for (String shift : shifts) {
+                if (shift == null || shift.isBlank()) {
+                    continue;
+                }
+                String key = ShiftTime.comparisonKey(shift);
+                if (key == null) {
+                    continue;
+                }
+                counts.computeIfAbsent(employee, k -> new HashMap<>())
+                        .computeIfAbsent(key, k -> new int[1])[0]++;
+                spellings.computeIfAbsent(employee, k -> new HashMap<>())
+                        .putIfAbsent(key, shift.trim());
             }
-            counts.computeIfAbsent(r.getEmployeeId(), k -> new HashMap<>())
-                    .computeIfAbsent(key, k -> new int[1])[0]++;
-            spellings.computeIfAbsent(r.getEmployeeId(), k -> new HashMap<>())
-                    .putIfAbsent(key, r.getShift().trim());
-        }
+        });
 
         Map<String, ShiftInPeriod> out = new HashMap<>();
         counts.forEach((employee, byKey) -> {

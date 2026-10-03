@@ -341,8 +341,13 @@ public class RosterExportService {
                 all.removeIf(e -> !withStatus.contains(e.getEmployeeId()));
             }
         } else {
-            all = new ArrayList<>(importEmployeeRepository.findRosterEmployees(
+            // Same query as the grid, so an export never quietly drops someone the grid
+            // shows. In particular an attrited employee keeps their past months; only the
+            // "today" view is allowed to filter on the current active flag.
+            all = new ArrayList<>(importEmployeeRepository.findEmployeesForRosterWithExit(
                     plan.teamId(), plan.q(), plan.location(), from, to, plan.status()));
+            YearMonth sheetMonth = YearMonth.from(from);
+            all.removeIf(e -> !AttendanceRosterService.belongsInMonth(e, sheetMonth));
         }
 
         // The exported Shift column must be the shift rostered for THIS sheet,

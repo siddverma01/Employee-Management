@@ -175,6 +175,46 @@ class AttendanceRosterServiceTest {
     }
 
     @Test
+    void monthlyKeepsAttritedEmployeeInMonthsBeforeTheirExit() {
+        // Regression: an employee flagged inactive/EXITED by attrition must still appear in
+        // every month up to and including their exit month, not vanish from past rosters.
+        ImportEmployee leaver = ImportEmployee.builder()
+                .employeeId("E9").employeeName("Leaver").location("Pune").active(Boolean.FALSE)
+                .lastWorkingDate(LocalDate.of(2025, 9, 20))
+                .exitDate(LocalDate.of(2025, 9, 30))
+                .build();
+
+        stubStaff(List.of(leaver));
+        when(recordRepository.findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(
+                any(), any(), anyList())).thenReturn(List.of());
+        when(importEmployeeRepository.countEmployeeRows(any(), any(), any(), any(), any())).thenReturn(1L);
+
+        assertThat(service.monthly(null, "2025-05", null, null, null, null, 0, 25).employees())
+                .extracting(AttendanceRosterDtos.EmployeeRow::employeeId)
+                .containsExactly("E9");
+        assertThat(service.monthly(null, "2025-09", null, null, null, null, 0, 25).employees())
+                .extracting(AttendanceRosterDtos.EmployeeRow::employeeId)
+                .containsExactly("E9");
+    }
+
+    @Test
+    void monthlyHidesAttritedEmployeeFromMonthsAfterTheirExit() {
+        ImportEmployee leaver = ImportEmployee.builder()
+                .employeeId("E9").employeeName("Leaver").location("Pune").active(Boolean.FALSE)
+                .lastWorkingDate(LocalDate.of(2025, 9, 20))
+                .exitDate(LocalDate.of(2025, 9, 30))
+                .build();
+
+        stubStaff(List.of(leaver));
+        when(recordRepository.findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(
+                any(), any(), anyList())).thenReturn(List.of());
+        when(importEmployeeRepository.countEmployeeRows(any(), any(), any(), any(), any())).thenReturn(0L);
+
+        assertThat(service.monthly(null, "2025-10", null, null, null, null, 0, 25).employees()).isEmpty();
+        assertThat(service.monthly(null, "2026-01", null, null, null, null, 0, 25).employees()).isEmpty();
+    }
+
+    @Test
     void monthlyMarksHolidayColumns() {
         stubStaff(List.of(alice));
         when(recordRepository.findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(
@@ -514,8 +554,7 @@ class AttendanceRosterServiceTest {
             stubStaff(List.of(rotating));
             when(shiftAssignmentRepository.findByEmployeeIdIn(any()))
                     .thenReturn(List.of(assignment("E1", "2026-09", NIGHT)));
-            when(recordRepository.findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(
-                    any(), any(), anyList())).thenReturn(days);
+            stubRecordedDays(days);
             when(importEmployeeRepository.countEmployeeRows(any(), any(), any(), any(), any())).thenReturn(1L);
 
             AttendanceRosterDtos.EmployeeRow row = service
@@ -534,8 +573,7 @@ class AttendanceRosterServiceTest {
             stubStaff(List.of(rotating));
             when(shiftAssignmentRepository.findByEmployeeIdIn(any()))
                     .thenReturn(List.of(assignment("E1", "2026-09", AM)));
-            when(recordRepository.findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(
-                    any(), any(), anyList())).thenReturn(days);
+            stubRecordedDays(days);
             when(importEmployeeRepository.countEmployeeRows(any(), any(), any(), any(), any())).thenReturn(1L);
 
             AttendanceRosterDtos.EmployeeRow row = service
@@ -552,8 +590,7 @@ class AttendanceRosterServiceTest {
             stubStaff(List.of(rotating));
             when(shiftAssignmentRepository.findByEmployeeIdIn(any()))
                     .thenReturn(List.of(assignment("E1", "2026-09", "19:00 - 04:00")));
-            when(recordRepository.findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(
-                    any(), any(), anyList())).thenReturn(days);
+            stubRecordedDays(days);
             when(importEmployeeRepository.countEmployeeRows(any(), any(), any(), any(), any())).thenReturn(1L);
 
             AttendanceRosterDtos.EmployeeRow row = service
@@ -570,6 +607,32 @@ class AttendanceRosterServiceTest {
             r.setStatusCode("WFO");
             r.setShift(shift);
             return r;
+        }
+
+        private static AttendanceRecordRepository.EmployeeShiftView shiftView(String id, String shift) {
+            return new AttendanceRecordRepository.EmployeeShiftView() {
+                @Override
+                public String getEmployeeId() {
+                    return id;
+                }
+
+                @Override
+                public String getShift() {
+                    return shift;
+                }
+            };
+        }
+
+        /**
+         * Feeds the same days through the cell query and the lightweight shift
+         * projection the roster now sorts on, so both stay in step.
+         */
+        private void stubRecordedDays(List<AttendanceRecord> days) {
+            when(recordRepository.findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(
+                    any(), any(), anyList())).thenReturn(days);
+            when(recordRepository.findShiftsInRange(any(), any(), any())).thenReturn(days.stream()
+                    .map(d -> shiftView(d.getEmployeeId(), d.getShift()))
+                    .toList());
         }
 
         @Test

@@ -26,6 +26,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.util.CellReference;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -276,6 +277,7 @@ public class HistoricalImportService {
                         .importHistory(history)
                         .sheetName(sheet.sheetName())
                         .sourceRow(rec.sourceRow())
+                        .sourceColumn(rec.sourceColumn())
                         .employeeId(rec.employeeId())
                         .employeeName(rec.employeeName())
                         .employeeEmail(rec.email())
@@ -288,7 +290,12 @@ public class HistoricalImportService {
                         .statusName(rec.statusName())
                         .isUnknown(rec.unknown())
                         .warning(rec.warning())
+                        .originalStatus(blankToNull(rec.rawCode()))
+                        .description(blankToNull(rec.description()))
+                        .descriptionSource(blankToNull(rec.descriptionSource()))
+                        .descriptionAuthor(blankToNull(rec.descriptionAuthor()))
                         .build();
+                r.setIssue(unresolvedReason(rec.statusCode(), rec.unknown(), rec.warning()));
                 if (rec.attendanceDate() == null) {
                     r.setAction("INVALID");
                 } else {
@@ -310,6 +317,34 @@ public class HistoricalImportService {
         }
         rowRepository.saveAll(rows);
         return rows;
+    }
+
+    private static String blankToNull(String v) {
+        return v == null || v.isBlank() ? null : v.trim();
+    }
+
+    /**
+     * Why a staged cell still needs the admin's attention, or {@code null} when it
+     * is already a recognised status. A blank is treated as unresolved rather than
+     * as "nothing to import": the cell exists in the workbook, so silently dropping
+     * it would quietly turn a gap in the source data into a missing attendance
+     * record.
+     */
+    private static String unresolvedReason(String statusCode, boolean unknown, String warning) {
+        if (statusCode == null || statusCode.isBlank()) {
+            return "Blank status — the cell has no value";
+        }
+        if (unknown) {
+            return "Unrecognised status '" + statusCode + "'";
+        }
+        return blankToNull(warning);
+    }
+
+    /** True while the row still needs a correction or an explicit skip. */
+    private static boolean needsResolution(AttendanceImportRow r) {
+        return r.getIssue() != null
+                && !Boolean.TRUE.equals(r.getCorrected())
+                && !Boolean.TRUE.equals(r.getSkipped());
     }
 
     /** Last-resort text when a sheet was skipped without a parser diagnostic. */
@@ -752,7 +787,7 @@ public class HistoricalImportService {
                     r.getEmployeeId(), r.getEmployeeName(), r.getAttendanceDate(), r.getExistingStatus(),
                     r.getIncomingStatus(), r.getStatusName(), r.getAction(), r.getWarning(),
                     Boolean.TRUE.equals(r.getIsUnknown()), r.getEmployeeLocation(), r.getEmployeeShift(),
-                    r.getEmployeeWeekOff()));
+                    r.getEmployeeWeekOff(), r.getDescription(), r.getDescriptionSource()));
         }
         return views;
     }
@@ -874,6 +909,154 @@ public class HistoricalImportService {
         return mergeIssues(out);
     }
 
+    // -------------------------------------------------------------- RESOLUTION
+
+    /**
+     * The admin's worklist for one staged import: every cell that was flagged at
+     * parse time and has not yet been corrected or explicitly skipped.
+     */
+    @Transactional(readOnly = true)
+    public HistoricalImportDtos.UnresolvedResponse unresolved(Long importId, int page, int size) {
+        load(importId);
+        int p = Math.max(page, 0);
+        int s = Math.min(Math.max(size, 1), 200);
+        Page<AttendanceImportRow> slice = rowRepository
+                .findByImportHistoryIdAndIssueIsNotNullAndCorrectedIsFalseAndSkippedIsFalseOrderByIdAsc(
+                        importId, PageRequest.of(p, s));
+        return new HistoricalImportDtos.UnresolvedResponse(importId, resolutionSummary(importId),
+                p, s, slice.getTotalElements(), toUnresolvedEntries(slice.getContent()));
+    }
+
+    /**
+     * Replaces one unresolved cell with a valid attendance status. The original
+     * workbook value is kept on the row so the correction stays traceable; nothing
+     * is written to {@code attendance_records} until the import is committed.
+     */
+    @Transactional
+    public HistoricalImportDtos.ResolveRowResponse correctRow(Long importId, Long rowId, String status) {
+        AttendanceImportRow row = loadRow(importId, rowId);
+        if (!needsResolution(row)) {
+            throw ApiException.conflict("Entry " + rowId + " is already resolved.");
+        }
+        String target = HistoricalImportCodes.normaliseRaw(status);
+        if (target == null || target.isBlank()) {
+            throw ApiException.badRequest("Pick a status to correct this entry to.");
+        }
+        AttendanceStatus st = statusRepository.findById(target).orElseThrow(() ->
+                ApiException.badRequest("Unknown status '" + status + "'. Known statuses: " + knownCodes()));
+
+        row.setIncomingStatus(st.getCode());
+        row.setStatusName(st.getName());
+        row.setIsUnknown(false);
+        row.setCorrected(true);
+        // The original issue is kept rather than cleared: it is what marks the row as
+        // having been flagged, so clearing it would both erase why the cell was
+        // questioned and make the totals drift as entries are resolved.
+        // The action is left alone on purpose: a blank cell never had its action
+        // downgraded (INVALID means "no date", which a correction cannot fix), so
+        // the row simply becomes committable once it has a real status.
+        rowRepository.save(row);
+        auditService.record("HISTORICAL_ROW_CORRECTED", "AttendanceImportRow", String.valueOf(rowId),
+                null, Map.of("import", importId,
+                        "from", row.getOriginalStatus() == null ? "" : row.getOriginalStatus(),
+                        "to", st.getCode()));
+        return new HistoricalImportDtos.ResolveRowResponse(toUnresolvedEntry(row), resolutionSummary(importId));
+    }
+
+    /**
+     * Explicitly leaves one cell out of the import. This is a decision, not a
+     * verdict, so it is recorded as {@code SKIPPED} and audited with the reason the
+     * admin gave.
+     */
+    @Transactional
+    public HistoricalImportDtos.ResolveRowResponse skipRow(Long importId, Long rowId, String reason) {
+        AttendanceImportRow row = loadRow(importId, rowId);
+        if (!needsResolution(row)) {
+            throw ApiException.conflict("Entry " + rowId + " is already resolved.");
+        }
+        String note = blankToNull(reason);
+        row.setSkipped(true);
+        row.setAction("SKIPPED");
+        if (note != null) {
+            String base = row.getIssue() == null ? "Skipped by admin" : row.getIssue();
+            row.setIssue(base + " — skipped: " + note);
+        }
+        rowRepository.save(row);
+        auditService.record("HISTORICAL_ROW_SKIPPED", "AttendanceImportRow", String.valueOf(rowId),
+                null, Map.of("import", importId,
+                        "status", row.getOriginalStatus() == null ? "" : row.getOriginalStatus(),
+                        "reason", note == null ? "" : note));
+        return new HistoricalImportDtos.ResolveRowResponse(toUnresolvedEntry(row), resolutionSummary(importId));
+    }
+
+    private HistoricalImportDtos.UnresolvedSummary resolutionSummary(Long importId) {
+        long total = rowRepository.countByImportHistoryIdAndIssueIsNotNull(importId);
+        long corrected = rowRepository.countByImportHistoryIdAndIssueIsNotNullAndCorrectedIsTrue(importId);
+        long skipped = rowRepository.countByImportHistoryIdAndSkippedIsTrue(importId);
+        long remaining = rowRepository
+                .countByImportHistoryIdAndIssueIsNotNullAndCorrectedIsFalseAndSkippedIsFalse(importId);
+        return new HistoricalImportDtos.UnresolvedSummary(total, corrected, skipped, remaining);
+    }
+
+    private AttendanceImportRow loadRow(Long importId, Long rowId) {
+        AttendanceImportRow row = rowRepository.findById(rowId)
+                .orElseThrow(() -> ApiException.notFound("Import row " + rowId + " not found"));
+        if (row.getImportHistory() == null || !importId.equals(row.getImportHistory().getId())) {
+            throw ApiException.notFound("Import row " + rowId + " does not belong to import " + importId);
+        }
+        return row;
+    }
+
+    private static List<HistoricalImportDtos.UnresolvedEntry> toUnresolvedEntries(List<AttendanceImportRow> rows) {
+        return rows.stream().map(HistoricalImportService::toUnresolvedEntry).toList();
+    }
+
+    private static HistoricalImportDtos.UnresolvedEntry toUnresolvedEntry(AttendanceImportRow r) {
+        return new HistoricalImportDtos.UnresolvedEntry(
+                r.getId(), r.getSheetName(),
+                r.getSourceRow() == null ? 0 : r.getSourceRow(),
+                r.getSourceColumn(), cellRef(r),
+                r.getEmployeeId(), r.getEmployeeName(), r.getAttendanceDate(),
+                r.getOriginalStatus(), r.getIncomingStatus(), r.getStatusName(),
+                r.getIssue(), r.getAction(),
+                Boolean.TRUE.equals(r.getCorrected()), Boolean.TRUE.equals(r.getSkipped()));
+    }
+
+    /** Human-readable A1-style pointer so the admin can find the cell in the workbook. */
+    private static String cellRef(AttendanceImportRow r) {
+        return cellRefFor(r.getSourceRow(), r.getSourceColumn());
+    }
+
+    /** Compact A1 reference (e.g. "G5") suitable for the stored provenance cell. */
+    private static String a1CellRef(AttendanceImportRow r) {
+        if (r.getSourceRow() == null || r.getSourceColumn() == null) {
+            return null;
+        }
+        return new CellReference(r.getSourceRow() - 1, r.getSourceColumn() - 1)
+                .formatAsString().replace("$", "");
+    }
+
+    static String cellRefFor(Integer sourceRow, Integer sourceColumn) {
+        if (sourceRow == null) {
+            return null;
+        }
+        if (sourceColumn == null) {
+            return "Row " + sourceRow;
+        }
+        return "Row " + sourceRow + ", Column " + columnName(sourceColumn);
+    }
+
+    private static String columnName(int index) {
+        StringBuilder sb = new StringBuilder();
+        int n = index;
+        while (n > 0) {
+            int rem = (n - 1) % 26;
+            sb.insert(0, (char) ('A' + rem));
+            n = (n - 1) / 26;
+        }
+        return sb.length() == 0 ? String.valueOf(index) : sb.toString();
+    }
+
     // ------------------------------------------------------------------ COMMIT
 
     @Transactional
@@ -891,6 +1074,12 @@ public class HistoricalImportService {
         if (h.getErrors() != null && h.getErrors() > 0) {
             throw ApiException.conflict("Cannot commit: the workbook has " + h.getErrors()
                     + " fatal error(s). Fix or remove the affected sheet(s) first.");
+        }
+        long unresolved = rowRepository
+                .countByImportHistoryIdAndIssueIsNotNullAndCorrectedIsFalseAndSkippedIsFalse(importId);
+        if (unresolved > 0) {
+            throw ApiException.conflict("Cannot commit: " + unresolved
+                    + " attendance entr(ies) still need review. Correct them or skip them first.");
         }
 
         List<AttendanceImportRow> rows = rowRepository
@@ -943,6 +1132,24 @@ public class HistoricalImportService {
             rec.setSourceSheet(r.getSheetName());
             rec.setSourceRow(r.getSourceRow());
             rec.setSourceFile(h.getFileName());
+            // Descriptions are preserved, never silently overwritten: only a
+            // record that has none yet receives the imported text. The immutable
+            // copy + source metadata keep the original auditable after edits.
+            String stagedDescription = blankToNull(r.getDescription());
+            if (stagedDescription != null && rec.getDescription() == null) {
+                rec.setDescription(stagedDescription);
+                rec.setDescriptionSource(r.getDescriptionSource());
+                rec.setDescriptionSourceSheet(r.getSheetName());
+                rec.setDescriptionSourceCell(a1CellRef(r));
+                rec.setDescriptionSourceAuthor(r.getDescriptionAuthor());
+                rec.setDescriptionImported(stagedDescription);
+                rec.setSourceValue(r.getOriginalStatus());
+                if (rec.getDescriptionCreatedAt() == null) {
+                    rec.setDescriptionCreatedName(r.getDescriptionAuthor() != null
+                            ? r.getDescriptionAuthor() : "Excel import");
+                    rec.setDescriptionCreatedAt(now);
+                }
+            }
             if (isNew) {
                 rec.setImportedAt(now);
                 inserted++;
@@ -1283,7 +1490,7 @@ public class HistoricalImportService {
                 new HistoricalImportDtos.RecordView(r.getId(), r.getEmployeeId(),
                         names.getOrDefault(r.getEmployeeId(), null), r.getAttendanceDate(), r.getStatusCode(),
                         r.getStatusName(), Boolean.TRUE.equals(r.getIsUnknown()), r.getSourceSheet(), r.getSourceRow(),
-                        r.getSourceFile(), r.getImportedAt())).toList();
+                        r.getSourceFile(), r.getImportedAt(), r.getDescription())).toList();
 
         return new HistoricalImportDtos.RecordsPage(views, p.getTotalElements(), p.getNumber(), p.getSize());
     }

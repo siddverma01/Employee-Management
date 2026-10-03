@@ -25,7 +25,7 @@ public final class EmployeeHistoricalAttendanceDtos {
 
     /** One calendar day; {@code statusCode} is null when the day has no record. */
     public record CalendarDay(String date, String statusCode, String statusName,
-                              boolean unknown, boolean weekend) {
+                              boolean unknown, boolean weekend, String description) {
     }
 
     /** Month calendar: every day of the month with its attendance status. */

@@ -549,6 +549,12 @@ export interface RosterStatusDetail {
   createdAt: string | null
   updatedByName: string | null
   updatedAt: string | null
+  descriptionSource: string | null
+  descriptionSourceSheet: string | null
+  descriptionSourceCell: string | null
+  descriptionSourceAuthor: string | null
+  descriptionImported: string | null
+  sourceValue: string | null
   sourceRequestId: number | null
   sourceRequestType: 'LEAVE' | 'SWAP_OFF' | null
   sourceReason: string | null
@@ -654,11 +660,13 @@ export interface HistoricalRowView {
   existingStatus: string | null
   incomingStatus: string
   statusName: string
-  action: 'INSERT' | 'UPDATE' | 'DUPLICATE' | 'INVALID'
+  action: 'INSERT' | 'UPDATE' | 'DUPLICATE' | 'INVALID' | 'SKIPPED'
   warning: string | null
   unknown: boolean
   location: string | null
   shift: string | null
+  description: string | null
+  descriptionSource: string | null
 }
 
 export interface HistoricalPreviewResponse {
@@ -707,6 +715,46 @@ export interface HistoricalMapStagedResponse {
   from: string
   to: string | null
   toName: string | null
+}
+
+/** One staged cell still awaiting the admin's decision. */
+export interface HistoricalUnresolvedEntry {
+  id: number
+  sheetName: string
+  sourceRow: number
+  sourceColumn: number | null
+  cellRef: string | null
+  employeeId: string
+  employeeName: string | null
+  attendanceDate: string | null
+  originalStatus: string | null
+  incomingStatus: string | null
+  statusName: string | null
+  issue: string | null
+  action: string
+  corrected: boolean
+  skipped: boolean
+}
+
+export interface HistoricalUnresolvedSummary {
+  total: number
+  corrected: number
+  skipped: number
+  remaining: number
+}
+
+export interface HistoricalUnresolvedResponse {
+  importId: number
+  summary: HistoricalUnresolvedSummary
+  page: number
+  size: number
+  totalEntries: number
+  entries: HistoricalUnresolvedEntry[]
+}
+
+export interface HistoricalResolveRowResponse {
+  entry: HistoricalUnresolvedEntry
+  summary: HistoricalUnresolvedSummary
 }
 
 export interface HistoricalHistoryItem {
@@ -761,6 +809,7 @@ export interface HistoricalRecordView {
   sourceRow: number | null
   sourceFile: string | null
   importedAt: string
+  description: string | null
 }
 
 export interface HistoricalRecordsPage {
@@ -788,6 +837,7 @@ export interface AttendanceHistoryRecord {
   sourceRow: number | null
   importedAt: string | null
   unknown: boolean
+  description: string | null
 }
 
 export interface AttendanceHistorySummary {
@@ -832,6 +882,7 @@ export interface EmployeeHistoricalCalendarDay {
   statusName: string | null
   unknown: boolean
   weekend: boolean
+  description: string | null
 }
 
 export interface EmployeeHistoricalCalendar {

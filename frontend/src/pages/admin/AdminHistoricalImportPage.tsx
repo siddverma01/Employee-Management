@@ -22,6 +22,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { Pagination } from '@/components/ui/Pagination'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
+import { UnresolvedStatusEditor } from '@/components/historical/UnresolvedStatusEditor'
 
 const ACTION_STYLES: Record<string, string> = {
   INSERT: 'bg-success-50 text-success-700 ring-1 ring-inset ring-emerald-200',
@@ -366,14 +367,14 @@ function WizardPreviewTable({ rows }: { rows: HistoricalRowView[] }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 text-left">
-              {['Employee ID', 'Employee Name', 'Date', 'Status', 'Location', 'Shift', 'Source Sheet', 'Source Row'].map((h) => (
+              {['Employee ID', 'Employee Name', 'Date', 'Status', 'Description', 'Location', 'Shift', 'Source Sheet', 'Source Row'].map((h) => (
                 <th key={h} className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {rows.length === 0 && (
-              <tr><td colSpan={8} className="px-4 py-8 text-center text-surface-500">No preview rows available.</td></tr>
+              <tr><td colSpan={9} className="px-4 py-8 text-center text-surface-500">No preview rows available.</td></tr>
             )}
             {rows.map((r) => (
               <tr key={r.id} className="hover:bg-surface-50">
@@ -381,6 +382,9 @@ function WizardPreviewTable({ rows }: { rows: HistoricalRowView[] }) {
                 <td className="max-w-[200px] px-4 py-3 truncate text-gray-700">{r.employeeName ?? '—'}</td>
                 <td className="whitespace-nowrap px-4 py-3 text-gray-700">{formatDate(r.attendanceDate) ?? '—'}</td>
                 <td className="px-4 py-3"><StatusPill code={r.incomingStatus} unknown={r.unknown} /></td>
+                <td className="max-w-[220px] px-4 py-3 text-gray-600">
+                  {r.description ? <span className="line-clamp-2" title={r.description}>{r.description}</span> : '—'}
+                </td>
                 <td className="max-w-[160px] truncate px-4 py-3 text-gray-600">{r.location ?? '—'}</td>
                 <td className="max-w-[160px] truncate px-4 py-3 text-gray-600">{formatShiftDisplay(r.shift)}</td>
                 <td className="px-4 py-3 text-gray-600">{r.sheetName}</td>
@@ -636,6 +640,17 @@ export default function AdminHistoricalImportPage() {
     queryKey: ['hist-history'],
     queryFn: adminApi.historicalHistory,
   })
+
+  // One shared counter drives the "you may not continue yet" gate. It lives under
+  // the same ['hist-unresolved', importId] prefix the editor invalidates, so
+  // resolving an entry updates the gate without a second round trip.
+  const importId = preview?.importId
+  const { data: unresolved } = useQuery({
+    queryKey: ['hist-unresolved', importId, 'summary'] as const,
+    queryFn: () => adminApi.historicalUnresolved(importId as number, 0, 1),
+    enabled: importId != null,
+  })
+  const remaining = unresolved?.summary.remaining ?? 0
 
   useEffect(() => () => {
     if (timerRef.current) window.clearInterval(timerRef.current)
@@ -908,11 +923,24 @@ export default function AdminHistoricalImportPage() {
           {/* STEP 4 — Status Mapping */}
           {step === 4 && preview && (
             <div className="space-y-5">
+              <UnresolvedStatusEditor
+                importId={preview.importId}
+                statuses={statuses ?? []}
+                onChanged={() => refreshPreview(100)}
+              />
               <StatusMappingStep preview={preview} statuses={statuses ?? []}
                 applying={false} onApplied={() => refreshPreview(100)} />
+              {remaining > 0 && (
+                <div className="rounded-lg border border-warning-2000/30 bg-warning-50/60 px-4 py-3 text-sm text-warning-700">
+                  {remaining.toLocaleString()} entr{remaining === 1 ? 'y' : 'ies'} still need a decision before
+                  this import can continue.
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <Button variant="ghost" onClick={() => setStep(3)}><ChevronLeft className="h-4 w-4" /> Back</Button>
-                <Button onClick={goToPreview}>Continue to Preview <ChevronRight className="h-4 w-4" /></Button>
+                <Button disabled={remaining > 0} onClick={goToPreview}>
+                  Continue to Preview <ChevronRight className="h-4 w-4" />
+                </Button>
               </div>
             </div>
           )}
@@ -926,7 +954,7 @@ export default function AdminHistoricalImportPage() {
               <WizardPreviewTable rows={preview.rows.slice(0, 100)} />
               <div className="flex items-center justify-between">
                 <Button variant="ghost" onClick={() => setStep(4)}><ChevronLeft className="h-4 w-4" /> Back</Button>
-                <Button disabled={errors > 0} onClick={() => setStep(6)}>
+                <Button disabled={errors > 0 || remaining > 0} onClick={() => setStep(6)}>
                   Continue to Import <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
@@ -966,7 +994,7 @@ export default function AdminHistoricalImportPage() {
                   <Button
                     size="md"
                     loading={commitMutation.isPending}
-                    disabled={errors > 0 || importing || !!result}
+                    disabled={errors > 0 || remaining > 0 || importing || !!result}
                     onClick={startImport}
                   >
                     <UploadCloud className="h-4 w-4" />
@@ -974,6 +1002,12 @@ export default function AdminHistoricalImportPage() {
                   </Button>
                   {errors > 0 && (
                     <p className="text-xs text-error-600">Blocked: the workbook has {errors} fatal error(s).</p>
+                  )}
+                  {remaining > 0 && (
+                    <p className="text-xs text-warning-700">
+                      Blocked: {remaining.toLocaleString()} flagged entr{remaining === 1 ? 'y is' : 'ies are'} still
+                      waiting on a correction or a skip.
+                    </p>
                   )}
                 </div>
               </div>

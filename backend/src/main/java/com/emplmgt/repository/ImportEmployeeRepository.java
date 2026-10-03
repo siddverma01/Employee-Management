@@ -48,11 +48,16 @@ public interface ImportEmployeeRepository extends JpaRepository<ImportEmployee, 
      * 2. Have their exit month equal to the selected month (exit date falls in this month)
      * This ensures employees in their exit month appear in the roster even if they
      * have no attendance records yet for that month.
+     *
+     * <p>Deliberately does NOT filter on {@code e.active}: attrition flips that flag,
+     * but a past roster must keep showing whoever actually worked in that month.
+     * Whether an employee belongs in the selected month is decided by the
+     * exit-date window in {@code AttendanceRosterService#monthly}, not by the
+     * current active flag.</p>
      */
     @Query("""
             select e from ImportEmployee e
-            where e.active = TRUE
-              and (:teamId is null or e.teamId = :teamId)
+            where (:teamId is null or e.teamId = :teamId)
               and (:q is null or lower(e.employeeName) like lower(concat('%', cast(:q as string), '%'))
                    or lower(e.employeeId) like lower(concat('%', cast(:q as string), '%')))
               and (:location is null or e.location = :location)
@@ -168,10 +173,16 @@ public interface ImportEmployeeRepository extends JpaRepository<ImportEmployee, 
             """, nativeQuery = true)
     List<ImportEmployee> findAllActiveForDropdown(@Param("q") String q);
 
+    /**
+     * Month-scoped employee picker.
+     *
+     * <p>Not filtered on {@code active}: the range is caller-supplied and may be a
+     * past month, where an employee who has since attrited is still the right
+     * answer. See {@link #findEmployeesForRosterWithExit} for the same reasoning.</p>
+     */
     @Query(value = """
             select e.* from import_employees e
-            where e.active = TRUE
-              and e.employee_id ~ '^[0-9]+$'
+            where e.employee_id ~ '^[0-9]+$'
               and exists (select r.id from attendance_records r
                           where r.employee_id = e.employee_id
                             and r.attendance_date between :from and :to)

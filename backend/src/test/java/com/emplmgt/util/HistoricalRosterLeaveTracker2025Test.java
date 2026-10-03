@@ -166,7 +166,9 @@ class HistoricalRosterLeaveTracker2025Test {
         assertThat(oct.skipped()).isFalse();
         assertThat(oct.headerRow()).isEqualTo(4);
         assertThat(oct.employeeCount()).isEqualTo(29);
-        assertThat(oct.cellCount()).isEqualTo(808);
+        // 808 filled cells plus the 4 grid cells this sheet leaves empty, which are
+        // staged for review rather than dropped.
+        assertThat(oct.cellCount()).isEqualTo(812);
     }
 
     /** Spanning several calendar months is reported, never truncated. */
@@ -269,5 +271,46 @@ class HistoricalRosterLeaveTracker2025Test {
         } catch (Exception e) {
             throw new AssertionError(e);
         }
+    }
+
+    // -------------------------------------------------- cell comments -> descriptions
+
+    /**
+     * The real workbook stores its remarks as modern threaded comments, which
+     * POI cannot read. The parser must pull F5 of June'25 (Sahana's
+     * "LO at 1pm , Informed Anoushka") through as the description for that cell
+     * while keeping the WFH status intact.
+     */
+    @Test
+    void june25ThreadedCommentBecomesCellDescription() {
+        HistoricalRosterParser.SheetResult june = sheet("June'25");
+        HistoricalRosterParser.ParsedRecord record = june.records().stream()
+                .filter(r -> r.sourceRow() == 5 && r.sourceColumn() == 6)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("No record for June'25 cell F5"));
+
+        assertThat(record.employeeId()).isEqualTo("20342230");
+        assertThat(record.statusCode()).isEqualTo("WFH");
+        assertThat(record.description()).isEqualTo("LO at 1pm , Informed Anoushka");
+        assertThat(record.descriptionSource()).isEqualTo(ExcelCommentExtractor.SOURCE_THREADED);
+        assertThat(record.descriptionAuthor()).isEqualTo("Mariyappa, Sahana");
+    }
+
+    /** No description ever surfaces POI's "[Threaded comment] ... placeholder". */
+    @Test
+    void threadedCommentPlaceholderIsNeverStoredAsDescription() {
+        long withDescription = parsed.sheets().stream()
+                .flatMap(s -> s.records().stream())
+                .filter(r -> r.description() != null && !r.description().isBlank())
+                .count();
+        assertThat(withDescription)
+                .as("threaded comments across the workbook become descriptions")
+                .isGreaterThan(200);
+
+        assertThat(parsed.sheets().stream()
+                .flatMap(s -> s.records().stream())
+                .map(HistoricalRosterParser.ParsedRecord::description)
+                .filter(java.util.Objects::nonNull))
+                .noneMatch(d -> d.contains("Your version of Excel"));
     }
 }

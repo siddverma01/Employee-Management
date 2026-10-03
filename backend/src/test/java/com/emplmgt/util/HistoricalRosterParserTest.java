@@ -1,12 +1,16 @@
 package com.emplmgt.util;
 
 import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.Comment;
+import org.apache.poi.ss.usermodel.CreationHelper;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -115,11 +119,16 @@ class HistoricalRosterParserTest {
             text(d1, 4, "SL");
 
             var result = parseWorkbook(wb).get(0);
-            assertThat(result.records()).hasSize(2);
+            // Column 3 is empty, and it is still staged: the admin is asked to
+            // correct or skip it rather than the gap vanishing from the import.
+            assertThat(result.records()).hasSize(3);
             assertThat(result.records().get(0).attendanceDate()).isEqualTo(LocalDate.of(2025, 9, 1));
             assertThat(result.records().get(0).statusCode()).isEqualTo("WK WRK");
-            assertThat(result.records().get(1).attendanceDate()).isEqualTo(LocalDate.of(2025, 9, 3));
-            assertThat(result.records().get(1).statusCode()).isEqualTo("SL");
+            assertThat(result.records().get(1).attendanceDate()).isEqualTo(LocalDate.of(2025, 9, 2));
+            assertThat(result.records().get(1).statusCode()).isNull();
+            assertThat(result.records().get(1).unknown()).isFalse();
+            assertThat(result.records().get(2).attendanceDate()).isEqualTo(LocalDate.of(2025, 9, 3));
+            assertThat(result.records().get(2).statusCode()).isEqualTo("SL");
         }
     }
 
@@ -326,6 +335,84 @@ class HistoricalRosterParserTest {
             assertThat(result.records()).allMatch(r -> r.employeeId().equals("60179401"));
             assertThat(result.warnings())
                     .anyMatch(w -> w.contains("3 repeated header/section row(s)"));
+        }
+    }
+
+    @Test
+    void splitsInlineStatusAndDescriptionOnlyForKnownCodes() throws Exception {
+        try (XSSFWorkbook wb = new XSSFWorkbook()) {
+            CellStyle ds = dateStyle(wb);
+            Sheet s = wb.createSheet("Sep 2025");
+            Row h = s.createRow(0);
+            text(h, 0, "Emp ID");
+            text(h, 1, "Emp Name");
+            dt(h, 2, LocalDate.of(2025, 9, 1), ds);
+            dt(h, 3, LocalDate.of(2025, 9, 2), ds);
+            dt(h, 4, LocalDate.of(2025, 9, 3), ds);
+
+            Row d = s.createRow(1);
+            text(d, 0, "E1");
+            text(d, 1, "Alice");
+            text(d, 2, "WO - Sat-Sun");       // known code + text -> split
+            text(d, 3, "5th Dec PL - RamM");  // cannot split safely -> unparsed
+            text(d, 4, "WFO");                // plain status, no description
+
+            var records = parseWorkbook(wb).get(0).records();
+
+            var split = records.get(0);
+            assertThat(split.statusCode()).isEqualTo("WO");
+            assertThat(split.unknown()).isFalse();
+            assertThat(split.description()).isEqualTo("Sat-Sun");
+            assertThat(split.descriptionSource()).isEqualTo("EXCEL_CELL_TEXT");
+
+            var unparsed = records.get(1);
+            assertThat(unparsed.unknown()).isTrue();
+            assertThat(unparsed.description()).isEqualTo("5th Dec PL - RamM");
+            assertThat(unparsed.descriptionSource()).isEqualTo("IMPORTED_UNPARSED");
+
+            var plain = records.get(2);
+            assertThat(plain.statusCode()).isEqualTo("WFO");
+            assertThat(plain.description()).isNull();
+        }
+    }
+
+    @Test
+    void readsLegacyCellCommentAsDescriptionWithAuthor() throws Exception {
+        try (XSSFWorkbook wb = new XSSFWorkbook()) {
+            CellStyle ds = dateStyle(wb);
+            Sheet s = wb.createSheet("Sep 2025");
+            Row h = s.createRow(0);
+            text(h, 0, "Emp ID");
+            text(h, 1, "Emp Name");
+            dt(h, 2, LocalDate.of(2025, 9, 1), ds);
+
+            Row d = s.createRow(1);
+            text(d, 0, "E1");
+            text(d, 1, "Alice");
+            text(d, 2, "WFO");
+
+            CreationHelper helper = wb.getCreationHelper();
+            org.apache.poi.ss.usermodel.ClientAnchor anchor = helper.createClientAnchor();
+            anchor.setCol1(2);
+            anchor.setRow1(1);
+            anchor.setCol2(3);
+            anchor.setRow2(4);
+            Comment comment = s.createDrawingPatriarch().createCellComment(anchor);
+            comment.setString(helper.createRichTextString("Early Logout - wellness"));
+            comment.setAuthor("Sahana");
+            d.getCell(2).setCellComment(comment);
+
+            // Round-trip so the comment is read exactly as it would be for an
+            // uploaded file, not from the still-mutable in-memory workbook.
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            wb.write(out);
+            try (XSSFWorkbook reopened = new XSSFWorkbook(new ByteArrayInputStream(out.toByteArray()))) {
+                var record = parseWorkbook(reopened).get(0).records().get(0);
+                assertThat(record.statusCode()).isEqualTo("WFO");
+                assertThat(record.description()).isEqualTo("Early Logout - wellness");
+                assertThat(record.descriptionSource()).isEqualTo(ExcelCommentExtractor.SOURCE_LEGACY);
+                assertThat(record.descriptionAuthor()).isEqualTo("Sahana");
+            }
         }
     }
 }

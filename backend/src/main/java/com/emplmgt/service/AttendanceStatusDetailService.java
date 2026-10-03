@@ -79,6 +79,11 @@ public class AttendanceStatusDetailService {
         Instant now = appClock.now();
 
         boolean isNew = rec.getDescription() == null;
+        // Keep whatever was there before the first edit (imported or manual), so
+        // the original text survives an admin correction.
+        if (rec.getDescriptionImported() == null && rec.getDescription() != null) {
+            rec.setDescriptionImported(rec.getDescription());
+        }
         rec.setDescription(reason);
         if (isNew) {
             rec.setDescriptionCreatedBy(actorId);
@@ -161,6 +166,9 @@ private AttendanceRosterDtos.StatusDetail toDetail(AttendanceRecord rec,
                 rec.getEmployeeId(), rec.getAttendanceDate(), rec.getStatusCode(), statusName,
                 rec.getDescription(), rec.getDescriptionCreatedName(), rec.getDescriptionCreatedAt(),
                 rec.getDescriptionUpdatedName(), rec.getDescriptionUpdatedAt(),
+                rec.getDescriptionSource(), rec.getDescriptionSourceSheet(),
+                rec.getDescriptionSourceCell(), rec.getDescriptionSourceAuthor(),
+                rec.getDescriptionImported(), rec.getSourceValue(),
                 source == null ? null : source.requestId(),
                 source == null ? null : source.requestType(),
                 source == null ? null : source.reason(),

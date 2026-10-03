@@ -8,6 +8,7 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.ss.util.CellReference;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -21,6 +22,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Robust, pure parser for heterogeneous multi-sheet attendance workbooks.
@@ -46,7 +49,8 @@ public final class HistoricalRosterParser {
     public record ParsedRecord(int sourceRow, int sourceColumn, String employeeId, String employeeName, String email,
                                String location, String manager, String shift, String weekOff,
                                LocalDate attendanceDate, String rawCode, String normalizedCode,
-                               String statusCode, String statusName, boolean unknown, String warning) {
+                               String statusCode, String statusName, boolean unknown, String warning,
+                               String description, String descriptionSource, String descriptionAuthor) {
     }
 
     /**
@@ -150,13 +154,18 @@ public final class HistoricalRosterParser {
         List<String> global = new ArrayList<>();
         List<SheetResult> out = new ArrayList<>();
         FormulaEvaluator ev = wb.getCreationHelper().createFormulaEvaluator();
+        // Cell comments are the primary carrier of the roster "description".
+        // POI cannot read the modern threaded ones, so they are pulled from the
+        // raw package up front and keyed per sheet by cell reference.
+        Map<String, Map<String, ExcelCommentExtractor.CellComment>> comments =
+                ExcelCommentExtractor.extract(wb);
         for (int i = 0; i < wb.getNumberOfSheets(); i++) {
             Sheet s = wb.getSheetAt(i);
             // Hidden tabs are helper/scratch sheets; they are never the roster an
             // admin means to import, so they are reported as ignored, not broken.
             boolean hidden = wb.isSheetHidden(i) || wb.isSheetVeryHidden(i);
             try {
-                out.add(decodeSheet(s, ev, hidden));
+                out.add(decodeSheet(s, ev, hidden, comments.getOrDefault(s.getSheetName(), Map.of())));
             } catch (Exception e) {
                 global.add("Sheet '" + s.getSheetName() + "' failed to parse and was skipped: " + e.getMessage());
             }
@@ -168,7 +177,8 @@ public final class HistoricalRosterParser {
     // Sheet decoding
     // ------------------------------------------------------------------
 
-    private static SheetResult decodeSheet(Sheet sheet, FormulaEvaluator ev, boolean hidden) {
+    private static SheetResult decodeSheet(Sheet sheet, FormulaEvaluator ev, boolean hidden,
+                                           Map<String, ExcelCommentExtractor.CellComment> sheetComments) {
         String name = sheet.getSheetName();
         if (sheet.getPhysicalNumberOfRows() == 0) {
             return skipped(name, SkipReason.EMPTY_SHEET, "The worksheet has no rows at all.", hidden);
@@ -225,6 +235,7 @@ public final class HistoricalRosterParser {
         int weekdayRows = 0;
         Set<String> seenEmployees = new HashSet<>();
         Set<String> duplicateWarned = new HashSet<>();
+        Set<String> usedCommentRefs = new HashSet<>();
 
         for (int r = h.dayCellsRow + 1; r < fr.rows; r++) {
             // Section / repeated-header rows (e.g. "Emp ID | Emp Name | 1 | 2 | ..."
@@ -268,13 +279,58 @@ public final class HistoricalRosterParser {
             String weekOff = HistoricalImportCodes.normaliseText(fr.text(r, fields.getOrDefault(Field.WEEK_OFF, -1)));
             for (DayColumn dc : days) {
                 String raw = fr.text(r, dc.index);
+                String cellRef = new CellReference(r, dc.index).formatAsString();
+                ExcelCommentExtractor.CellComment note = sheetComments.get(cellRef);
+                if (note != null) {
+                    usedCommentRefs.add(cellRef);
+                }
                 String status = HistoricalImportCodes.normalizeAttendanceStatus(raw);
+                LocalDate date = resolveDate(dc, month);
+
+                // Description sources for this one cell: an inline "STATUS - text"
+                // value and/or a cell comment. When the raw value is a known status
+                // followed by extra text it is split; otherwise the whole original
+                // value is retained and the status left for manual mapping.
+                String description = null;
+                String descriptionSource = null;
+                String descriptionAuthor = null;
+                if (status != null && !HistoricalImportCodes.isKnown(status)) {
+                    InlineSplit split = splitStatusAndText(raw);
+                    if (split != null) {
+                        status = split.code();
+                        description = split.text();
+                        descriptionSource = "EXCEL_CELL_TEXT";
+                    } else {
+                        description = blankToNull(raw);
+                        descriptionSource = "IMPORTED_UNPARSED";
+                    }
+                }
+                if (note != null && note.text() != null && !note.text().isBlank()) {
+                    String noteText = note.text().trim();
+                    if (description == null || description.isBlank()) {
+                        description = noteText;
+                        descriptionSource = note.source();
+                    } else {
+                        // Preserve both without letting either overwrite the other.
+                        description = description + "\n" + noteText;
+                        descriptionSource = "EXCEL_MULTI_SOURCE";
+                    }
+                    if (note.author() != null && !note.author().isBlank()) {
+                        descriptionAuthor = note.author();
+                    }
+                }
+
                 if (status == null) {
-                    // Blank / filler / Excel-blank cells carry no attendance entry.
+                    // The cell sits inside the attendance grid, so a status belongs
+                    // here. Staging it with no status lets the admin correct or skip
+                    // it; dropping it would turn a gap in the workbook into a
+                    // silently missing attendance record.
                     emptyCells++;
+                    records.add(new ParsedRecord(r + 1, dc.index + 1, empId, empName, email, location, manager,
+                            shift, weekOff, date, null, null, null, null, false, "Blank status",
+                            description, descriptionSource, descriptionAuthor));
                     continue;
                 }
-                LocalDate date = resolveDate(dc, month);
                 String warning = null;
                 if (date == null) {
                     warning = "Day " + raw + " is not valid for month " + month + " — skipped.";
@@ -283,7 +339,8 @@ public final class HistoricalRosterParser {
                         date, blankToNull(raw), HistoricalImportCodes.normaliseRaw(raw), status,
                         HistoricalImportCodes.nameOf(status) != null
                                 ? HistoricalImportCodes.nameOf(status) : "Unknown",
-                        !HistoricalImportCodes.isKnown(status), warning));
+                        !HistoricalImportCodes.isKnown(status), warning,
+                        description, descriptionSource, descriptionAuthor));
             }
         }
 
@@ -292,6 +349,13 @@ public final class HistoricalRosterParser {
         }
         if (weekdayRows > 0) {
             warnings.add(weekdayRows + " weekday banner row(s) above a team block were ignored.");
+        }
+        if (sheetComments.size() > usedCommentRefs.size()) {
+            List<String> unused = sheetComments.keySet().stream()
+                    .filter(ref -> !usedCommentRefs.contains(ref)).limit(5).toList();
+            warnings.add((sheetComments.size() - usedCommentRefs.size())
+                    + " comment(s) on cells outside the attendance grid were not imported (e.g. "
+                    + String.join(", ", unused) + ").");
         }
 
         // Surface per-record warnings (e.g. invalid days) on the sheet too.
@@ -309,6 +373,40 @@ public final class HistoricalRosterParser {
                     hidden);
         }
         return ready(name, month, h, fields, days, employeeIds, emptyCells, records, warnings, hidden);
+    }
+
+    /** A recognised status code plus the trailing free text from one cell. */
+    private record InlineSplit(String code, String text) {
+    }
+
+    /**
+     * Conservative split of an inline "STATUS - text" cell such as
+     * {@code "WO - Sat-Sun"} or {@code "FL(Dec 23)"}. Only splits when the
+     * leading token is an <em>exactly recognised</em> status code, so an
+     * unrecognised value is never mangled: it is returned as-is and flagged for
+     * manual mapping instead.
+     */
+    private static final Pattern STATUS_SPLIT = Pattern.compile(
+            "^\\s*([A-Za-z][A-Za-z0-9]{0,11})\\s*(?:[-–—:;.]|\\(|\\[)\\s*(.+?)\\s*[)\\]\\.]?$");
+
+    private static InlineSplit splitStatusAndText(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        Matcher m = STATUS_SPLIT.matcher(raw);
+        if (!m.matches()) {
+            return null;
+        }
+        String codePart = m.group(1);
+        String rest = m.group(2);
+        if (rest == null || rest.isBlank()) {
+            return null;
+        }
+        String canonical = HistoricalImportCodes.canonicalOf(codePart);
+        if (canonical == null) {
+            return null;
+        }
+        return new InlineSplit(canonical, rest.trim());
     }
 
     private static SheetResult skipped(String name, SkipReason reason, String detail, boolean hidden) {

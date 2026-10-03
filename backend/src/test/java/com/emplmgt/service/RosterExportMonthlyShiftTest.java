@@ -76,7 +76,7 @@ class RosterExportMonthlyShiftTest {
         when(employeeRepository.findByEmployeeCodeIn(any())).thenReturn(List.of());
         when(recordRepository.findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(
                 any(), any(), any())).thenReturn(List.of());
-        when(importEmployeeRepository.findRosterEmployees(any(), any(), any(), any(), any(), any()))
+        when(importEmployeeRepository.findEmployeesForRosterWithExit(any(), any(), any(), any(), any(), any()))
                 .thenReturn(List.of(alice));
         service = new RosterExportService(importEmployeeRepository, employeeRepository, departmentRepository,
                 recordRepository, shiftAssignmentRepository, weekOffAssignmentRepository, statusRepository,

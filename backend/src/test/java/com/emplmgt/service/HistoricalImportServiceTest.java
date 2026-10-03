@@ -436,6 +436,47 @@ class HistoricalImportServiceTest {
     }
 
     @Test
+    void commitImportsDescriptionWithoutOverwritingExistingOne() {
+        AttendanceImportHistory h = history("PREVIEWED");
+        when(historyRepository.findById(1L)).thenReturn(Optional.of(h));
+
+        AttendanceImportRow fresh = AttendanceImportRow.builder().importHistory(h).employeeId("E1")
+                .attendanceDate(LocalDate.of(2025, 9, 1)).incomingStatus("WFO").statusName("Work From Office")
+                .isUnknown(false).sheetName("Sep 2025").sourceRow(2).sourceColumn(3).action("INSERT")
+                .description("Early Logout - wellness").descriptionSource("EXCEL_COMMENT")
+                .descriptionAuthor("Sahana").originalStatus("WFO - Early Logout - wellness").build();
+        AttendanceImportRow update = AttendanceImportRow.builder().importHistory(h).employeeId("E2")
+                .attendanceDate(LocalDate.of(2025, 9, 1)).incomingStatus("PL").statusName("Privilege Leave")
+                .isUnknown(false).sheetName("Sep 2025").sourceRow(3).sourceColumn(4).action("UPDATE")
+                .description("imported note").descriptionSource("EXCEL_COMMENT").originalStatus("PL").build();
+        when(rowRepository.findByImportHistoryIdAndActionInOrderByIdAsc(1L, List.of("INSERT", "UPDATE")))
+                .thenReturn(List.of(fresh, update));
+
+        AttendanceRecord hasDescription = AttendanceRecord.builder().employeeId("E2")
+                .attendanceDate(LocalDate.of(2025, 9, 1)).statusCode("WO")
+                .description("manual note from admin").build();
+        when(recordRepository.findByEmployeeIdAndAttendanceDate("E1", LocalDate.of(2025, 9, 1)))
+                .thenReturn(Optional.empty());
+        when(recordRepository.findByEmployeeIdAndAttendanceDate("E2", LocalDate.of(2025, 9, 1)))
+                .thenReturn(Optional.of(hasDescription));
+
+        service.commit(1L, null, 1L);
+
+        // A brand-new record gains the imported description plus its provenance.
+        verify(recordRepository).save(argThat(r -> "E1".equals(r.getEmployeeId())
+                && "Early Logout - wellness".equals(r.getDescription())
+                && "EXCEL_COMMENT".equals(r.getDescriptionSource())
+                && "Early Logout - wellness".equals(r.getDescriptionImported())
+                && "Sahana".equals(r.getDescriptionSourceAuthor())
+                && "C2".equals(r.getDescriptionSourceCell())
+                && "Sep 2025".equals(r.getDescriptionSourceSheet())));
+        // An existing description is never overwritten by a re-import.
+        verify(recordRepository).save(argThat(r -> "E2".equals(r.getEmployeeId())
+                && "manual note from admin".equals(r.getDescription())
+                && r.getDescriptionImported() == null));
+    }
+
+    @Test
     void commitIsIdempotent() {
         AttendanceImportHistory h = history("COMMITTED");
         h.setInsertedRecords(10);
@@ -529,5 +570,243 @@ class HistoricalImportServiceTest {
 
         assertThatThrownBy(() -> service.preview(bad, 1L))
                 .isInstanceOf(ApiException.class);
+    }
+
+    // ------------------------------------------------ MANUAL STATUS RESOLUTION
+
+    /** One valid cell, one unrecognised code, one cell with nothing in it. */
+    private static byte[] bookNeedingReview() throws IOException {
+        try (XSSFWorkbook wb = new XSSFWorkbook()) {
+            CellStyle ds = dateStyle(wb);
+            Sheet s = wb.createSheet("Sep 2025");
+            Row h = s.createRow(0);
+            text(h, 0, "Emp Code");
+            text(h, 1, "Emp Name");
+            for (int i = 0; i < 3; i++) {
+                org.apache.poi.ss.usermodel.Cell c = h.createCell(2 + i);
+                c.setCellValue(java.util.Date.from(LocalDate.of(2025, 9, 1 + i)
+                        .atStartOfDay().atZone(java.time.ZoneId.systemDefault()).toInstant()));
+                c.setCellStyle(ds);
+            }
+            Row a = s.createRow(1);
+            text(a, 0, "E1");
+            text(a, 1, "Alice");
+            text(a, 2, "WFO");
+            text(a, 3, "P");
+            // Column 4 (index 4) is deliberately left empty.
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            wb.write(out);
+            return out.toByteArray();
+        }
+    }
+
+    private AttendanceImportRow unresolvedRow(AttendanceImportHistory h, String original, String issue) {
+        return AttendanceImportRow.builder().importHistory(h).id(7L).employeeId("E1")
+                .employeeName("Alice").attendanceDate(LocalDate.of(2025, 9, 2))
+                .incomingStatus(original).originalStatus(original).statusName("Silver Duty")
+                .isUnknown(true).sheetName("Sep 2025").sourceRow(2).sourceColumn(4)
+                .action("INSERT").issue(issue).build();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void previewFlagsUnrecognisedCellsForManualReview() throws IOException {
+        service.preview(file("sep.xlsx", bookNeedingReview()), 1L);
+
+        org.mockito.ArgumentCaptor<Iterable<AttendanceImportRow>> captor =
+                org.mockito.ArgumentCaptor.forClass(Iterable.class);
+        verify(rowRepository, org.mockito.Mockito.atLeastOnce()).saveAll(captor.capture());
+
+        List<AttendanceImportRow> staged = new java.util.ArrayList<>();
+        captor.getAllValues().forEach(it -> it.forEach(staged::add));
+
+        assertThat(staged).anyMatch(r -> "P".equals(r.getOriginalStatus())
+                && r.getIssue() != null && r.getIssue().contains("Unrecognised"));
+
+        // A cell the workbook left empty must not vanish: it is staged with no status
+        // and an explicit issue, so the admin is asked about it instead of it being
+        // silently dropped at commit time.
+        assertThat(staged).anyMatch(r -> r.getAttendanceDate() != null
+                && (r.getIncomingStatus() == null || r.getIncomingStatus().isBlank())
+                && r.getIssue() != null && r.getIssue().contains("Blank status"));
+    }
+
+    @Test
+    void commitBlockedWhileEntriesAwaitReview() {
+        AttendanceImportHistory h = history("PREVIEWED");
+        when(historyRepository.findById(1L)).thenReturn(Optional.of(h));
+        when(rowRepository.countByImportHistoryIdAndIssueIsNotNullAndCorrectedIsFalseAndSkippedIsFalse(1L))
+                .thenReturn(3L);
+
+        assertThatThrownBy(() -> service.commit(1L, null, 1L))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("3 attendance entr")
+                .hasMessageContaining("Correct them or skip them");
+    }
+
+    @Test
+    void correctRowAppliesChosenStatusAndKeepsOriginalValue() {
+        AttendanceImportHistory h = history("PREVIEWED");
+        when(historyRepository.findById(1L)).thenReturn(Optional.of(h));
+        AttendanceImportRow r = unresolvedRow(h, "P", "Unrecognised status 'P'");
+        when(rowRepository.findById(7L)).thenReturn(Optional.of(r));
+        when(statusRepository.findById("PL"))
+                .thenReturn(Optional.of(new AttendanceStatus("PL", "Privilege Leave", null, "amber")));
+        when(rowRepository.countByImportHistoryIdAndIssueIsNotNullAndCorrectedIsFalseAndSkippedIsFalse(1L))
+                .thenReturn(0L);
+        when(rowRepository.countByImportHistoryIdAndIssueIsNotNullAndCorrectedIsTrue(1L)).thenReturn(1L);
+
+        HistoricalImportDtos.ResolveRowResponse resp =
+                service.correctRow(1L, 7L, "PL");
+
+        assertThat(r.getIncomingStatus()).isEqualTo("PL");
+        assertThat(r.getStatusName()).isEqualTo("Privilege Leave");
+        assertThat(r.getIsUnknown()).isFalse();
+        assertThat(r.getCorrected()).isTrue();
+        assertThat(r.getIssue()).contains("Unrecognised");
+        // The workbook still says "P": the correction is ours, not the file's.
+        assertThat(r.getOriginalStatus()).isEqualTo("P");
+        // Correcting must not turn a blank/odd cell into a fresh insert of the wrong kind.
+        assertThat(r.getAction()).isEqualTo("INSERT");
+        assertThat(resp.summary().corrected()).isEqualTo(1L);
+        assertThat(resp.summary().remaining()).isZero();
+        verify(auditService).record(org.mockito.ArgumentMatchers.eq("HISTORICAL_ROW_CORRECTED"),
+                any(), any(), any(), any());
+    }
+
+    @Test
+    void correctRowRejectsStatusOutsideCentralConfig() {
+        AttendanceImportHistory h = history("PREVIEWED");
+        when(historyRepository.findById(1L)).thenReturn(Optional.of(h));
+        AttendanceImportRow r = unresolvedRow(h, "P", "Unrecognised status 'P'");
+        when(rowRepository.findById(7L)).thenReturn(Optional.of(r));
+        when(statusRepository.findById("HACK")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.correctRow(1L, 7L, "HACK"))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("Unknown status");
+        assertThat(r.getCorrected()).isFalse();
+        assertThat(r.getIssue()).contains("Unrecognised");
+    }
+
+    @Test
+    void correctRowRejectsBlankTarget() {
+        AttendanceImportHistory h = history("PREVIEWED");
+        when(historyRepository.findById(1L)).thenReturn(Optional.of(h));
+        AttendanceImportRow r = unresolvedRow(h, "P", "Unrecognised status 'P'");
+        when(rowRepository.findById(7L)).thenReturn(Optional.of(r));
+
+        assertThatThrownBy(() -> service.correctRow(1L, 7L, "  "))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("Pick a status");
+    }
+
+    @Test
+    void correctRowRejectsRowOwnedByAnotherImport() {
+        AttendanceImportHistory h = history("PREVIEWED");
+        when(historyRepository.findById(1L)).thenReturn(Optional.of(h));
+        AttendanceImportRow r = unresolvedRow(history("PREVIEWED"), "P", "Unrecognised status 'P'");
+        r.getImportHistory().setId(99L);
+        when(rowRepository.findById(7L)).thenReturn(Optional.of(r));
+
+        assertThatThrownBy(() -> service.correctRow(1L, 7L, "PL"))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("does not belong to import");
+    }
+
+    @Test
+    void correctRowRejectsAlreadyResolvedEntry() {
+        AttendanceImportHistory h = history("PREVIEWED");
+        when(historyRepository.findById(1L)).thenReturn(Optional.of(h));
+        AttendanceImportRow r = unresolvedRow(h, "P", "Unrecognised status 'P'");
+        r.setCorrected(true);
+        when(rowRepository.findById(7L)).thenReturn(Optional.of(r));
+
+        assertThatThrownBy(() -> service.correctRow(1L, 7L, "PL"))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("already resolved");
+    }
+
+    @Test
+    void skipRowRecordsExplicitSkipAndTakesRowOutOfCommit() {
+        AttendanceImportHistory h = history("PREVIEWED");
+        when(historyRepository.findById(1L)).thenReturn(Optional.of(h));
+        AttendanceImportRow r = unresolvedRow(h, "P", "Unrecognised status 'P'");
+        when(rowRepository.findById(7L)).thenReturn(Optional.of(r));
+        when(rowRepository.countByImportHistoryIdAndSkippedIsTrue(1L)).thenReturn(1L);
+        when(rowRepository.countByImportHistoryIdAndIssueIsNotNullAndCorrectedIsFalseAndSkippedIsFalse(1L))
+                .thenReturn(0L);
+
+        HistoricalImportDtos.ResolveRowResponse resp = service.skipRow(1L, 7L, "leave was never logged");
+
+        assertThat(r.getSkipped()).isTrue();
+        assertThat(r.getAction()).isEqualTo("SKIPPED");
+        assertThat(r.getCorrected()).isFalse();
+        assertThat(r.getIssue()).contains("skipped: leave was never logged");
+        assertThat(resp.summary().skipped()).isEqualTo(1L);
+        assertThat(resp.summary().remaining()).isZero();
+        verify(auditService).record(org.mockito.ArgumentMatchers.eq("HISTORICAL_ROW_SKIPPED"),
+                any(), any(), any(), any());
+    }
+
+    @Test
+    void unresolvedListsPendingEntriesWithCellReference() {
+        AttendanceImportHistory h = history("PREVIEWED");
+        when(historyRepository.findById(1L)).thenReturn(Optional.of(h));
+        AttendanceImportRow r = unresolvedRow(h, "P", "Unrecognised status 'P'");
+        when(rowRepository
+                .findByImportHistoryIdAndIssueIsNotNullAndCorrectedIsFalseAndSkippedIsFalseOrderByIdAsc(
+                        eq(1L), any()))
+                .thenReturn(new PageImpl<>(List.of(r)));
+        when(rowRepository.countByImportHistoryIdAndIssueIsNotNull(1L)).thenReturn(5L);
+        when(rowRepository.countByImportHistoryIdAndIssueIsNotNullAndCorrectedIsFalseAndSkippedIsFalse(1L))
+                .thenReturn(3L);
+
+        HistoricalImportDtos.UnresolvedResponse resp = service.unresolved(1L, 0, 50);
+
+        assertThat(resp.summary().total()).isEqualTo(5L);
+        assertThat(resp.summary().remaining()).isEqualTo(3L);
+        assertThat(resp.entries()).hasSize(1);
+        assertThat(resp.entries().get(0).cellRef()).isEqualTo("Row 2, Column D");
+        assertThat(resp.entries().get(0).originalStatus()).isEqualTo("P");
+        assertThat(resp.entries().get(0).issue()).contains("Unrecognised");
+        assertThat(resp.entries().get(0).corrected()).isFalse();
+        assertThat(resp.entries().get(0).skipped()).isFalse();
+    }
+
+    /**
+     * The totals have to stay put as entries are resolved. An earlier version
+     * cleared the issue on correction, which quietly shrank "total" and pinned
+     * "corrected" at zero because both counts are keyed off the issue being present.
+     */
+    @Test
+    void resolutionTotalsDoNotDriftOnceAnEntryIsCorrected() {
+        AttendanceImportHistory h = history("PREVIEWED");
+        when(historyRepository.findById(1L)).thenReturn(Optional.of(h));
+        AttendanceImportRow r = unresolvedRow(h, "P", "Unrecognised status 'P'");
+        when(rowRepository.findById(7L)).thenReturn(Optional.of(r));
+        when(statusRepository.findById("PL"))
+                .thenReturn(Optional.of(new AttendanceStatus("PL", "Privilege Leave", null, "amber")));
+        // Both rows stay flagged: one has been corrected, one is still open.
+        when(rowRepository.countByImportHistoryIdAndIssueIsNotNull(1L)).thenReturn(2L);
+        when(rowRepository.countByImportHistoryIdAndIssueIsNotNullAndCorrectedIsTrue(1L)).thenReturn(1L);
+        when(rowRepository.countByImportHistoryIdAndIssueIsNotNullAndCorrectedIsFalseAndSkippedIsFalse(1L))
+                .thenReturn(1L);
+
+        HistoricalImportDtos.ResolveRowResponse resp = service.correctRow(1L, 7L, "PL");
+
+        assertThat(resp.summary().total()).isEqualTo(2L);
+        assertThat(resp.summary().corrected()).isEqualTo(1L);
+        assertThat(resp.summary().remaining()).isEqualTo(1L);
+        // The reason the cell was questioned survives the correction.
+        assertThat(r.getIssue()).contains("Unrecognised");
+    }
+
+    @Test
+    void columnNameWalksPastZ() {
+        assertThat(HistoricalImportService.cellRefFor(1, 7)).isEqualTo("Row 1, Column G");
+        assertThat(HistoricalImportService.cellRefFor(7, 26)).isEqualTo("Row 7, Column Z");
+        assertThat(HistoricalImportService.cellRefFor(7, 27)).isEqualTo("Row 7, Column AA");
+        assertThat(HistoricalImportService.cellRefFor(7, null)).isEqualTo("Row 7");
     }
 }

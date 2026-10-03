@@ -142,7 +142,8 @@ public class EmployeeHistoricalAttendanceService {
                     rec == null ? null : rec.getStatusCode(),
                     rec == null ? null : rec.getStatusName(),
                     rec != null && Boolean.TRUE.equals(rec.getIsUnknown()),
-                    weekend));
+                    weekend,
+                    rec == null ? null : rec.getDescription()));
         }
         return new EmployeeHistoricalAttendanceDtos.Calendar(ym.toString(), days);
     }

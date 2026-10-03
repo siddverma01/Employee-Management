@@ -18,4 +18,16 @@ public interface AttendanceImportRowRepository extends JpaRepository<AttendanceI
     long countByImportHistoryId(Long importId);
 
     long countByImportHistoryIdAndAction(Long importId, String action);
+
+    /** Cells that were staged with an issue and still await correction or skip. */
+    Page<AttendanceImportRow> findByImportHistoryIdAndIssueIsNotNullAndCorrectedIsFalseAndSkippedIsFalseOrderByIdAsc(
+            Long importId, Pageable pageable);
+
+    long countByImportHistoryIdAndIssueIsNotNullAndCorrectedIsFalseAndSkippedIsFalse(Long importId);
+
+    long countByImportHistoryIdAndIssueIsNotNullAndCorrectedIsTrue(Long importId);
+
+    long countByImportHistoryIdAndSkippedIsTrue(Long importId);
+
+    long countByImportHistoryIdAndIssueIsNotNull(Long importId);
 }

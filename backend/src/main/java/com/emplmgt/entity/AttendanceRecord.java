@@ -109,6 +109,31 @@ public class AttendanceRecord {
     @Column(name = "description_updated_at")
     private Instant descriptionUpdatedAt;
 
+    /** Where {@link #description} came from: EXCEL_COMMENT, EXCEL_LEGACY_COMMENT,
+     *  EXCEL_CELL_TEXT, IMPORTED_UNPARSED or MANUAL. Null for pre-existing rows. */
+    @Column(name = "description_source", length = 30)
+    private String descriptionSource;
+
+    /** Source worksheet / cell the imported description was read from. */
+    @Column(name = "description_source_sheet", length = 200)
+    private String descriptionSourceSheet;
+
+    @Column(name = "description_source_cell", length = 20)
+    private String descriptionSourceCell;
+
+    /** Author of the Excel comment, when the source was a comment. */
+    @Column(name = "description_source_author", length = 255)
+    private String descriptionSourceAuthor;
+
+    /** Immutable copy of the imported description, kept when an admin later
+     *  edits or clears {@link #description} so the original stays auditable. */
+    @Column(name = "description_imported", columnDefinition = "TEXT")
+    private String descriptionImported;
+
+    /** Original Excel cell value (status text / raw remark) for traceability. */
+    @Column(name = "source_value", length = 500)
+    private String sourceValue;
+
     /** Id of the approved Leave / Swap Off request that produced or backs this
      *  roster status, paired with {@link #sourceRequestType} (no FK — the id
      *  may reference leave_requests or swap_off_requests). */

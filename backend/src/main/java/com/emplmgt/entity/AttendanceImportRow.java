@@ -32,7 +32,9 @@ import java.time.LocalDate;
 public class AttendanceImportRow {
 
     public enum RowAction {
-        INSERT, UPDATE, DUPLICATE, INVALID
+        INSERT, UPDATE, DUPLICATE, INVALID,
+        /** Admin explicitly chose to leave this cell out of the import. */
+        SKIPPED
     }
 
     @Id
@@ -92,4 +94,38 @@ public class AttendanceImportRow {
     @Column(name = "is_unknown", nullable = false)
     @Builder.Default
     private Boolean isUnknown = Boolean.FALSE;
+
+    @Column(name = "source_column")
+    private Integer sourceColumn;
+
+    /**
+     * The value exactly as it appeared in the workbook, kept even after the admin
+     * corrects {@link #incomingStatus} so the change stays traceable to its cell.
+     */
+    @Column(name = "original_status", length = 60)
+    private String originalStatus;
+
+    /** Why this cell still needs attention, or {@code null} once it is resolved. */
+    @Column(length = 500)
+    private String issue;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean corrected = Boolean.FALSE;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean skipped = Boolean.FALSE;
+
+    /** Description/remark read from the source cell (comment or inline text). */
+    @Column(columnDefinition = "TEXT")
+    private String description;
+
+    /** EXCEL_COMMENT, EXCEL_LEGACY_COMMENT, EXCEL_CELL_TEXT or IMPORTED_UNPARSED. */
+    @Column(name = "description_source", length = 30)
+    private String descriptionSource;
+
+    /** Author of the Excel comment, when the description came from a comment. */
+    @Column(name = "description_author", length = 255)
+    private String descriptionAuthor;
 }

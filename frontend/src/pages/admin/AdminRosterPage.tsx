@@ -228,6 +228,25 @@ function formatDateTime(iso: string | null | undefined): string {
   return `${date}, ${time}`
 }
 
+/** Human label for the stored description provenance code. */
+function describeDescriptionSource(source: string): string {
+  switch (source) {
+    case 'EXCEL_COMMENT':
+    case 'EXCEL_LEGACY_COMMENT':
+      return 'Excel comment'
+    case 'EXCEL_CELL_TEXT':
+      return 'Excel cell text'
+    case 'EXCEL_MULTI_SOURCE':
+      return 'Excel cell text + comment'
+    case 'IMPORTED_UNPARSED':
+      return 'Excel value (unparsed)'
+    case 'MANUAL':
+      return 'Manual'
+    default:
+      return source
+  }
+}
+
 interface DetailPopupState {
   employee: RosterEmployeeRow
   date: string
@@ -345,6 +364,27 @@ function StatusDetailPopup({
       rows.push(detail.updatedAt ? `Updated: ${formatDateTime(detail.updatedAt)}` : '')
     }
     return rows.filter(Boolean)
+  })()
+
+  // Imported-source provenance: shown so an admin edit never hides where the
+  // description originally came from in the workbook.
+  const importedBlock = (() => {
+    if (!detail) return null
+    const parts: string[] = []
+    if (detail.descriptionSource) parts.push(describeDescriptionSource(detail.descriptionSource))
+    if (detail.descriptionSourceAuthor) parts.push(detail.descriptionSourceAuthor)
+    if (detail.descriptionSourceSheet) parts.push(detail.descriptionSourceSheet)
+    if (detail.descriptionSourceCell) parts.push(detail.descriptionSourceCell)
+    const original = detail.descriptionImported && detail.descriptionImported !== (detail.description ?? '')
+      ? detail.descriptionImported
+      : null
+    const rawValue = detail.sourceValue && detail.sourceValue !== (detail.description ?? '') ? detail.sourceValue : null
+    if (parts.length === 0 && !original && !rawValue) return null
+    return {
+      original,
+      line: parts.length > 0 ? `Source: ${parts.join(' · ')}` : null,
+      rawValue,
+    }
   })()
 
   return createPortal(
@@ -501,6 +541,20 @@ function StatusDetailPopup({
                   {auditBlock.map((line) => (
                     <p key={line} className="truncate">{line}</p>
                   ))}
+                </div>
+              )}
+
+              {/* imported-source provenance: preserves the Excel original after edits */}
+              {!loading && !error && importedBlock && (
+                <div className="mt-2.5 space-y-0.5 border-t border-surface-200/70 pt-2 text-[11px] text-surface-500 dark:border-white/[0.06] dark:text-[#8B95A3]">
+                  {importedBlock.original && (
+                    <>
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-surface-400">Imported original</p>
+                      <p className="whitespace-pre-wrap text-surface-600 dark:text-[#B6C0CC]">{importedBlock.original}</p>
+                    </>
+                  )}
+                  <p className="truncate">{importedBlock.line}</p>
+                  {importedBlock.rawValue && <p className="truncate">Original value: {importedBlock.rawValue}</p>}
                 </div>
               )}
             </>

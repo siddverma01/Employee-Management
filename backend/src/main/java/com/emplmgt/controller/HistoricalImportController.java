@@ -58,6 +58,31 @@ public class HistoricalImportController {
         return ResponseEntity.ok(historicalImportService.commit(id, teamId, securityUtils.currentUserId()));
     }
 
+    @GetMapping("/imports/{id}/unresolved")
+    public ResponseEntity<HistoricalImportDtos.UnresolvedResponse> unresolved(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        return ResponseEntity.ok(historicalImportService.unresolved(id, page, size));
+    }
+
+    @PostMapping("/imports/{importId}/rows/{rowId}/correct")
+    public ResponseEntity<HistoricalImportDtos.ResolveRowResponse> correctRow(
+            @PathVariable Long importId,
+            @PathVariable Long rowId,
+            @RequestBody HistoricalImportDtos.ResolveRowRequest request) {
+        return ResponseEntity.ok(historicalImportService.correctRow(importId, rowId, request.status()));
+    }
+
+    @PostMapping("/imports/{importId}/rows/{rowId}/skip")
+    public ResponseEntity<HistoricalImportDtos.ResolveRowResponse> skipRow(
+            @PathVariable Long importId,
+            @PathVariable Long rowId,
+            @RequestBody(required = false) HistoricalImportDtos.SkipRowRequest request) {
+        return ResponseEntity.ok(
+                historicalImportService.skipRow(importId, rowId, request == null ? null : request.reason()));
+    }
+
     @GetMapping("/imports/{id}/report")
     public ResponseEntity<byte[]> report(@PathVariable Long id) {
         String csv = historicalImportService.errorReport(id);

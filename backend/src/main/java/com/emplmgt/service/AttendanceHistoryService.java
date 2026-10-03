@@ -64,7 +64,7 @@ public class AttendanceHistoryService {
             select r.attendanceDate, r.employeeId, e.employeeName, e.teamId, d.name,
                    coalesce(r.location, e.location), coalesce(r.shift, e.defaultShift),
                    r.statusCode, r.statusName, r.sourceSheet, r.sourceFile, r.sourceRow,
-                   r.importedAt, r.isUnknown
+                   r.importedAt, r.isUnknown, r.description
             """ + FROM_JPQL;
 
     private static final String COUNT_JPQL = "select count(r)\n" + FROM_JPQL;
@@ -383,7 +383,8 @@ public class AttendanceHistoryService {
                     (String) row[10],
                     (Integer) row[11],
                     row[12] == null ? null : row[12].toString(),
-                    Boolean.TRUE.equals(row[13])));
+                    Boolean.TRUE.equals(row[13]),
+                    row.length > 14 ? (String) row[14] : null));
         }
         return out;
     }

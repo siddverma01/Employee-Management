@@ -105,7 +105,9 @@ public final class HistoricalImportDtos {
             boolean unknown,
             String location,
             String shift,
-            String weekOff) {
+            String weekOff,
+            String description,
+            String descriptionSource) {
     }
 
     public record PreviewResponse(
@@ -122,6 +124,60 @@ public final class HistoricalImportDtos {
             List<ValidationIssue> issues,
             List<UnknownCodeDetail> unknownCodes,
             List<UnknownValueDetail> unknownValues) {
+    }
+
+    /**
+     * One staged cell that still needs the admin's attention, carrying enough
+     * context to correct it in place: where it came from, what the workbook
+     * actually said, and which way it has been resolved so far.
+     */
+    public record UnresolvedEntry(
+            long id,
+            String sheetName,
+            int sourceRow,
+            Integer sourceColumn,
+            String cellRef,
+            String employeeId,
+            String employeeName,
+            LocalDate attendanceDate,
+            String originalStatus,
+            String incomingStatus,
+            String statusName,
+            String issue,
+            String action,
+            boolean corrected,
+            boolean skipped) {
+    }
+
+    /**
+     * Resolution progress for one staged import. {@code remaining} is the gate:
+     * the commit refuses to run while it is greater than zero.
+     */
+    public record UnresolvedSummary(
+            long total,
+            long corrected,
+            long skipped,
+            long remaining) {
+    }
+
+    public record UnresolvedResponse(
+            long importId,
+            UnresolvedSummary summary,
+            int page,
+            int size,
+            long totalEntries,
+            List<UnresolvedEntry> entries) {
+    }
+
+    public record ResolveRowRequest(String status) {
+    }
+
+    public record SkipRowRequest(String reason) {
+    }
+
+    public record ResolveRowResponse(
+            UnresolvedEntry entry,
+            UnresolvedSummary summary) {
     }
 
     public record CommitResponse(
@@ -208,6 +264,7 @@ public final class HistoricalImportDtos {
             String sourceSheet,
             Integer sourceRow,
             String sourceFile,
-            Instant importedAt) {
+            Instant importedAt,
+            String description) {
     }
 }

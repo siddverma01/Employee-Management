@@ -110,6 +110,7 @@ function SourceModal({ record, onClose }: { record: AttendanceHistoryRecord; onC
     ['Source sheet', record.sourceSheet ?? '—'],
     ['Source row', record.sourceRow != null ? String(record.sourceRow) : '—'],
     ['Imported at', record.importedAt ?? '—'],
+    ['Description', record.description ?? '—'],
   ]
   return (
     <Modal open title="Source information" onClose={onClose} size="sm">
@@ -442,6 +443,7 @@ export function AdminAttendanceHistoryPage() {
                   {SORT_COLUMNS.map((c) => (
                     <ThSort key={c.key} label={c.label} k={c.key} sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                   ))}
+                  <th className="th">Description</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-100">
@@ -476,6 +478,9 @@ export function AdminAttendanceHistoryPage() {
                     </td>
                     <td className="td text-xs text-surface-500">{r.sourceMonth ?? '—'}</td>
                     <td className="td text-xs text-surface-500">{r.sourceSheet ?? '—'}</td>
+                    <td className="td max-w-[240px] text-xs text-surface-500">
+                      {r.description ? <span className="line-clamp-2" title={r.description}>{r.description}</span> : '—'}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -526,6 +531,7 @@ export function AdminAttendanceHistoryPage() {
                         <th className="th">Shift</th>
                         <th className="th">Source Month</th>
                         <th className="th">Source Sheet</th>
+                        <th className="th">Description</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-surface-100">
@@ -542,6 +548,9 @@ export function AdminAttendanceHistoryPage() {
                           <td className="td text-xs text-surface-500">{formatShiftDisplay(r.shift)}</td>
                           <td className="td text-xs text-surface-500">{r.sourceMonth ?? '—'}</td>
                           <td className="td text-xs text-surface-500">{r.sourceSheet ?? '—'}</td>
+                          <td className="td max-w-[240px] text-xs text-surface-500">
+                            {r.description ? <span className="line-clamp-2" title={r.description}>{r.description}</span> : '—'}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
