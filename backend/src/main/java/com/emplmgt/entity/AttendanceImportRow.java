@@ -16,6 +16,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
  * Staged preview row shown to the admin before a historical import is
@@ -128,4 +129,8 @@ public class AttendanceImportRow {
     /** Author of the Excel comment, when the description came from a comment. */
     @Column(name = "description_author", length = 255)
     private String descriptionAuthor;
+
+    /** The comment's own timestamp from the workbook, when it recorded one. */
+    @Column(name = "description_at")
+    private LocalDateTime descriptionAt;
 }

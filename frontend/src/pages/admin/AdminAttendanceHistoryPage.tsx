@@ -111,6 +111,7 @@ function SourceModal({ record, onClose }: { record: AttendanceHistoryRecord; onC
     ['Source row', record.sourceRow != null ? String(record.sourceRow) : '—'],
     ['Imported at', record.importedAt ?? '—'],
     ['Description', record.description ?? '—'],
+    ['Original author', record.descriptionAuthor ?? 'Original author not available'],
   ]
   return (
     <Modal open title="Source information" onClose={onClose} size="sm">

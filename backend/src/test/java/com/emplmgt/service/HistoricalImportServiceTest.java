@@ -444,7 +444,8 @@ class HistoricalImportServiceTest {
                 .attendanceDate(LocalDate.of(2025, 9, 1)).incomingStatus("WFO").statusName("Work From Office")
                 .isUnknown(false).sheetName("Sep 2025").sourceRow(2).sourceColumn(3).action("INSERT")
                 .description("Early Logout - wellness").descriptionSource("EXCEL_COMMENT")
-                .descriptionAuthor("Sahana").originalStatus("WFO - Early Logout - wellness").build();
+                .descriptionAuthor("Sahana").descriptionAt(java.time.LocalDateTime.of(2025, 9, 1, 9, 30))
+                .originalStatus("WFO - Early Logout - wellness").build();
         AttendanceImportRow update = AttendanceImportRow.builder().importHistory(h).employeeId("E2")
                 .attendanceDate(LocalDate.of(2025, 9, 1)).incomingStatus("PL").statusName("Privilege Leave")
                 .isUnknown(false).sheetName("Sep 2025").sourceRow(3).sourceColumn(4).action("UPDATE")
@@ -468,6 +469,7 @@ class HistoricalImportServiceTest {
                 && "EXCEL_COMMENT".equals(r.getDescriptionSource())
                 && "Early Logout - wellness".equals(r.getDescriptionImported())
                 && "Sahana".equals(r.getDescriptionSourceAuthor())
+                && java.time.LocalDateTime.of(2025, 9, 1, 9, 30).equals(r.getDescriptionSourceAt())
                 && "C2".equals(r.getDescriptionSourceCell())
                 && "Sep 2025".equals(r.getDescriptionSourceSheet())));
         // An existing description is never overwritten by a re-import.

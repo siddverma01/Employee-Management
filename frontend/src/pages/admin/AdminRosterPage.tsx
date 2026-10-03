@@ -352,18 +352,31 @@ function StatusDetailPopup({
     }
   }
 
-  const auditBlock = (() => {
+  // True when the current description originated in the imported workbook.
+  const isImportedDescription = !!detail?.descriptionSource && detail.descriptionSource !== 'MANUAL'
+
+  // Attribution: an imported description is credited to the person recorded in
+  // the workbook (never the importer or the current user); a manual one to the
+  // admin who wrote it. Later admin edits are always listed separately.
+  const attributionBlock = (() => {
     if (!detail) return null
     const rows: string[] = []
-    if (detail.createdByName) {
-      rows.push(`Added by: ${detail.createdByName}`)
-      rows.push(detail.createdAt ? `Added: ${formatDateTime(detail.createdAt)}` : '')
+    if (isImportedDescription) {
+      rows.push(`Originally added by: ${detail.descriptionSourceAuthor || 'Original author not available'}`)
+      if (detail.descriptionSourceAt) rows.push(`Added on: ${formatDateTime(detail.descriptionSourceAt)}`)
+      if (detail.updatedByName) rows.push(`Last updated by: ${detail.updatedByName}`)
+      if (detail.updatedAt) rows.push(`Updated on: ${formatDateTime(detail.updatedAt)}`)
+    } else {
+      if (detail.createdByName) {
+        rows.push(`Added by: ${detail.createdByName}`)
+        if (detail.createdAt) rows.push(`Added on: ${formatDateTime(detail.createdAt)}`)
+      }
+      if (detail.updatedByName) {
+        rows.push(`Last updated by: ${detail.updatedByName}`)
+        if (detail.updatedAt) rows.push(`Updated on: ${formatDateTime(detail.updatedAt)}`)
+      }
     }
-    if (detail.updatedByName) {
-      rows.push(`Last updated by: ${detail.updatedByName}`)
-      rows.push(detail.updatedAt ? `Updated: ${formatDateTime(detail.updatedAt)}` : '')
-    }
-    return rows.filter(Boolean)
+    return rows.length > 0 ? rows : null
   })()
 
   // Imported-source provenance: shown so an admin edit never hides where the
@@ -372,7 +385,6 @@ function StatusDetailPopup({
     if (!detail) return null
     const parts: string[] = []
     if (detail.descriptionSource) parts.push(describeDescriptionSource(detail.descriptionSource))
-    if (detail.descriptionSourceAuthor) parts.push(detail.descriptionSourceAuthor)
     if (detail.descriptionSourceSheet) parts.push(detail.descriptionSourceSheet)
     if (detail.descriptionSourceCell) parts.push(detail.descriptionSourceCell)
     const original = detail.descriptionImported && detail.descriptionImported !== (detail.description ?? '')
@@ -535,10 +547,10 @@ function StatusDetailPopup({
                 <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-surface-700 dark:text-[#D5DBE3]">{stored}</p>
               )}
 
-              {/* audit trail */}
-              {!loading && !error && auditBlock && auditBlock.length > 0 && (
+              {/* attribution: original Excel author + timestamp, or the manual audit trail */}
+              {!loading && !error && attributionBlock && attributionBlock.length > 0 && (
                 <div className="mt-2.5 space-y-0.5 border-t border-surface-200/70 pt-2 text-[11px] text-surface-500 dark:border-white/[0.06] dark:text-[#8B95A3]">
-                  {auditBlock.map((line) => (
+                  {attributionBlock.map((line) => (
                     <p key={line} className="truncate">{line}</p>
                   ))}
                 </div>

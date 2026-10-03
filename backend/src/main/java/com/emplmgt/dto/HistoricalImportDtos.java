@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public final class HistoricalImportDtos {
@@ -107,7 +108,9 @@ public final class HistoricalImportDtos {
             String shift,
             String weekOff,
             String description,
-            String descriptionSource) {
+            String descriptionSource,
+            String descriptionAuthor,
+            LocalDateTime descriptionAt) {
     }
 
     public record PreviewResponse(
@@ -265,6 +268,7 @@ public final class HistoricalImportDtos {
             Integer sourceRow,
             String sourceFile,
             Instant importedAt,
-            String description) {
+            String description,
+            String descriptionAuthor) {
     }
 }

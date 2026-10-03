@@ -16,6 +16,7 @@ import lombok.Setter;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
  * One normalised attendance record per employee per day.
@@ -124,6 +125,11 @@ public class AttendanceRecord {
     /** Author of the Excel comment, when the source was a comment. */
     @Column(name = "description_source_author", length = 255)
     private String descriptionSourceAuthor;
+
+    /** The comment's own timestamp from the workbook (threaded comments only);
+     *  null when the source did not record one. Never the import time. */
+    @Column(name = "description_source_at")
+    private LocalDateTime descriptionSourceAt;
 
     /** Immutable copy of the imported description, kept when an admin later
      *  edits or clears {@link #description} so the original stays auditable. */

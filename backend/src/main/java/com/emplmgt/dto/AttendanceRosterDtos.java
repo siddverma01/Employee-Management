@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotNull;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -88,6 +89,7 @@ public final class AttendanceRosterDtos {
                                String updatedByName, Instant updatedAt,
                                String descriptionSource, String descriptionSourceSheet,
                                String descriptionSourceCell, String descriptionSourceAuthor,
+                               LocalDateTime descriptionSourceAt,
                                String descriptionImported, String sourceValue,
                                Long sourceRequestId, String sourceRequestType,
                                String sourceReason, String submittedByName,

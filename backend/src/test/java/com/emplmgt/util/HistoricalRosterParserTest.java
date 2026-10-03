@@ -412,6 +412,7 @@ class HistoricalRosterParserTest {
                 assertThat(record.description()).isEqualTo("Early Logout - wellness");
                 assertThat(record.descriptionSource()).isEqualTo(ExcelCommentExtractor.SOURCE_LEGACY);
                 assertThat(record.descriptionAuthor()).isEqualTo("Sahana");
+                assertThat(record.descriptionAt()).isNull();
             }
         }
     }

@@ -11,6 +11,7 @@ import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.ss.util.CellReference;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
@@ -50,7 +51,8 @@ public final class HistoricalRosterParser {
                                String location, String manager, String shift, String weekOff,
                                LocalDate attendanceDate, String rawCode, String normalizedCode,
                                String statusCode, String statusName, boolean unknown, String warning,
-                               String description, String descriptionSource, String descriptionAuthor) {
+                               String description, String descriptionSource, String descriptionAuthor,
+                               LocalDateTime descriptionAt) {
     }
 
     /**
@@ -294,6 +296,7 @@ public final class HistoricalRosterParser {
                 String description = null;
                 String descriptionSource = null;
                 String descriptionAuthor = null;
+                LocalDateTime descriptionAt = null;
                 if (status != null && !HistoricalImportCodes.isKnown(status)) {
                     InlineSplit split = splitStatusAndText(raw);
                     if (split != null) {
@@ -318,6 +321,7 @@ public final class HistoricalRosterParser {
                     if (note.author() != null && !note.author().isBlank()) {
                         descriptionAuthor = note.author();
                     }
+                    descriptionAt = note.at();
                 }
 
                 if (status == null) {
@@ -328,7 +332,7 @@ public final class HistoricalRosterParser {
                     emptyCells++;
                     records.add(new ParsedRecord(r + 1, dc.index + 1, empId, empName, email, location, manager,
                             shift, weekOff, date, null, null, null, null, false, "Blank status",
-                            description, descriptionSource, descriptionAuthor));
+                            description, descriptionSource, descriptionAuthor, descriptionAt));
                     continue;
                 }
                 String warning = null;
@@ -340,7 +344,7 @@ public final class HistoricalRosterParser {
                         HistoricalImportCodes.nameOf(status) != null
                                 ? HistoricalImportCodes.nameOf(status) : "Unknown",
                         !HistoricalImportCodes.isKnown(status), warning,
-                        description, descriptionSource, descriptionAuthor));
+                        description, descriptionSource, descriptionAuthor, descriptionAt));
             }
         }
 

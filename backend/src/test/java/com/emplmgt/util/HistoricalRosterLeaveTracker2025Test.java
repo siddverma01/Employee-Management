@@ -294,6 +294,8 @@ class HistoricalRosterLeaveTracker2025Test {
         assertThat(record.description()).isEqualTo("LO at 1pm , Informed Anoushka");
         assertThat(record.descriptionSource()).isEqualTo(ExcelCommentExtractor.SOURCE_THREADED);
         assertThat(record.descriptionAuthor()).isEqualTo("Mariyappa, Sahana");
+        assertThat(record.descriptionAt())
+                .isEqualTo(java.time.LocalDateTime.of(2025, 6, 1, 0, 54, 7, 760_000_000));
     }
 
     /** No description ever surfaces POI's "[Threaded comment] ... placeholder". */

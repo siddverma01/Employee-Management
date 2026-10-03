@@ -28,6 +28,7 @@ class ExcelCommentExtractorTest {
             assertThat(f5.text()).isEqualTo("LO at 1pm , Informed Anoushka");
             assertThat(f5.author()).isEqualTo("Mariyappa, Sahana");
             assertThat(f5.source()).isEqualTo(ExcelCommentExtractor.SOURCE_THREADED);
+            assertThat(f5.at()).isEqualTo(java.time.LocalDateTime.of(2025, 6, 1, 0, 54, 7, 760_000_000));
 
             assertThat(comments.values().stream().flatMap(m -> m.values().stream())
                     .map(ExcelCommentExtractor.CellComment::text))

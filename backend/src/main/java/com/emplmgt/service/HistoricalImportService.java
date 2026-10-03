@@ -294,6 +294,7 @@ public class HistoricalImportService {
                         .description(blankToNull(rec.description()))
                         .descriptionSource(blankToNull(rec.descriptionSource()))
                         .descriptionAuthor(blankToNull(rec.descriptionAuthor()))
+                        .descriptionAt(rec.descriptionAt())
                         .build();
                 r.setIssue(unresolvedReason(rec.statusCode(), rec.unknown(), rec.warning()));
                 if (rec.attendanceDate() == null) {
@@ -787,7 +788,8 @@ public class HistoricalImportService {
                     r.getEmployeeId(), r.getEmployeeName(), r.getAttendanceDate(), r.getExistingStatus(),
                     r.getIncomingStatus(), r.getStatusName(), r.getAction(), r.getWarning(),
                     Boolean.TRUE.equals(r.getIsUnknown()), r.getEmployeeLocation(), r.getEmployeeShift(),
-                    r.getEmployeeWeekOff(), r.getDescription(), r.getDescriptionSource()));
+                    r.getEmployeeWeekOff(), r.getDescription(), r.getDescriptionSource(),
+                    r.getDescriptionAuthor(), r.getDescriptionAt()));
         }
         return views;
     }
@@ -1142,6 +1144,7 @@ public class HistoricalImportService {
                 rec.setDescriptionSourceSheet(r.getSheetName());
                 rec.setDescriptionSourceCell(a1CellRef(r));
                 rec.setDescriptionSourceAuthor(r.getDescriptionAuthor());
+                rec.setDescriptionSourceAt(r.getDescriptionAt());
                 rec.setDescriptionImported(stagedDescription);
                 rec.setSourceValue(r.getOriginalStatus());
                 if (rec.getDescriptionCreatedAt() == null) {
@@ -1490,7 +1493,7 @@ public class HistoricalImportService {
                 new HistoricalImportDtos.RecordView(r.getId(), r.getEmployeeId(),
                         names.getOrDefault(r.getEmployeeId(), null), r.getAttendanceDate(), r.getStatusCode(),
                         r.getStatusName(), Boolean.TRUE.equals(r.getIsUnknown()), r.getSourceSheet(), r.getSourceRow(),
-                        r.getSourceFile(), r.getImportedAt(), r.getDescription())).toList();
+                        r.getSourceFile(), r.getImportedAt(), r.getDescription(), r.getDescriptionSourceAuthor())).toList();
 
         return new HistoricalImportDtos.RecordsPage(views, p.getTotalElements(), p.getNumber(), p.getSize());
     }

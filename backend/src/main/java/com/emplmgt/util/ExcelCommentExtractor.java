@@ -18,6 +18,7 @@ import org.w3c.dom.NodeList;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.InputStream;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -61,8 +62,12 @@ public final class ExcelCommentExtractor {
 
     private static final Pattern PERSONS_PART = Pattern.compile("/xl/persons/.*\\.xml");
 
-    /** One comment's text, author and origin. */
-    public record CellComment(String text, String author, String source) {
+    /**
+     * One comment's text, author and origin. {@code at} is the comment's own
+     * creation time when the producer recorded one (threaded comments carry a
+     * {@code dT} attribute); it is null for legacy comments, which have none.
+     */
+    public record CellComment(String text, String author, String source, LocalDateTime at) {
     }
 
     /**
@@ -176,7 +181,8 @@ public final class ExcelCommentExtractor {
                         }
                         String author = persons.get(el.getAttribute("personId"));
                         comments.put(normaliseRef(ref),
-                                new CellComment(text.trim(), blankToNull(author), SOURCE_THREADED));
+                                new CellComment(text.trim(), blankToNull(author), SOURCE_THREADED,
+                                        parseDateTime(el.getAttribute("dT"))));
                     }
                 }
             }
@@ -202,7 +208,8 @@ public final class ExcelCommentExtractor {
                     continue;
                 }
                 String ref = normaliseRef(new CellReference(cell).formatAsString());
-                comments.putIfAbsent(ref, new CellComment(text.trim(), blankToNull(c.getAuthor()), SOURCE_LEGACY));
+                comments.putIfAbsent(ref,
+                        new CellComment(text.trim(), blankToNull(c.getAuthor()), SOURCE_LEGACY, null));
             }
         }
     }
@@ -232,6 +239,18 @@ public final class ExcelCommentExtractor {
 
     private static String blankToNull(String v) {
         return v == null || v.isBlank() ? null : v.trim();
+    }
+
+    /** Best-effort parse of a threaded comment's {@code dT} wall-clock value. */
+    private static LocalDateTime parseDateTime(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalDateTime.parse(raw.trim());
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     private static Document parse(InputStream in) throws Exception {

@@ -553,6 +553,7 @@ export interface RosterStatusDetail {
   descriptionSourceSheet: string | null
   descriptionSourceCell: string | null
   descriptionSourceAuthor: string | null
+  descriptionSourceAt: string | null
   descriptionImported: string | null
   sourceValue: string | null
   sourceRequestId: number | null
@@ -667,6 +668,8 @@ export interface HistoricalRowView {
   shift: string | null
   description: string | null
   descriptionSource: string | null
+  descriptionAuthor: string | null
+  descriptionAt: string | null
 }
 
 export interface HistoricalPreviewResponse {
@@ -810,6 +813,7 @@ export interface HistoricalRecordView {
   sourceFile: string | null
   importedAt: string
   description: string | null
+  descriptionAuthor: string | null
 }
 
 export interface HistoricalRecordsPage {
@@ -838,6 +842,7 @@ export interface AttendanceHistoryRecord {
   importedAt: string | null
   unknown: boolean
   description: string | null
+  descriptionAuthor: string | null
 }
 
 export interface AttendanceHistorySummary {

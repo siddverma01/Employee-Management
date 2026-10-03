@@ -367,14 +367,14 @@ function WizardPreviewTable({ rows }: { rows: HistoricalRowView[] }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 text-left">
-              {['Employee ID', 'Employee Name', 'Date', 'Status', 'Description', 'Location', 'Shift', 'Source Sheet', 'Source Row'].map((h) => (
+              {['Employee ID', 'Employee Name', 'Date', 'Status', 'Description', 'Original Author', 'Location', 'Shift', 'Source Sheet', 'Source Row'].map((h) => (
                 <th key={h} className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {rows.length === 0 && (
-              <tr><td colSpan={9} className="px-4 py-8 text-center text-surface-500">No preview rows available.</td></tr>
+              <tr><td colSpan={10} className="px-4 py-8 text-center text-surface-500">No preview rows available.</td></tr>
             )}
             {rows.map((r) => (
               <tr key={r.id} className="hover:bg-surface-50">
@@ -384,6 +384,11 @@ function WizardPreviewTable({ rows }: { rows: HistoricalRowView[] }) {
                 <td className="px-4 py-3"><StatusPill code={r.incomingStatus} unknown={r.unknown} /></td>
                 <td className="max-w-[220px] px-4 py-3 text-gray-600">
                   {r.description ? <span className="line-clamp-2" title={r.description}>{r.description}</span> : '—'}
+                </td>
+                <td className="max-w-[160px] truncate px-4 py-3 text-gray-600">
+                  {r.descriptionAuthor
+                    ? <span title={r.descriptionAt ?? undefined}>{r.descriptionAuthor}</span>
+                    : (r.description ? <span className="text-surface-400">Original author not available</span> : '—')}
                 </td>
                 <td className="max-w-[160px] truncate px-4 py-3 text-gray-600">{r.location ?? '—'}</td>
                 <td className="max-w-[160px] truncate px-4 py-3 text-gray-600">{formatShiftDisplay(r.shift)}</td>

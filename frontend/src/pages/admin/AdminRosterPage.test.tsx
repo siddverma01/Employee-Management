@@ -123,6 +123,7 @@ function detail(overrides: Partial<RosterStatusDetail> = {}): RosterStatusDetail
     descriptionSourceSheet: null,
     descriptionSourceCell: null,
     descriptionSourceAuthor: null,
+    descriptionSourceAt: null,
     descriptionImported: null,
     sourceValue: null,
     sourceRequestId: 11,
@@ -254,6 +255,92 @@ describe('AdminRosterPage CO status detail', () => {
     expect(dialog.getByText('Description')).toBeInTheDocument()
     expect(dialog.getByRole('textbox')).toBeInTheDocument()
   })
+  it('shows the original Excel author and timestamp for an imported description', async () => {
+    vi.mocked(adminApi.rosterStatusDetail).mockResolvedValue(
+      detail({
+        sourceRequestId: null,
+        sourceRequestType: null,
+        sourceReason: null,
+        submittedByName: null,
+        approvedByName: null,
+        approvedAt: null,
+        hpeHolidayName: null,
+        hpeHolidayDate: null,
+        description: 'Worked on behalf of another engineer',
+        descriptionSource: 'EXCEL_COMMENT',
+        descriptionSourceSheet: "June'25",
+        descriptionSourceCell: 'F5',
+        descriptionSourceAuthor: 'John Smith',
+        descriptionSourceAt: '2025-06-01T00:54:07.76',
+        descriptionImported: 'Worked on behalf of another engineer',
+      }),
+    )
+    renderPage()
+    await openCoCell('Alice')
+
+    await waitFor(() =>
+      expect(screen.getByText(/Originally added by: John Smith/)).toBeInTheDocument(),
+    )
+    expect(screen.getByText(/Added on:/)).toBeInTheDocument()
+    expect(screen.getByText(/Source: Excel comment/)).toBeInTheDocument()
+  })
+
+  it('marks the original author unavailable when the workbook recorded none', async () => {
+    vi.mocked(adminApi.rosterStatusDetail).mockResolvedValue(
+      detail({
+        sourceRequestId: null,
+        sourceRequestType: null,
+        sourceReason: null,
+        submittedByName: null,
+        approvedByName: null,
+        approvedAt: null,
+        hpeHolidayName: null,
+        hpeHolidayDate: null,
+        description: 'Logged out early',
+        descriptionSource: 'EXCEL_LEGACY_COMMENT',
+        descriptionSourceAuthor: null,
+        descriptionSourceAt: null,
+        descriptionImported: 'Logged out early',
+      }),
+    )
+    renderPage()
+    await openCoCell('Alice')
+
+    await waitFor(() =>
+      expect(screen.getByText(/Originally added by: Original author not available/)).toBeInTheDocument(),
+    )
+    expect(screen.queryByText(/Added on:/)).not.toBeInTheDocument()
+  })
+
+  it('keeps the imported original visible, separately from a later admin edit', async () => {
+    vi.mocked(adminApi.rosterStatusDetail).mockResolvedValue(
+      detail({
+        sourceRequestId: null,
+        sourceRequestType: null,
+        sourceReason: null,
+        submittedByName: null,
+        approvedByName: null,
+        approvedAt: null,
+        hpeHolidayName: null,
+        hpeHolidayDate: null,
+        description: 'Corrected wording',
+        descriptionSource: 'EXCEL_COMMENT',
+        descriptionSourceAuthor: 'John Smith',
+        descriptionImported: 'Worked on behalf of another engineer',
+        updatedByName: 'Admin User',
+        updatedAt: '2025-07-01T09:00:00Z',
+      }),
+    )
+    renderPage()
+    await openCoCell('Alice')
+
+    await waitFor(() => expect(screen.getByText('Imported original')).toBeInTheDocument())
+    expect(screen.getByText('Worked on behalf of another engineer')).toBeInTheDocument()
+    expect(screen.getByText(/Originally added by: John Smith/)).toBeInTheDocument()
+    expect(screen.getByText(/Last updated by: Admin User/)).toBeInTheDocument()
+    expect(screen.getByText(/Updated on:/)).toBeInTheDocument()
+  })
+
   // Regression: a manually edited cell used to gain a coloured outline utility
   // that sat on top of the status fill. An edited cell must now be visually
   // identical to any other cell — only the status code it reports changes.
