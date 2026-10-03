@@ -53,7 +53,7 @@ docker compose --env-file .env up -d --build
 
 On first boot (with `APP_SEED_ENABLED=true` in dev) the backend seeds:
 - Admin (login-only, no employee profile): `admin@emplmgt.com` / `Admin@123`
-- 23 HPE Voice team employees (`employeeCode` = Emp ID, e.g. `masher.choudhary-ext@hpe.com`) / `Welcome@123`
+- 22 HPE Voice team employees (`employeeCode` = Emp ID, e.g. `masher.choudary-ext@hpe.com`) / `Welcome@123`
 
 ### Local development (without Docker)
 
