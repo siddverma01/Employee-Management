@@ -1,14 +1,15 @@
 import { api } from './client'
 import type {
   AdminSummary, AssignableEngineer, Attendance, AttendanceHistoryMeta, AttendanceHistoryResponse, AuditLog, AuthUser, CalendarEvent, ChartData, CompanyEvent, CreateEventRequest, Department,
-  EmployeeDashboard, EmployeeHistoricalAttendance, Holiday, HistoricalCommitResponse, HistoricalHistoryItem,
+  EmployeeDashboard, EmployeeHistoricalAttendance, Holiday, HistoricalBulkResolveResponse, HistoricalCommitResponse, HistoricalHistoryItem,
   HistoricalInspectResponse, HistoricalMapStagedRequest, HistoricalMapStagedResponse, HistoricalMapUnknownResponse,
   HistoricalPreviewResponse, HistoricalRecordsPage, HistoricalResolveRowResponse, HistoricalStatusItem,
-  HistoricalUnknownCode, HistoricalUnresolvedResponse, HPEEntitlement, ImportCommit,
+  HistoricalUnknownCode, HistoricalUnresolvedResponse, HistoricalReviewState, HPEEntitlement, ImportCommit,
   ImportHistoryItem, ImportPreview, ImportUpload, Leave,
   LeaveBalance, LoginResponse, NotificationItem, PageResponse, Profile, RosterBatchSaveResult,
   RosterCellEdit, RosterImportPreview, RosterMonthData, RosterMonthlyData, RosterPageMeta, RosterRowSave, RosterSaveResult,
   RosterStatusDetail, RosterTodayData, ScopeType, SwapOff, TeamDashboard, TodayStatus, UpcomingEvent, UpcomingEventsResponse, UpcomingItem,
+  AnalyticsQuery, EmployeeStatsResponse, EmployeeDetailResponse, AnalyticsMetaResponse, AnalyticsExportRequest,
 } from '@/types'
 
 export const authApi = {
@@ -261,14 +262,32 @@ export const adminApi = {
       .then((r) => r.data),
   historicalMapStaged: (importId: number, body: HistoricalMapStagedRequest) =>
     api.post<HistoricalMapStagedResponse>(`/admin/historical/imports/${importId}/map`, body).then((r) => r.data),
-  historicalUnresolved: (importId: number, page = 0, size = 50) =>
-    api.get<HistoricalUnresolvedResponse>(`/admin/historical/imports/${importId}/unresolved`, { params: { page, size } })
-      .then((r) => r.data),
+  historicalUnresolved: (
+    importId: number,
+    page = 0,
+    size = 50,
+    params?: { search?: string; category?: string; state?: HistoricalReviewState },
+  ) =>
+    api.get<HistoricalUnresolvedResponse>(`/admin/historical/imports/${importId}/unresolved`, {
+      params: {
+        page,
+        size,
+        search: params?.search || undefined,
+        category: params?.category || undefined,
+        state: params?.state || undefined,
+      },
+    }).then((r) => r.data),
   historicalCorrectRow: (importId: number, rowId: number, status: string) =>
     api.post<HistoricalResolveRowResponse>(`/admin/historical/imports/${importId}/rows/${rowId}/correct`, { status })
       .then((r) => r.data),
   historicalSkipRow: (importId: number, rowId: number, reason?: string) =>
     api.post<HistoricalResolveRowResponse>(`/admin/historical/imports/${importId}/rows/${rowId}/skip`, { reason })
+      .then((r) => r.data),
+  historicalBulkResolve: (
+    importId: number,
+    body: { rowIds?: number[]; status?: string; reason?: string; skip?: boolean; search?: string; category?: string },
+  ) =>
+    api.post<HistoricalBulkResolveResponse>(`/admin/historical/imports/${importId}/rows/bulk-resolve`, body)
       .then((r) => r.data),
   historicalReport: (importId: number) =>
     api.get<Blob>(`/admin/historical/imports/${importId}/report`, { responseType: 'blob' }).then((r) => r.data),
@@ -298,5 +317,16 @@ export const adminApi = {
   employeeHistoricalAttendance: (id: number, month?: string) =>
     api.get<EmployeeHistoricalAttendance>(`/admin/employees/${id}/historical-attendance`, {
       params: { month: month ?? undefined },
+    }).then((r) => r.data),
+
+  analyticsMeta: (params?: { month?: number; year?: number; teamId?: number }) =>
+    api.get<AnalyticsMetaResponse>('/admin/analytics/meta', { params }).then((r) => r.data),
+  analyticsEmployees: (query: AnalyticsQuery) =>
+    api.post<EmployeeStatsResponse>('/admin/analytics/employees', query).then((r) => r.data),
+  analyticsEmployeeDetail: (employeeCode: string) =>
+    api.get<EmployeeDetailResponse>(`/admin/analytics/employees/${employeeCode}`).then((r) => r.data),
+  analyticsExport: (request: AnalyticsExportRequest) =>
+    api.post<Blob>('/admin/analytics/export', request, {
+      responseType: 'blob',
     }).then((r) => r.data),
 }

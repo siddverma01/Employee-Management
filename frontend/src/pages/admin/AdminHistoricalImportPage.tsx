@@ -54,11 +54,14 @@ function StatusPill({ code, unknown }: { code: string; unknown?: boolean }) {
   )
 }
 
-function SummaryStat({ label, value, accent }: { label: string; value: number | string; accent?: boolean }) {
+function SummaryStat({ label, value, accent }: { label: string; value: number | string | null | undefined; accent?: boolean }) {
+  // Tolerate a missing field: a stat that a build/response does not carry must
+  // render as 0 rather than crashing the whole route with undefined.toLocaleString().
+  const display = value == null ? '0' : value.toLocaleString()
   return (
     <div className="rounded-lg border border-surface-200 bg-surface-0 px-4 py-3">
       <div className={cn('text-2xl font-bold tabular-nums', accent ? 'text-brand-600' : 'text-surface-800')}>
-        {value.toLocaleString()}
+        {display}
       </div>
       <div className="mt-0.5 text-xs font-medium text-surface-500">{label}</div>
     </div>
@@ -71,7 +74,7 @@ function formatBytes(n: number) {
   return `${(n / (1024 * 1024)).toFixed(2)} MB`
 }
 
-const STEPS = ['Upload', 'Analysis', 'Validation', 'Status Mapping', 'Preview', 'Import', 'Result'] as const
+const STEPS = ['Upload', 'Analysis', 'Validation', 'Status Mapping', 'Making', 'Preview', 'Review & Import', 'Result'] as const
 const IMPORT_STAGES = [
   'Reading workbook…',
   'Analyzing sheets…',
@@ -403,21 +406,27 @@ function WizardPreviewTable({ rows }: { rows: HistoricalRowView[] }) {
   )
 }
 
-function ResultStep({ result, importId, onImportDetails, showDetails, onDownload, onClose }: {
+export function ResultStep({ result, importId, onImportDetails, showDetails, onDownload, onClose }: {
   result: HistoricalCommitResponse; importId: number;
   onImportDetails: () => void; showDetails: boolean; onDownload: () => void; onClose: () => void;
 }) {
+  // Read defensively: a response that is missing a field must degrade to 0, not
+  // throw inside render and blank the route.
   const r = result.result
+  const num = (v: number | undefined) => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
   const stats = [
-    { label: 'Employees', value: r.employees },
-    { label: 'Attendance Records', value: r.attendanceRecords },
-    { label: 'Inserted', value: r.inserted, accent: true },
-    { label: 'Updated', value: r.updated, accent: true },
-    { label: 'Duplicates skipped', value: r.duplicatesSkipped },
-    { label: 'Warnings', value: r.warnings, accent: r.warnings > 0 },
-    { label: 'Unknown statuses', value: r.unknownStatuses, accent: r.unknownStatuses > 0 },
-    { label: 'Failed rows', value: r.failedRows, accent: r.failedRows > 0 },
+    { label: 'Employees', value: num(r?.employees) },
+    { label: 'Attendance Records', value: num(r?.records) },
+    { label: 'Inserted', value: num(r?.inserted), accent: true },
+    { label: 'Updated', value: num(r?.updated), accent: true },
+    { label: 'Duplicates skipped', value: num(r?.duplicatesSkipped) },
+    { label: 'Manually corrected', value: num(r?.corrected), accent: num(r?.corrected) > 0 },
+    { label: 'Explicitly skipped', value: num(r?.skipped) },
+    { label: 'Warnings', value: num(r?.warnings), accent: num(r?.warnings) > 0 },
+    { label: 'Unknown statuses', value: num(r?.unknownStatuses), accent: num(r?.unknownStatuses) > 0 },
+    { label: 'Failed rows', value: num(r?.failedRows), accent: num(r?.failedRows) > 0 },
   ]
+  const sheetDetails = result.summary?.sheetDetails ?? []
   return (
     <div className="space-y-5">
       <div className="flex items-start gap-3 rounded-lg border border-success-2000/30 bg-success-50 px-4 py-3">
@@ -425,7 +434,11 @@ function ResultStep({ result, importId, onImportDetails, showDetails, onDownload
         <div>
           <p className="text-sm font-semibold text-success-800">Import completed successfully</p>
           <p className="text-xs text-success-700">
-            {result.originalFileName} was committed in a single transaction ({result.committedRows.toLocaleString()} rows).
+            {result.originalFileName ?? result.fileName ?? 'Workbook'} was committed in a single transaction
+            ({(result.committedRows ?? 0).toLocaleString()} rows).
+          </p>
+          <p className="mt-1 text-xs text-success-700">
+            Status: {result.status ?? 'COMMITTED'} · Imported {formatDateTime(result.importedAt)}
           </p>
         </div>
       </div>
@@ -434,8 +447,8 @@ function ResultStep({ result, importId, onImportDetails, showDetails, onDownload
         {stats.map((it) => <SummaryStat key={it.label} {...it} />)}
       </div>
 
-      {showDetails && result.summary.sheetDetails.length > 0 && (
-        <AnalysisTable analysis={result.summary.sheetDetails} />
+      {showDetails && sheetDetails.length > 0 && (
+        <AnalysisTable analysis={sheetDetails} />
       )}
 
       <div className="flex flex-wrap items-center gap-2">
@@ -626,6 +639,7 @@ export default function AdminHistoricalImportPage() {
   const queryClient = useQueryClient()
   const { teams } = useTeam()
   const timerRef = useRef<number | null>(null)
+  const submittingRef = useRef(false)
 
   const [tab, setTab] = useState<'import' | 'history' | 'unknown' | 'records'>('import')
   const [step, setStep] = useState(1)
@@ -678,20 +692,38 @@ export default function AdminHistoricalImportPage() {
     onError: (e) => toast.error(extractMessage(e)),
   })
 
+  const applyCommitResult = (c: HistoricalCommitResponse) => {
+    submittingRef.current = false
+    if (timerRef.current) window.clearInterval(timerRef.current)
+    setProgressStage(IMPORT_STAGES.length)
+    setResult(c)
+    setShowDetails(false)
+    setStep(8)
+    queryClient.invalidateQueries({ queryKey: ['hist-history'] })
+    queryClient.invalidateQueries({ queryKey: ['hist-unknown-codes'] })
+    toast.success(`Committed ${c.committedRows.toLocaleString()} record(s).`)
+  }
+
   const commitMutation = useMutation({
     mutationFn: ({ id, teamId }: { id: number; teamId?: number | null }) => adminApi.historicalCommit(id, teamId),
-    onSuccess: (c) => {
+    onSuccess: (c) => applyCommitResult(c),
+    onError: async (e, { id, teamId }) => {
       if (timerRef.current) window.clearInterval(timerRef.current)
-      setProgressStage(IMPORT_STAGES.length)
-      setResult(c)
-      setShowDetails(false)
-      setStep(7)
-      queryClient.invalidateQueries({ queryKey: ['hist-history'] })
-      queryClient.invalidateQueries({ queryKey: ['hist-unknown-codes'] })
-      toast.success(`Committed ${c.committedRows.toLocaleString()} record(s).`)
-    },
-    onError: (e) => {
-      if (timerRef.current) window.clearInterval(timerRef.current)
+      // A dropped connection does not mean the commit failed: the backend keeps
+      // working inside its transaction, and commit is idempotent. Before showing
+      // an error (and before the admin retries into a second import), ask the
+      // history whether this import actually finished and show the result if so.
+      try {
+        const all = await adminApi.historicalHistory()
+        const done = all.find((x) => x.id === id && x.status === 'COMMITTED')
+        if (done) {
+          applyCommitResult(await adminApi.historicalCommit(id, teamId))
+          return
+        }
+      } catch {
+        // Fall through to the original error.
+      }
+      submittingRef.current = false
       setProgressStage(-1)
       toast.error(extractMessage(e))
     },
@@ -721,7 +753,7 @@ export default function AdminHistoricalImportPage() {
   }
 
   const goToPreview = async () => {
-    setStep(5)
+    setStep(6)
     if (!preview) return
     try {
       const p = await adminApi.historicalPreviewOf(preview.importId, 0, 100)
@@ -732,7 +764,8 @@ export default function AdminHistoricalImportPage() {
   }
 
   const startImport = () => {
-    if (!preview) return
+    if (!preview || submittingRef.current) return
+    submittingRef.current = true
     setProgressStage(0)
     timerRef.current = window.setInterval(() => {
       setProgressStage((s) => Math.min(s + 1, IMPORT_STAGES.length - 1))
@@ -744,6 +777,7 @@ export default function AdminHistoricalImportPage() {
   }
 
   const reset = () => {
+    submittingRef.current = false
     if (timerRef.current) window.clearInterval(timerRef.current)
     setStep(1)
     setFile(null)
@@ -788,7 +822,7 @@ export default function AdminHistoricalImportPage() {
     <div>
       <PageHeader
         title="Import Historical Attendance"
-        subtitle="Seven-step wizard: upload a workbook, review the per-sheet analysis and validation, map unknown statuses, preview every row, then commit in a single transaction."
+        subtitle="Eight-step wizard: upload a workbook, review the per-sheet analysis and validation, map unknown statuses, resolve every flagged entry in Making, preview every row, then commit in a single transaction."
       />
 
       <div className="mb-5 flex flex-wrap gap-1 border-b border-surface-200">
@@ -928,13 +962,25 @@ export default function AdminHistoricalImportPage() {
           {/* STEP 4 — Status Mapping */}
           {step === 4 && preview && (
             <div className="space-y-5">
+              <StatusMappingStep preview={preview} statuses={statuses ?? []}
+                applying={false} onApplied={() => refreshPreview(100)} />
+              <div className="flex items-center justify-between">
+                <Button variant="ghost" onClick={() => setStep(3)}><ChevronLeft className="h-4 w-4" /> Back</Button>
+                <Button onClick={() => setStep(5)}>
+                  Continue to Making <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 5 — Making: every flagged entry must be corrected or skipped */}
+          {step === 5 && preview && (
+            <div className="space-y-5">
               <UnresolvedStatusEditor
                 importId={preview.importId}
                 statuses={statuses ?? []}
                 onChanged={() => refreshPreview(100)}
               />
-              <StatusMappingStep preview={preview} statuses={statuses ?? []}
-                applying={false} onApplied={() => refreshPreview(100)} />
               {remaining > 0 && (
                 <div className="rounded-lg border border-warning-2000/30 bg-warning-50/60 px-4 py-3 text-sm text-warning-700">
                   {remaining.toLocaleString()} entr{remaining === 1 ? 'y' : 'ies'} still need a decision before
@@ -942,7 +988,7 @@ export default function AdminHistoricalImportPage() {
                 </div>
               )}
               <div className="flex items-center justify-between">
-                <Button variant="ghost" onClick={() => setStep(3)}><ChevronLeft className="h-4 w-4" /> Back</Button>
+                <Button variant="ghost" onClick={() => setStep(4)}><ChevronLeft className="h-4 w-4" /> Back</Button>
                 <Button disabled={remaining > 0} onClick={goToPreview}>
                   Continue to Preview <ChevronRight className="h-4 w-4" />
                 </Button>
@@ -950,29 +996,29 @@ export default function AdminHistoricalImportPage() {
             </div>
           )}
 
-          {/* STEP 5 — Preview */}
-          {step === 5 && preview && (
+          {/* STEP 6 — Preview */}
+          {step === 6 && preview && (
             <div className="space-y-5">
               <p className="text-sm text-surface-600">
                 Showing the first {preview.rows.length.toLocaleString()} of {preview.totalRows.toLocaleString()} records.
               </p>
               <WizardPreviewTable rows={preview.rows.slice(0, 100)} />
               <div className="flex items-center justify-between">
-                <Button variant="ghost" onClick={() => setStep(4)}><ChevronLeft className="h-4 w-4" /> Back</Button>
-                <Button disabled={errors > 0 || remaining > 0} onClick={() => setStep(6)}>
-                  Continue to Import <ChevronRight className="h-4 w-4" />
+                <Button variant="ghost" onClick={() => setStep(5)}><ChevronLeft className="h-4 w-4" /> Back</Button>
+                <Button disabled={errors > 0 || remaining > 0} onClick={() => setStep(7)}>
+                  Continue to Review &amp; Import <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
             </div>
           )}
 
-          {/* STEP 6 — Import */}
-          {step === 6 && preview && (
+          {/* STEP 7 — Review & Import */}
+          {step === 7 && preview && (
             <div className="space-y-5">
               {result && (
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-success-2000/30 bg-success-50 px-4 py-3">
                   <p className="text-sm text-success-700">This import has already been committed successfully.</p>
-                  <Button size="sm" variant="secondary" onClick={() => setStep(7)}>View Result</Button>
+                  <Button size="sm" variant="secondary" onClick={() => setStep(8)}>View Result</Button>
                 </div>
               )}
               <div className="rounded-lg border border-surface-200 bg-surface-0 p-5">
@@ -1043,13 +1089,13 @@ export default function AdminHistoricalImportPage() {
               )}
 
               <div className="flex justify-between">
-                <Button variant="ghost" onClick={() => setStep(5)} disabled={importing}><ChevronLeft className="h-4 w-4" /> Back</Button>
+                <Button variant="ghost" onClick={() => setStep(6)} disabled={importing}><ChevronLeft className="h-4 w-4" /> Back</Button>
               </div>
             </div>
           )}
 
-          {/* STEP 7 — Result */}
-          {step === 7 && result && (
+          {/* STEP 8 — Result */}
+          {step === 8 && result && (
             <ResultStep result={result} importId={result.importId}
               showDetails={showDetails}
               onImportDetails={() => setShowDetails((v) => !v)}

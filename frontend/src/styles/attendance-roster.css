@@ -1,0 +1,53 @@
+/*
+ * Attendance Roster — page-scoped theme layer.
+ * ============================================================================
+ * Scoped to `.attendance-roster`. Dark rules are gated on `.dark`, the app's
+ * existing and only theme state (`<html class="dark">` + localStorage +
+ * color-scheme). No second theme state and no `data-theme` attribute.
+ *
+ * Geometry is deliberately NOT here: column widths, row heights, sticky offsets
+ * and typography are identical in both themes by design, so they live in the
+ * component as utilities. Only colour, border and shadow decisions belong here.
+ *
+ * No `!important` and no blanket element selectors — every rule is anchored to
+ * the page root, so nothing can leak into another screen.
+ */
+
+.dark .attendance-roster {
+  background-color: rgb(var(--roster-card));
+}
+
+/* KPI summary cards and the legend disclosure panel share one card treatment:
+   hairline border, no heavy shadow, so the header row stays quiet. */
+.dark .attendance-roster .roster-kpi,
+.dark .attendance-roster .roster-legend-panel {
+  background-color: rgb(var(--roster-card));
+  border-color: rgb(var(--roster-kpi-border));
+}
+
+/* KPI label + count are theme-aware text, never a hardcoded hex. */
+.dark .attendance-roster .roster-kpi-count {
+  color: rgb(var(--hpe-surface-800));
+}
+.dark .attendance-roster .roster-kpi-label {
+  color: rgb(var(--hpe-surface-500));
+}
+
+/* Legend pills: code chip keeps the shared --attendance-* fill; only the label
+   text and the pill outline are theme concerns. */
+.dark .attendance-roster .roster-legend-item {
+  color: rgb(var(--hpe-surface-500));
+}
+
+/* Empty attendance cells: quiet dashed outline so an unpopulated day never reads
+   as a populated status, while remaining clearly a cell. */
+.dark .attendance-roster .attendance-cell-empty {
+  border-style: dashed;
+  border-color: rgb(var(--roster-empty-border));
+}
+
+/* The "has a note" marker sits inside the cell as an underline, so it can never
+   obscure the status text and never floats over a neighbouring column. */
+.attendance-roster .attendance-note-bar {
+  pointer-events: none;
+}

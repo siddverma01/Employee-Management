@@ -2,6 +2,7 @@
 /app/src/test/java/com/emplmgt/service/AttendanceRequestIntegrationServiceTest.java
 /app/src/test/java/com/emplmgt/service/AttendanceRosterServiceTest.java
 /app/src/test/java/com/emplmgt/service/AttendanceServiceTest.java
+/app/src/test/java/com/emplmgt/service/AttendanceStatusDetailServiceTest.java
 /app/src/test/java/com/emplmgt/service/AuthServiceTest.java
 /app/src/test/java/com/emplmgt/service/CalendarServiceTest.java
 /app/src/test/java/com/emplmgt/service/EmployeeHistoricalAttendanceServiceTest.java
@@ -14,6 +15,7 @@
 /app/src/test/java/com/emplmgt/service/RosterExportMonthlyShiftTest.java
 /app/src/test/java/com/emplmgt/service/RosterWorkStatusServiceTest.java
 /app/src/test/java/com/emplmgt/service/UpcomingEventsServiceTest.java
+/app/src/test/java/com/emplmgt/util/ExcelCommentExtractorTest.java
 /app/src/test/java/com/emplmgt/util/HistoricalImportCodesTest.java
 /app/src/test/java/com/emplmgt/util/HistoricalRosterLeaveTracker2025Test.java
 /app/src/test/java/com/emplmgt/util/HistoricalRosterParserTest.java

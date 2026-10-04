@@ -62,6 +62,28 @@
   --hpe-row: 255 255 255;
   --hpe-row-hover: 243 245 248;
 
+  /* Employee Attendance Analytics — LIGHT.
+     Declared so the palette is theme-symmetric and the page's scoped stylesheet
+     resolves identically in both themes. Every value equals the utility the page
+     already used in light mode (bg-surface-50 / bg-white / border-surface-200),
+     so consuming these tokens is a no-op visually in light mode. */
+  --hpe-analytics-bg: 248 249 251; /* #F8F9FB — page */
+  --hpe-analytics-surface: 255 255 255; /* #FFFFFF — card */
+  --hpe-analytics-row: 255 255 255; /* #FFFFFF — row */
+  --hpe-analytics-row-alt: 248 249 251; /* #F8F9FB — alternate row */
+  --hpe-analytics-header: 248 249 251; /* #F8F9FB — month title bar */
+  --hpe-analytics-tablehead: 248 249 251; /* #F8F9FB — table header */
+  --hpe-analytics-border: 227 230 235; /* #E3E6EB */
+  --hpe-analytics-hover: 243 245 248; /* #F3F5F8 */
+  --hpe-analytics-selected: 236 240 246; /* #ECF0F6 */
+  --hpe-analytics-sticky: 255 255 255; /* #FFFFFF — frozen columns */
+  --hpe-analytics-heading: 26 29 35; /* #1A1D23 */
+  --hpe-analytics-subtitle: 85 93 107; /* #555D6B */
+  --hpe-analytics-name: 26 29 35; /* #1A1D23 */
+  --hpe-analytics-header-text: 71 78 91; /* #474E5B */
+  --hpe-analytics-text-secondary: 85 93 107; /* #555D6B */
+  --hpe-analytics-text-muted: 122 130 144; /* #7A8290 */
+
   /*
    * Semantic status colors — kept constant in both themes so status chips stay
    * legible: light tinted backgrounds with dark ink text.
@@ -234,6 +256,14 @@
   --attendance-atr-bg: #FECACA; --attendance-atr-text: #991B1B;
   --attendance-empty-bg: #F7F8FA; --attendance-empty-text: #A6AEBB;
 
+  /* Attendance Roster — LIGHT chrome tokens (page-level surfaces only; the
+     attendance STATUS palette lives in --attendance-* above). */
+  --roster-card: 255 255 255;        /* #FFFFFF — KPI card / legend panel */
+  --roster-card-border: 227 230 235; /* #E3E6EB */
+  --roster-kpi-border: 227 230 235;  /* #E3E6EB */
+  --roster-panel: 255 255 255;       /* #FFFFFF — legend disclosure panel */
+  --roster-empty-border: 227 230 235;/* #E3E6EB — dashed empty-cell outline */
+
   /* Holiday type colors (Light mode)
      Soft pastel fill + dark readable text + a subtle 1px border, so event
      bars read as calm schedule entries rather than saturated colour blocks. */
@@ -292,9 +322,34 @@
   --hpe-row: 30 35 43; /* #1E232B — secondary controls */
   --hpe-row-hover: 34 39 49; /* #222731 */
 
-  --hpe-decorative-brand: 0 229 153;
-  --hpe-decorative-green: 0 229 153;
-  --hpe-focus: 0 229 153;
+  /* Employee Attendance Analytics — DARK.
+     Self-contained dark palette for the analytics page only. These are dark-mode
+     values and are deliberately NOT shared with the global `--hpe-surface-*`
+     ramp, which is repurposed for text in dark and would reintroduce the
+     light-text-on-dark-surface inversion. */
+  --hpe-analytics-bg: 21 23 25; /* #151719 — page */
+  --hpe-analytics-surface: 28 31 35; /* #1C1F23 — analytics card */
+  --hpe-analytics-row: 29 32 37; /* #1D2025 — normal table row */
+  --hpe-analytics-row-alt: 36 40 46; /* #24282E — alternate row */
+  --hpe-analytics-header: 32 35 41; /* #202329 — month title bar */
+  --hpe-analytics-tablehead: 39 43 49; /* #272B31 — table header */
+  --hpe-analytics-border: 54 59 67; /* #363B43 — borders */
+  --hpe-analytics-hover: 48 54 64; /* #303640 — hovered row */
+  --hpe-analytics-selected: 52 59 69; /* #343B45 — selected row */
+  --hpe-analytics-sticky: 29 32 37; /* #1D2025 — frozen column base */
+  --hpe-analytics-heading: 243 244 246; /* #F3F4F6 — main heading */
+  --hpe-analytics-subtitle: 166 176 190; /* #A6B0BE — subtitle */
+  --hpe-analytics-name: 241 243 245; /* #F1F3F5 — employee names */
+  --hpe-analytics-header-text: 183 193 208; /* #B7C1D0 — table header text */
+  --hpe-analytics-text-secondary: 161 170 184; /* #A1AAB8 — secondary text */
+  --hpe-analytics-text-muted: 137 148 164; /* #8994A4 — muted labels */
+
+  /* Dark overrides for the global accent + focus ring.
+     These three were previously unreachable: the comment opener above them was
+     never closed, so the parser swallowed the declarations as comment text. */
+  --hpe-decorative-brand: 0 229 153; /* #00E599 */
+  --hpe-decorative-green: 0 229 153; /* #00E599 */
+  --hpe-focus: 0 229 153; /* #00E599 */
 
   /* Semantic families — DARK: dark tinted surface + saturated accent text.
      bg-* = pill background · *-200/*-500/*-600/*-700 = borders and text. */
@@ -388,25 +443,47 @@
   --hpe-elevation-large: 0 16px 40px rgba(0, 0, 0, 0.6);
   --hpe-hover: rgba(255, 255, 255, 0.04);
 
-  /* Attendance roster status fills — DARK (modern dark surfaces) */
-  --attendance-wo-bg: 30 35 43; --attendance-wo-text: 113 128 150;
-  --attendance-wfo-bg: 6 59 43; --attendance-wfo-text: 0 229 153;
-  --attendance-wfh-bg: 59 37 6; --attendance-wfh-text: 251 191 36;
-  --attendance-pl-bg: 59 37 6; --attendance-pl-text: 251 191 36;
-  --attendance-sl-bg: 46 38 28; --attendance-sl-text: 251 191 36;
-  --attendance-co-bg: 30 35 43; --attendance-co-text: 148 163 184;
-  --attendance-hpeh-bg: 6 59 43; --attendance-hpeh-text: 0 229 153;
-  --attendance-fl-bg: 46 38 28; --attendance-fl-text: 251 191 36;
-  --attendance-sw-off-bg: 59 37 6; --attendance-sw-off-text: 251 191 36;
-  --attendance-sw-wk-bg: 6 59 43; --attendance-sw-wk-text: 0 229 153;
-  --attendance-wk-wrk-bg: 6 59 43; --attendance-wk-wrk-text: 0 229 153;
-  --attendance-hd-bg: 46 38 28; --attendance-hd-text: 251 191 36;
-  --attendance-wx-bg: 45 30 60; --attendance-wx-text: 192 132 252;
-  --attendance-tr-bg: 30 35 43; --attendance-tr-text: 148 163 184;
-  --attendance-its-bg: 46 20 24; --attendance-its-text: 244 113 182;
-  --attendance-wdt-bg: 30 35 43; --attendance-wdt-text: 148 163 184;
-  --attendance-atr-bg: 46 20 24; --attendance-atr-text: 244 113 182;
-  --attendance-empty-bg: 22 26 32; --attendance-empty-text: 113 128 150;
+  /* Attendance roster status fills — DARK.
+     ---------------------------------------------------------------------------
+     These MUST be complete colour values, not bare "R G B" channels.
+
+     Every consumer applies them through a plain `var()` with no rgb() wrapper:
+       rosterStatus.ts   style={{ backgroundColor: 'var(--attendance-wfo-bg)' }}
+       index.css          .cal-hpeh-tag { background: var(--attendance-hpeh-bg) }
+     A bare channel triplet therefore expands to `background-color: 6 59 43`,
+     which is not a valid colour, so the declaration is dropped at computed-value
+     time and the cell falls back to transparent + inherited text. That is why
+     every roster status cell rendered as an empty dark rectangle in Dark Mode
+     while Light Mode (which stores hex) looked correct.
+
+     Each status gets its own restrained dark tint with a bright, readable
+     foreground. All pairs are >= 4.5:1 (WCAG AA) against their own fill. */
+  --attendance-wo-bg: rgb(39 43 51); --attendance-wo-text: rgb(203 213 225);
+  --attendance-wfo-bg: rgb(6 74 52); --attendance-wfo-text: rgb(52 211 153);
+  --attendance-wfh-bg: rgb(69 46 8); --attendance-wfh-text: rgb(250 204 21);
+  --attendance-pl-bg: rgb(80 52 5); --attendance-pl-text: rgb(253 224 71);
+  --attendance-sl-bg: rgb(78 29 35); --attendance-sl-text: rgb(253 164 175);
+  --attendance-co-bg: rgb(23 46 86); --attendance-co-text: rgb(96 165 250);
+  --attendance-hpeh-bg: rgb(6 74 52); --attendance-hpeh-text: rgb(52 211 153);
+  --attendance-fl-bg: rgb(78 43 12); --attendance-fl-text: rgb(251 146 60);
+  --attendance-sw-off-bg: rgb(69 46 8); --attendance-sw-off-text: rgb(250 204 21);
+  --attendance-sw-wk-bg: rgb(7 62 62); --attendance-sw-wk-text: rgb(45 212 191);
+  --attendance-wk-wrk-bg: rgb(8 66 46); --attendance-wk-wrk-text: rgb(52 211 153);
+  --attendance-hd-bg: rgb(78 43 12); --attendance-hd-text: rgb(251 146 60);
+  --attendance-wx-bg: rgb(49 46 76); --attendance-wx-text: rgb(196 181 253);
+  --attendance-tr-bg: rgb(23 46 86); --attendance-tr-text: rgb(147 197 253);
+  --attendance-its-bg: rgb(78 29 35); --attendance-its-text: rgb(253 164 175);
+  --attendance-wdt-bg: rgb(39 39 92); --attendance-wdt-text: rgb(165 180 252);
+  --attendance-atr-bg: rgb(84 26 26); --attendance-atr-text: rgb(248 113 113);
+  --attendance-empty-bg: rgb(26 30 36); --attendance-empty-text: rgb(141 153 171);
+
+  /* Attendance Roster — DARK chrome tokens. Match the card plane already in use
+     (.roster-frozen-panel #1B1E23) so the whole page reads as one surface. */
+  --roster-card: 27 30 35;           /* #1B1E23 */
+  --roster-card-border: 32 37 46;    /* #20252E */
+  --roster-kpi-border: 32 37 46;     /* #20252E */
+  --roster-panel: 30 33 40;          /* #1E2128 — legend disclosure panel */
+  --roster-empty-border: 44 50 60;   /* #2C323C — dashed empty-cell outline */
 
   /* Holiday type colors (Dark mode) — Stitch charcoal with green/blue accents */
   --holiday-hpe-bg: #0c2a4a; --holiday-hpe-text: #38bdf8; --holiday-hpe-border: #164e63;

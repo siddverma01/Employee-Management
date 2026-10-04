@@ -85,6 +85,7 @@ class MonthlyWeekOffAssignmentTest {
     @Mock AuditService auditService;
     @Mock AppClock appClock;
     @Mock LeaveDaysCalculator leaveDaysCalculator;
+    @Mock jakarta.persistence.EntityManager entityManager;
 
     private WeekOffUtil weekOffUtil;
 
@@ -118,7 +119,7 @@ class MonthlyWeekOffAssignmentTest {
                 .thenReturn(Optional.empty());
         service = new HistoricalImportService(statusRepository, importEmployeeRepository, recordRepository,
                 shiftAssignmentRepository, weekOffAssignmentRepository, weekOffUtil, historyRepository,
-                rowRepository, auditService, appClock, new ObjectMapper());
+                rowRepository, auditService, appClock, new ObjectMapper(), entityManager);
     }
 
     // ------------------------------------------------------------- fixture

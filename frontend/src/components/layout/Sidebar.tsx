@@ -39,6 +39,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/admin/historical-import', label: 'Historical attendance', icon: <History className="h-[18px] w-[18px] shrink-0" />, group: 'attendance', adminOnly: true },
   { to: '/admin/roster', label: 'Attendance Roster', icon: <Table2 className="h-[18px] w-[18px] shrink-0" />, group: 'attendance' },
   { to: '/admin/attendance-history', label: 'Attendance History', icon: <Search className="h-[18px] w-[18px] shrink-0" />, group: 'attendance', adminOnly: true },
+  { to: '/admin/analytics', label: 'Employee Analytics', icon: <FileText className="h-[18px] w-[18px] shrink-0" />, group: 'attendance', adminOnly: true },
   { to: '/admin/audit-logs', label: 'Audit logs', icon: <ClipboardList className="h-[18px] w-[18px] shrink-0" />, group: 'attendance', adminOnly: true },
 ]
 

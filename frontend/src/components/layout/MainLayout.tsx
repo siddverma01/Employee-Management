@@ -4,6 +4,7 @@ import { X } from 'lucide-react'
 import { cn } from '@/utils'
 import { Header } from '@/components/layout/Header'
 import { Sidebar } from '@/components/layout/Sidebar'
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 
 /** Persisted desktop sidebar preference (kept out of the attendance database). */
 const SIDEBAR_KEY = 'empmgmt.sidebarExpanded'
@@ -36,7 +37,7 @@ export function MainLayout() {
     /* Column shell: the 64px header owns the full viewport width, so the wordmark
        sits at the viewport's left edge above the sidebar. The second row holds
        the sidebar and the scrollable main area. */
-    <div className="flex h-screen flex-col overflow-hidden bg-slate-50 text-slate-800 dark:bg-[#0d0f12] dark:text-slate-200">
+    <div className="flex h-screen flex-col overflow-hidden bg-surface-50 text-surface-800 dark:bg-surface-50 dark:text-surface-200">
       <Header
         onOpenMenu={() => setMobileOpen(true)}
         sidebarExpanded={sidebarExpanded}
@@ -47,7 +48,7 @@ export function MainLayout() {
         {/* Desktop sidebar */}
         <aside
           className={cn(
-            'relative hidden shrink-0 flex-col border-r border-slate-200 bg-white transition-[width] duration-200 ease-in-out lg:flex dark:border-[#1e232b] dark:bg-[#121519]',
+            'relative hidden shrink-0 flex-col border-r border-surface-200 bg-white transition-[width] duration-200 ease-in-out lg:flex dark:border-surface-700 dark:bg-surface-0',
             /* Geometry is shared: 224px expanded / 72px collapsed in both themes.
                Only the border and surface colours differ. */
             sidebarExpanded ? 'lg:w-[224px] lg:min-w-[224px]' : 'lg:w-[4.5rem]',
@@ -63,7 +64,7 @@ export function MainLayout() {
         {/* Mobile drawer */}
         <aside
           className={cn(
-            'fixed inset-y-0 left-0 z-50 flex w-[224px] min-w-[224px] flex-col bg-white transition-transform lg:hidden dark:bg-[#121519]',
+            'fixed inset-y-0 left-0 z-50 flex w-[224px] min-w-[224px] flex-col bg-white transition-transform lg:hidden dark:bg-surface-0',
             mobileOpen ? 'translate-x-0' : '-translate-x-full',
           )}
         >
@@ -79,8 +80,11 @@ export function MainLayout() {
 
         {/* Main area */}
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <div className="w-full min-w-0 flex-1 flex flex-col bg-slate-50 overflow-y-auto px-8 py-6 transition-all duration-300 ease-in-out dark:bg-[#0d0f12]">
-            <Outlet />
+          <div className="w-full min-w-0 flex-1 flex flex-col bg-surface-50 overflow-y-auto px-8 py-6 transition-all duration-300 ease-in-out dark:bg-surface-50">
+            {/* Keyed by route so navigating away clears an errored boundary. */}
+            <ErrorBoundary key={location.pathname}>
+              <Outlet />
+            </ErrorBoundary>
           </div>
         </main>
       </div>

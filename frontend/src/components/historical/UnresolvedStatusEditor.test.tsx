@@ -11,6 +11,7 @@ vi.mock('@/api', () => ({
     historicalUnresolved: vi.fn(),
     historicalCorrectRow: vi.fn(),
     historicalSkipRow: vi.fn(),
+    historicalBulkResolve: vi.fn(),
   },
 }))
 
@@ -19,7 +20,9 @@ const statuses = [
   { code: 'PL', name: 'Privilege Leave', description: 'Planned leave', displayColor: 'amber' },
 ]
 
-function entry(over: Partial<HistoricalUnresolvedResponse['entries'][number]> = {}) {
+function entry(
+  over: Partial<HistoricalUnresolvedResponse['entries'][number]> = {},
+): HistoricalUnresolvedResponse['entries'][number] {
   return {
     id: 1,
     sheetName: 'Sep 2025',
@@ -33,6 +36,9 @@ function entry(over: Partial<HistoricalUnresolvedResponse['entries'][number]> = 
     incomingStatus: null,
     statusName: null,
     issue: "Unrecognised status 'P'",
+    category: 'UNMAPPED',
+    description: null,
+    descriptionAuthor: null,
     action: 'INSERT',
     corrected: false,
     skipped: false,
@@ -43,7 +49,7 @@ function entry(over: Partial<HistoricalUnresolvedResponse['entries'][number]> = 
 function response(over: Partial<HistoricalUnresolvedResponse> = {}): HistoricalUnresolvedResponse {
   return {
     importId: 1,
-    summary: { total: 3, corrected: 0, skipped: 1, remaining: 2 },
+    summary: { totalEntries: 10, validEntries: 7, flagged: 3, corrected: 0, skipped: 1, remaining: 2 },
     page: 0,
     size: 25,
     totalEntries: 2,
@@ -76,14 +82,19 @@ function renderEditor(onChanged = vi.fn()) {
 
 describe('UnresolvedStatusEditor', () => {
   beforeEach(() => {
+    vi.clearAllMocks()
     vi.mocked(adminApi.historicalUnresolved).mockResolvedValue(response())
     vi.mocked(adminApi.historicalCorrectRow).mockResolvedValue({
       entry: entry({ incomingStatus: 'PL', statusName: 'Privilege Leave', corrected: true, action: 'INSERT' }),
-      summary: { total: 3, corrected: 1, skipped: 1, remaining: 1 },
+      summary: { totalEntries: 10, validEntries: 7, flagged: 3, corrected: 1, skipped: 1, remaining: 1 },
     })
     vi.mocked(adminApi.historicalSkipRow).mockResolvedValue({
       entry: entry({ skipped: true, action: 'SKIPPED' }),
-      summary: { total: 3, corrected: 0, skipped: 2, remaining: 1 },
+      summary: { totalEntries: 10, validEntries: 7, flagged: 3, corrected: 0, skipped: 2, remaining: 1 },
+    })
+    vi.mocked(adminApi.historicalBulkResolve).mockResolvedValue({
+      affected: 2,
+      summary: { totalEntries: 10, validEntries: 10, flagged: 3, corrected: 2, skipped: 1, remaining: 0 },
     })
   })
 
@@ -91,8 +102,10 @@ describe('UnresolvedStatusEditor', () => {
     renderEditor()
 
     await waitFor(() => expect(screen.getByText('60175312')).toBeInTheDocument())
-    expect(screen.getByText('Needing review')).toBeInTheDocument()
-    expect(screen.getByText('2')).toBeInTheDocument() // remaining
+    expect(screen.getByText('Pending review')).toBeInTheDocument()
+    expect(screen.getByText('Remaining unresolved')).toBeInTheDocument()
+    // pending review and remaining unresolved both show the same live count
+    expect(screen.getAllByText('2')).toHaveLength(2)
     // The original cell contents stay visible so a correction is never mistaken
     // for what the file said.
     expect(screen.getByText('P')).toBeInTheDocument()
@@ -122,14 +135,30 @@ describe('UnresolvedStatusEditor', () => {
     expect(screen.getAllByRole('button', { name: 'Correct' })[0]).toBeDisabled()
   })
 
-  it('skips an entry so it is left out of the import', async () => {
+  it('skips an entry only after the admin explicitly confirms', async () => {
     const user = userEvent.setup()
     renderEditor()
 
     await waitFor(() => expect(screen.getByText('60175312')).toBeInTheDocument())
     await user.click(screen.getAllByRole('button', { name: 'Skip' })[0])
 
+    // Nothing is skipped just by asking — a second, explicit action is required.
+    expect(adminApi.historicalSkipRow).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Confirm skip' }))
+
     await waitFor(() => expect(adminApi.historicalSkipRow).toHaveBeenCalledWith(1, 1, undefined))
+  })
+
+  it('filters the worklist by decision state', async () => {
+    const user = userEvent.setup()
+    renderEditor()
+
+    await waitFor(() => expect(screen.getByText('60175312')).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'Corrected' }))
+
+    await waitFor(() => expect(adminApi.historicalUnresolved).toHaveBeenCalledWith(
+      1, 0, 25, expect.objectContaining({ state: 'CORRECTED' }),
+    ))
   })
 
   it('offers the full centralized status list, not a hardcoded subset', async () => {
@@ -147,7 +176,7 @@ describe('UnresolvedStatusEditor', () => {
   it('confirms completion once nothing is left to review', async () => {
     vi.mocked(adminApi.historicalUnresolved).mockResolvedValue(
       response({
-        summary: { total: 3, corrected: 2, skipped: 1, remaining: 0 },
+        summary: { totalEntries: 10, validEntries: 10, flagged: 3, corrected: 2, skipped: 1, remaining: 0 },
         totalEntries: 0,
         entries: [],
       }),
@@ -164,6 +193,7 @@ describe('UnresolvedStatusEditor', () => {
 
     await waitFor(() => expect(screen.getByText('60175312')).toBeInTheDocument())
     await user.click(screen.getAllByRole('button', { name: 'Skip' })[0])
+    await user.click(screen.getByRole('button', { name: 'Confirm skip' }))
 
     await waitFor(() => expect(onChanged).toHaveBeenCalled())
   })

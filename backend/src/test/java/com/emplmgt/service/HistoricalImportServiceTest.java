@@ -61,6 +61,7 @@ class HistoricalImportServiceTest {
     @Mock AttendanceImportRowRepository rowRepository;
     @Mock AuditService auditService;
     @Mock AppClock appClock;
+    @Mock jakarta.persistence.EntityManager entityManager;
 
     private com.emplmgt.util.WeekOffUtil weekOffUtil;
 
@@ -94,7 +95,8 @@ class HistoricalImportServiceTest {
         when(shiftAssignmentRepository.findByEmployeeIdAndPeriodStart(any(), any())).thenReturn(java.util.Optional.empty());
         service = new HistoricalImportService(statusRepository, importEmployeeRepository, recordRepository,
                 shiftAssignmentRepository, weekOffAssignmentRepository, weekOffUtil, historyRepository,
-                rowRepository, auditService, appClock, new com.fasterxml.jackson.databind.ObjectMapper());
+                rowRepository, auditService, appClock, new com.fasterxml.jackson.databind.ObjectMapper(),
+                entityManager);
     }
 
     private static CellStyle dateStyle(XSSFWorkbook wb) {
@@ -417,10 +419,8 @@ class HistoricalImportServiceTest {
 
         AttendanceRecord has = AttendanceRecord.builder().employeeId("E2").attendanceDate(LocalDate.of(2025, 9, 1))
                 .statusCode("WO").build();
-        when(recordRepository.findByEmployeeIdAndAttendanceDate("E1", LocalDate.of(2025, 9, 1)))
-                .thenReturn(Optional.empty());
-        when(recordRepository.findByEmployeeIdAndAttendanceDate("E2", LocalDate.of(2025, 9, 1)))
-                .thenReturn(Optional.of(has));
+        when(recordRepository.findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(
+                any(), any(), any())).thenReturn(List.of(has));
 
         HistoricalImportDtos.CommitResponse resp = service.commit(1L, null, 1L);
 
@@ -456,10 +456,8 @@ class HistoricalImportServiceTest {
         AttendanceRecord hasDescription = AttendanceRecord.builder().employeeId("E2")
                 .attendanceDate(LocalDate.of(2025, 9, 1)).statusCode("WO")
                 .description("manual note from admin").build();
-        when(recordRepository.findByEmployeeIdAndAttendanceDate("E1", LocalDate.of(2025, 9, 1)))
-                .thenReturn(Optional.empty());
-        when(recordRepository.findByEmployeeIdAndAttendanceDate("E2", LocalDate.of(2025, 9, 1)))
-                .thenReturn(Optional.of(hasDescription));
+        when(recordRepository.findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(
+                any(), any(), any())).thenReturn(List.of(hasDescription));
 
         service.commit(1L, null, 1L);
 
@@ -625,12 +623,11 @@ class HistoricalImportServiceTest {
         assertThat(staged).anyMatch(r -> "P".equals(r.getOriginalStatus())
                 && r.getIssue() != null && r.getIssue().contains("Unrecognised"));
 
-        // A cell the workbook left empty must not vanish: it is staged with no status
-        // and an explicit issue, so the admin is asked about it instead of it being
-        // silently dropped at commit time.
-        assertThat(staged).anyMatch(r -> r.getAttendanceDate() != null
-                && (r.getIncomingStatus() == null || r.getIncomingStatus().isBlank())
-                && r.getIssue() != null && r.getIssue().contains("Blank status"));
+        // A cell the workbook left empty is a gap in the grid, not an attendance
+        // entry: it must not be staged as a blank-status row that would block the
+        // commit with a decision the source data never actually asked for.
+        assertThat(staged).noneMatch(r -> r.getIncomingStatus() == null || r.getIncomingStatus().isBlank());
+        assertThat(staged).noneMatch(r -> r.getIssue() != null && r.getIssue().contains("Blank status"));
     }
 
     @Test
@@ -756,9 +753,7 @@ class HistoricalImportServiceTest {
         AttendanceImportHistory h = history("PREVIEWED");
         when(historyRepository.findById(1L)).thenReturn(Optional.of(h));
         AttendanceImportRow r = unresolvedRow(h, "P", "Unrecognised status 'P'");
-        when(rowRepository
-                .findByImportHistoryIdAndIssueIsNotNullAndCorrectedIsFalseAndSkippedIsFalseOrderByIdAsc(
-                        eq(1L), any()))
+        when(rowRepository.findReviewFiltered(eq(1L), any(), any(), any(), any()))
                 .thenReturn(new PageImpl<>(List.of(r)));
         when(rowRepository.countByImportHistoryIdAndIssueIsNotNull(1L)).thenReturn(5L);
         when(rowRepository.countByImportHistoryIdAndIssueIsNotNullAndCorrectedIsFalseAndSkippedIsFalse(1L))
@@ -766,7 +761,7 @@ class HistoricalImportServiceTest {
 
         HistoricalImportDtos.UnresolvedResponse resp = service.unresolved(1L, 0, 50);
 
-        assertThat(resp.summary().total()).isEqualTo(5L);
+        assertThat(resp.summary().flagged()).isEqualTo(5L);
         assertThat(resp.summary().remaining()).isEqualTo(3L);
         assertThat(resp.entries()).hasSize(1);
         assertThat(resp.entries().get(0).cellRef()).isEqualTo("Row 2, Column D");
@@ -774,6 +769,25 @@ class HistoricalImportServiceTest {
         assertThat(resp.entries().get(0).issue()).contains("Unrecognised");
         assertThat(resp.entries().get(0).corrected()).isFalse();
         assertThat(resp.entries().get(0).skipped()).isFalse();
+    }
+
+    @Test
+    void unresolvedCanListAnAlreadyResolvedBucketForAudit() {
+        AttendanceImportHistory h = history("PREVIEWED");
+        when(historyRepository.findById(1L)).thenReturn(Optional.of(h));
+        AttendanceImportRow r = unresolvedRow(h, "P", "Unrecognised status 'P'");
+        r.setCorrected(true);
+        when(rowRepository.findReviewFiltered(eq(1L), eq("CORRECTED"), any(), any(), any()))
+                .thenReturn(new PageImpl<>(List.of(r)));
+
+        HistoricalImportDtos.UnresolvedResponse resp =
+                service.unresolved(1L, 0, 50, null, null, "corrected");
+
+        assertThat(resp.entries()).hasSize(1);
+        assertThat(resp.entries().get(0).corrected()).isTrue();
+        // The state is normalised to the query's vocabulary, and the reason filter
+        // is dropped for resolved buckets so completed work is never hidden.
+        verify(rowRepository).findReviewFiltered(eq(1L), eq("CORRECTED"), any(), any(), any());
     }
 
     /**
@@ -797,7 +811,7 @@ class HistoricalImportServiceTest {
 
         HistoricalImportDtos.ResolveRowResponse resp = service.correctRow(1L, 7L, "PL");
 
-        assertThat(resp.summary().total()).isEqualTo(2L);
+        assertThat(resp.summary().flagged()).isEqualTo(2L);
         assertThat(resp.summary().corrected()).isEqualTo(1L);
         assertThat(resp.summary().remaining()).isEqualTo(1L);
         // The reason the cell was questioned survives the correction.

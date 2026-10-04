@@ -1,0 +1,169 @@
+/*
+ * Employee Attendance Analytics — page-scoped theme layer.
+ * ============================================================================
+ * WHY THIS FILE EXISTS
+ * ----------------------------------------------------------------------------
+ * Dark Mode for this page used to be assembled from ad-hoc `dark:*` utilities on
+ * every element. That failed for two independent reasons:
+ *
+ *   1. The analytics palette was declared *inside* the Tailwind `surface` colour
+ *      object. Tailwind flattens nested colour objects to `<parent>-<key>`, so
+ *      `surface['analytics-surface']` can only ever be emitted as
+ *      `bg-surface-analytics-surface`. The page asked for `bg-analytics-*`,
+ *      which matches no generated rule at all.
+ *   2. Consequently every dark background silently fell back to the ungated
+ *      `bg-white`. The only rule that ever produced a dark colour was
+ *      `hover:bg-surface-50` — a valid class that dereferences `--hpe-surface-50`,
+ *      which `.dark` remaps to the near-black page background. Result: white at
+ *      rest, near-black on hover, white again on unhover.
+ *
+ * This file replaces that with one authoritative source of truth for the page's
+ * dark surfaces, driven entirely by the `--hpe-analytics-*` tokens.
+ *
+ * LIGHT MODE IS DELIBERATELY ABSENT
+ * ----------------------------------------------------------------------------
+ * There is not a single light-mode rule in this file. Light Mode keeps 100% of
+ * its existing Tailwind utilities, so it cannot be affected by anything here.
+ * Every selector is gated on `.dark`, which is the project's existing and only
+ * theme state (`<html class="dark">`, persisted in localStorage, mirrored by
+ * `color-scheme`). No second theme state is introduced.
+ *
+ * HOW STICKY COLUMNS ARE KEPT HONEST
+ * ----------------------------------------------------------------------------
+ * Backgrounds live on the `<tr>`, and every `<td>`/`<th>` uses
+ * `background-color: inherit`. A frozen cell therefore cannot hold a different
+ * colour from the rest of its row, in any state — normal, alternate, hover or
+ * selected — and hover can never "repair" a wrong base colour, because the base
+ * colour is now correct on its own.
+ *
+ * No `!important` is used anywhere. These selectors outrank the `.bg-white`
+ * utility on specificity alone (0,4,2 vs 0,1,0).
+ */
+
+.dark .attendance-analytics {
+  background-color: rgb(var(--hpe-analytics-bg));
+}
+
+/* Page heading + subtitle. Neither carries status meaning, so they are set from
+   the spec palette here rather than through a repurposed shared text ramp. */
+.dark .attendance-analytics .aa-page-title {
+  color: rgb(var(--hpe-analytics-heading));
+}
+.dark .attendance-analytics .aa-page-subtitle {
+  color: rgb(var(--hpe-analytics-subtitle));
+}
+
+/* Analytics card / container (also used by the loading and empty states). */
+.dark .attendance-analytics .aa-card {
+  background-color: rgb(var(--hpe-analytics-surface));
+  border-color: rgb(var(--hpe-analytics-border));
+}
+
+/* Month title bar + the "24/24" counter. */
+.dark .attendance-analytics .aa-titlebar {
+  background-color: rgb(var(--hpe-analytics-header));
+  border-color: rgb(var(--hpe-analytics-border));
+}
+.dark .attendance-analytics .aa-titlebar .aa-titlebar-label {
+  color: rgb(var(--hpe-analytics-header-text));
+}
+.dark .attendance-analytics .aa-titlebar .aa-titlebar-count {
+  color: rgb(var(--hpe-analytics-text-muted));
+}
+
+/* Monthly / Overall toggle. The active pill keeps its existing teal accent; the
+   inactive option needs its own surface + readable label to stay distinguishable. */
+.dark .attendance-analytics .aa-mode-toggle {
+  background-color: rgb(var(--hpe-analytics-header));
+  border-color: rgb(var(--hpe-analytics-border));
+}
+.dark .attendance-analytics .aa-mode-toggle .aa-mode-option:not([aria-pressed='true']) {
+  color: rgb(var(--hpe-analytics-text-secondary));
+}
+.dark .attendance-analytics .aa-mode-toggle .aa-mode-option:not([aria-pressed='true']):hover {
+  background-color: rgb(var(--hpe-analytics-hover));
+}
+
+/* Month navigator — one segmented unit: [ prev | label | next ].
+   Geometry (32px square segments, 8px radius, 8px label padding) is shared by both
+   themes via utilities on the elements; only colours are theme-specific. */
+.dark .attendance-analytics .aa-monthnav {
+  background-color: transparent;
+  border-color: rgb(var(--hpe-analytics-border));
+}
+/* Hairline dividers between the three segments. */
+.dark .attendance-analytics .aa-monthnav > * + * {
+  border-left-color: rgb(var(--hpe-analytics-border));
+}
+.dark .attendance-analytics .aa-monthnav-btn {
+  background-color: transparent;
+  /* Muted light-gray chevrons at rest; the hairline carries the shape. */
+  color: rgb(var(--hpe-analytics-text-muted));
+}
+.dark .attendance-analytics .aa-monthnav-btn:hover:not(:disabled) {
+  background-color: rgb(var(--hpe-analytics-hover));
+  /* Lift chevron contrast on hover rather than flooding the surface. */
+  color: rgb(var(--hpe-analytics-header-text));
+}
+.dark .attendance-analytics .aa-monthnav-btn:disabled {
+  color: rgb(var(--hpe-analytics-text-muted));
+}
+.dark .attendance-analytics .aa-monthnav-label {
+  background-color: transparent;
+  color: rgb(var(--hpe-analytics-header-text));
+}
+
+/* ==========================================================================
+   Tables — main attendance table plus both detail-modal tables.
+   ========================================================================== */
+
+.dark .attendance-analytics .aa-table thead tr {
+  background-color: rgb(var(--hpe-analytics-tablehead));
+}
+
+.dark .attendance-analytics .aa-table thead th {
+  /* Overrides the `bg-white` that keeps frozen header cells opaque in light
+     mode, so no header cell is ever white in dark. */
+  background-color: inherit;
+  color: rgb(var(--hpe-analytics-header-text));
+  border-color: rgb(var(--hpe-analytics-border));
+}
+
+/* Row-state surfaces live here, and only here. */
+.dark .attendance-analytics .aa-table tbody tr {
+  background-color: rgb(var(--hpe-analytics-row));
+}
+.dark .attendance-analytics .aa-table tbody tr:nth-child(even) {
+  background-color: rgb(var(--hpe-analytics-row-alt));
+}
+.dark .attendance-analytics .aa-table tbody tr:hover {
+  background-color: rgb(var(--hpe-analytics-hover));
+}
+/* Selected state. Not currently rendered by the page, but defined so the state
+   is correct the moment a row becomes selectable. */
+.dark .attendance-analytics .aa-table tbody tr.aa-row-selected,
+.dark .attendance-analytics .aa-table tbody tr[data-selected='true'] {
+  background-color: rgb(var(--hpe-analytics-selected));
+}
+
+/* The Overall Summary row is a trailing total, not data — it keeps the title-bar
+   tone. Declared after the striping rules so it wins on source order. */
+.dark .attendance-analytics .aa-table tbody tr.aa-row-summary {
+  background-color: rgb(var(--hpe-analytics-header));
+}
+
+/* Every cell — frozen, scrolling, body, header — takes its row's colour.
+   This is the single rule that guarantees a sticky cell can never disagree with
+   the rest of its row, in any state. */
+.dark .attendance-analytics .aa-table th,
+.dark .attendance-analytics .aa-table td {
+  background-color: inherit;
+  border-color: rgb(var(--hpe-analytics-border));
+}
+
+/* Employee names are the one data string that must stay clearly separated from
+   ordinary cell text. Status columns are deliberately NOT touched: their
+   `dark:text-*-400` utilities must keep winning. */
+.dark .attendance-analytics .aa-table td.aa-col-name {
+  color: rgb(var(--hpe-analytics-name));
+}

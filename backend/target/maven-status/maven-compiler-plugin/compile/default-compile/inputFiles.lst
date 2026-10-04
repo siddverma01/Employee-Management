@@ -13,6 +13,7 @@
 /app/src/main/java/com/emplmgt/controller/AdminLeaveController.java
 /app/src/main/java/com/emplmgt/controller/AdminNotificationController.java
 /app/src/main/java/com/emplmgt/controller/AdminSwapOffController.java
+/app/src/main/java/com/emplmgt/controller/AttendanceAnalyticsController.java
 /app/src/main/java/com/emplmgt/controller/AttendanceController.java
 /app/src/main/java/com/emplmgt/controller/AttendanceHistoryController.java
 /app/src/main/java/com/emplmgt/controller/AttendanceRosterController.java
@@ -35,6 +36,7 @@
 /app/src/main/java/com/emplmgt/controller/RosterReadController.java
 /app/src/main/java/com/emplmgt/controller/SwapOffController.java
 /app/src/main/java/com/emplmgt/controller/TodayController.java
+/app/src/main/java/com/emplmgt/dto/AttendanceAnalyticsDtos.java
 /app/src/main/java/com/emplmgt/dto/AttendanceDtos.java
 /app/src/main/java/com/emplmgt/dto/AttendanceHistoryDtos.java
 /app/src/main/java/com/emplmgt/dto/AttendanceRosterDtos.java
@@ -120,6 +122,7 @@
 /app/src/main/java/com/emplmgt/security/JwtAuthenticationFilter.java
 /app/src/main/java/com/emplmgt/security/JwtService.java
 /app/src/main/java/com/emplmgt/security/SecurityUtils.java
+/app/src/main/java/com/emplmgt/service/AttendanceAnalyticsService.java
 /app/src/main/java/com/emplmgt/service/AttendanceHistoryService.java
 /app/src/main/java/com/emplmgt/service/AttendanceRequestIntegrationService.java
 /app/src/main/java/com/emplmgt/service/AttendanceRosterService.java
@@ -147,6 +150,7 @@
 /app/src/main/java/com/emplmgt/service/TeamAccessService.java
 /app/src/main/java/com/emplmgt/service/UpcomingEventsService.java
 /app/src/main/java/com/emplmgt/util/AppClock.java
+/app/src/main/java/com/emplmgt/util/ExcelCommentExtractor.java
 /app/src/main/java/com/emplmgt/util/HistoricalImportCodes.java
 /app/src/main/java/com/emplmgt/util/HistoricalRosterParser.java
 /app/src/main/java/com/emplmgt/util/HolidayLocationUtil.java

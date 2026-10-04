@@ -29,6 +29,7 @@ import { AdminRosterPage } from '@/pages/admin/AdminRosterPage'
 import { AdminAttendanceHistoryPage } from '@/pages/admin/AdminAttendanceHistoryPage'
 import { AdminAuditLogsPage } from '@/pages/admin/AdminAuditLogsPage'
 import { AdminAttendancePage } from '@/pages/admin/AdminAttendancePage'
+import { AdminAnalyticsPage } from '@/pages/admin/AdminAnalyticsPage'
 import { Dashboard as ThemeDemo } from '@/pages/demo/Dashboard'
 import type { ReactNode } from 'react'
 
@@ -90,6 +91,7 @@ export default function App() {
               <Route path="/admin/audit-logs" element={<AdminAuditLogsPage />} />
               <Route path="/admin/attendance" element={<AdminAttendancePage />} />
               <Route path="/admin/attendance-history" element={<AdminAttendanceHistoryPage />} />
+              <Route path="/admin/analytics" element={<AdminAnalyticsPage />} />
             </Route>
         </Route>
 

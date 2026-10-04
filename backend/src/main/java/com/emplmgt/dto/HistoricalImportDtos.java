@@ -147,6 +147,9 @@ public final class HistoricalImportDtos {
             String incomingStatus,
             String statusName,
             String issue,
+            String category,
+            String description,
+            String descriptionAuthor,
             String action,
             boolean corrected,
             boolean skipped) {
@@ -157,7 +160,9 @@ public final class HistoricalImportDtos {
      * the commit refuses to run while it is greater than zero.
      */
     public record UnresolvedSummary(
-            long total,
+            long totalEntries,
+            long validEntries,
+            long flagged,
             long corrected,
             long skipped,
             long remaining) {
@@ -178,8 +183,27 @@ public final class HistoricalImportDtos {
     public record SkipRowRequest(String reason) {
     }
 
+    /**
+     * Bulk review action for the Making worklist. Exactly one of {@code status}
+     * (bulk correct) or {@code skip=true} (bulk skip) is honoured; a null/empty
+     * row-id list means "every entry currently matching the filter".
+     */
+    public record BulkResolveRequest(
+            List<Long> rowIds,
+            String status,
+            String reason,
+            Boolean skip,
+            String search,
+            String category) {
+    }
+
     public record ResolveRowResponse(
             UnresolvedEntry entry,
+            UnresolvedSummary summary) {
+    }
+
+    public record BulkResolveResponse(
+            int affected,
             UnresolvedSummary summary) {
     }
 
@@ -188,6 +212,7 @@ public final class HistoricalImportDtos {
             String fileName,
             String originalFileName,
             String status,
+            Instant importedAt,
             Summary summary,
             int committedRows,
             ImportResult result) {
@@ -201,7 +226,9 @@ public final class HistoricalImportDtos {
             int duplicatesSkipped,
             int warnings,
             int unknownStatuses,
-            int failedRows) {
+            int failedRows,
+            int corrected,
+            int skipped) {
     }
 
     public record HistoryItem(

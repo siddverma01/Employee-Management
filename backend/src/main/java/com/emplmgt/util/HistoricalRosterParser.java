@@ -109,7 +109,7 @@ public final class HistoricalRosterParser {
         }
     }
 
-    private enum Field {EMP_ID, EMP_NAME, EMP_EMAIL, LOCATION, SHIFT, WEEK_OFF, MANAGER}
+    private enum Field {EMP_ID, EMP_NAME, EMP_EMAIL, LOCATION, SHIFT, WEEK_OFF, MANAGER, REMARKS}
 
     /**
      * Upper bound on the rows scanned while hunting for the header row. Headers
@@ -136,6 +136,7 @@ public final class HistoricalRosterParser {
         alias(Field.SHIFT, "Shift", "Shift Time", "Timings", "Shift Type");
         alias(Field.WEEK_OFF, "Week Off", "Weekly Off", "WeekOff", "WO Day", "Off Day", "Rest Day");
         alias(Field.MANAGER, "Manager", "Reporting Manager", "Reporting To", "Lead", "Manager Name");
+        alias(Field.REMARKS, "Remarks", "Remark", "Description", "Notes", "Note", "Comment", "Comments");
     }
 
     private static final List<String> IGNORABLE = List.of(
@@ -235,6 +236,7 @@ public final class HistoricalRosterParser {
         int emptyCells = 0;
         int sectionRows = 0;
         int weekdayRows = 0;
+        boolean importedAny = false;
         Set<String> seenEmployees = new HashSet<>();
         Set<String> duplicateWarned = new HashSet<>();
         Set<String> usedCommentRefs = new HashSet<>();
@@ -252,20 +254,40 @@ public final class HistoricalRosterParser {
                 weekdayRows++;
                 continue;
             }
-            // Rows that carry no attendance values at all are banners, blanks
-            // or filler — they are not employees.
-            boolean hasVal = hasDayValues(fr, r, days);
-            if (!hasVal) {
-                continue;
-            }
             String rawEmp = fr.text(r, fields.getOrDefault(Field.EMP_ID, -1));
-            if (rawEmp == null || rawEmp.isBlank()) {
-                warnings.add("Row " + (r + 1) + " holds attendance values but column "
-                        + columnName(Math.max(fields.getOrDefault(Field.EMP_ID, 0), 0))
-                        + " has no employee id — the row was not imported.");
+            String empId = HistoricalImportCodes.normaliseText(rawEmp);
+            // A row belongs to the roster only when it carries a recognised
+            // status, or when it has an employee-id-shaped value plus at least
+            // one status-like cell. Anything else after the roster has started
+            // (holiday lists, shift-slot grids, summary ratio rows) is a
+            // different table: stop rather than stage its cells as attendance.
+            boolean hasKnown = hasKnownDayValues(fr, r, days);
+            boolean hasAny = hasDayValues(fr, r, days);
+            boolean employeeRow = (hasKnown && empId != null)
+                    || (isEmployeeIdLike(empId) && hasAny);
+            if (!employeeRow) {
+                if (hasKnown && empId == null) {
+                    warnings.add("Row " + (r + 1) + " holds attendance values but column "
+                            + columnName(Math.max(fields.getOrDefault(Field.EMP_ID, 0), 0))
+                            + " has no employee id — the row was not imported.");
+                    continue;
+                }
+                // A truly empty spacer row between two team blocks is skipped,
+                // not treated as the end of the roster.
+                if (!hasAny && empId == null) {
+                    continue;
+                }
+                // The end of a team block is often bridged by a repeated header,
+                // a weekday banner and a serial-date row before the next block of
+                // employees. Only end the roster when no employee row follows
+                // within the look-ahead window, so those bridges are skipped
+                // instead of truncating a legitimate second section.
+                if (importedAny && !rosterRowAhead(fr, r, fields, days)) {
+                    break;
+                }
                 continue;
             }
-            String empId = HistoricalImportCodes.normaliseText(rawEmp);
+            importedAny = true;
             if (!seenEmployees.add(empId)) {
                 if (duplicateWarned.add(empId)) {
                     warnings.add("Employee '" + empId + "' appears in more than one row in this sheet — "
@@ -279,6 +301,7 @@ public final class HistoricalRosterParser {
             String manager = HistoricalImportCodes.normaliseText(fr.text(r, fields.getOrDefault(Field.MANAGER, -1)));
             String shift = HistoricalImportCodes.normaliseText(fr.text(r, fields.getOrDefault(Field.SHIFT, -1)));
             String weekOff = HistoricalImportCodes.normaliseText(fr.text(r, fields.getOrDefault(Field.WEEK_OFF, -1)));
+            String rowRemarks = blankToNull(fr.text(r, fields.getOrDefault(Field.REMARKS, -1)));
             for (DayColumn dc : days) {
                 String raw = fr.text(r, dc.index);
                 String cellRef = new CellReference(r, dc.index).formatAsString();
@@ -303,7 +326,7 @@ public final class HistoricalRosterParser {
                         status = split.code();
                         description = split.text();
                         descriptionSource = "EXCEL_CELL_TEXT";
-                    } else {
+                    } else if (!isPurelyNumericOrRatio(raw)) {
                         description = blankToNull(raw);
                         descriptionSource = "IMPORTED_UNPARSED";
                     }
@@ -324,15 +347,21 @@ public final class HistoricalRosterParser {
                     descriptionAt = note.at();
                 }
 
+                // Fallback to the row-level Remarks/Description column if no cell-level description was found.
+                if (description == null && rowRemarks != null) {
+                    description = rowRemarks;
+                    descriptionSource = "EXCEL_REMARKS_COLUMN";
+                }
+
                 if (status == null) {
-                    // The cell sits inside the attendance grid, so a status belongs
-                    // here. Staging it with no status lets the admin correct or skip
-                    // it; dropping it would turn a gap in the workbook into a
-                    // silently missing attendance record.
+                    // Blank or formatting-only cells inside the grid are gaps, not
+                    // attendance entries. Counting them keeps the per-sheet
+                    // analysis honest, but they are never staged as records that
+                    // would have to be reviewed before the import can commit.
+                    if (note != null && note.text() != null && !note.text().isBlank()) {
+                        warnings.add("Comment on blank cell at " + cellRef + " for employee " + empId + " was not imported (no attendance status in cell).");
+                    }
                     emptyCells++;
-                    records.add(new ParsedRecord(r + 1, dc.index + 1, empId, empName, email, location, manager,
-                            shift, weekOff, date, null, null, null, null, false, "Blank status",
-                            description, descriptionSource, descriptionAuthor, descriptionAt));
                     continue;
                 }
                 String warning = null;
@@ -411,6 +440,21 @@ public final class HistoricalRosterParser {
             return null;
         }
         return new InlineSplit(canonical, rest.trim());
+    }
+
+    /** True when the string is purely a number or a simple ratio like "3/4" or "0.5". */
+    private static boolean isPurelyNumericOrRatio(String s) {
+        if (s == null || s.isBlank()) {
+            return false;
+        }
+        String t = s.trim();
+        if (t.matches("^\\d+(\\.\\d+)?$")) {
+            return true;
+        }
+        if (t.matches("^\\d+(\\.\\d+)?\\s*/\\s*\\d+(\\.\\d+)?$")) {
+            return true;
+        }
+        return false;
     }
 
     private static SheetResult skipped(String name, SkipReason reason, String detail, boolean hidden) {
@@ -626,6 +670,57 @@ public final class HistoricalRosterParser {
     private static boolean hasDayValues(Frame fr, int r, List<DayColumn> days) {
         for (DayColumn dc : days) {
             if (HistoricalImportCodes.normalizeAttendanceStatus(fr.text(r, dc.index)) != null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * True when the row holds at least one cell that matches a recognised
+     * attendance status. Anonymous text (a weekday banner, a name, a slot
+     * label, a ratio) does not qualify, so layout tables below the roster
+     * cannot masquerade as employee rows.
+     */
+    private static boolean hasKnownDayValues(Frame fr, int r, List<DayColumn> days) {
+        for (DayColumn dc : days) {
+            String status = HistoricalImportCodes.normalizeAttendanceStatus(fr.text(r, dc.index));
+            if (status != null && HistoricalImportCodes.isKnown(status)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Employee-id-shaped: an optional short alpha prefix followed by digits
+     * ("25106149", "E100", "EMP-001"). Deliberately rejects names, date rows,
+     * ratios and free-text labels ("Pune", "Feb 26 - shivratri").
+     */
+    private static final Pattern EMP_ID_PATTERN = Pattern.compile("^[A-Za-z]{0,6}[-_/ ]?\\d+$");
+
+    private static boolean isEmployeeIdLike(String id) {
+        if (id == null) {
+            return false;
+        }
+        return EMP_ID_PATTERN.matcher(id.trim().replaceAll("\\s+", " ")).matches();
+    }
+
+    /** Look-ahead window (rows) used to tell a section bridge from a real end. */
+    private static final int ROSTER_LOOKAHEAD = 5;
+
+    /**
+     * True when another employee row sits within the next few rows. Header,
+     * banner and serial-date rows that separate two team blocks are not
+     * employees, but the block that follows them is.
+     */
+    private static boolean rosterRowAhead(Frame fr, int r, Map<Field, Integer> fields, List<DayColumn> days) {
+        for (int k = 1; k <= ROSTER_LOOKAHEAD && r + k < fr.rows; k++) {
+            String empId = HistoricalImportCodes.normaliseText(
+                    fr.text(r + k, fields.getOrDefault(Field.EMP_ID, -1)));
+            boolean hasKnown = hasKnownDayValues(fr, r + k, days);
+            boolean hasAny = hasDayValues(fr, r + k, days);
+            if ((hasKnown && empId != null) || (isEmployeeIdLike(empId) && hasAny)) {
                 return true;
             }
         }

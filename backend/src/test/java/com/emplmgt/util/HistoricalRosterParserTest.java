@@ -119,16 +119,15 @@ class HistoricalRosterParserTest {
             text(d1, 4, "SL");
 
             var result = parseWorkbook(wb).get(0);
-            // Column 3 is empty, and it is still staged: the admin is asked to
-            // correct or skip it rather than the gap vanishing from the import.
-            assertThat(result.records()).hasSize(3);
+            // Column 3 is empty: it is a gap in the grid, not an attendance entry,
+            // so it is counted as an empty cell and never staged for review.
+            assertThat(result.records()).hasSize(2);
+            assertThat(result.emptyCellCount()).isEqualTo(1);
             assertThat(result.records().get(0).attendanceDate()).isEqualTo(LocalDate.of(2025, 9, 1));
             assertThat(result.records().get(0).statusCode()).isEqualTo("WK WRK");
-            assertThat(result.records().get(1).attendanceDate()).isEqualTo(LocalDate.of(2025, 9, 2));
-            assertThat(result.records().get(1).statusCode()).isNull();
-            assertThat(result.records().get(1).unknown()).isFalse();
-            assertThat(result.records().get(2).attendanceDate()).isEqualTo(LocalDate.of(2025, 9, 3));
-            assertThat(result.records().get(2).statusCode()).isEqualTo("SL");
+            assertThat(result.records().get(1).attendanceDate()).isEqualTo(LocalDate.of(2025, 9, 3));
+            assertThat(result.records().get(1).statusCode()).isEqualTo("SL");
+            assertThat(result.records()).noneMatch(r -> r.statusCode() == null);
         }
     }
 

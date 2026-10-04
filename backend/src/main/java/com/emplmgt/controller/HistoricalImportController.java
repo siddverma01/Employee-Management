@@ -62,8 +62,18 @@ public class HistoricalImportController {
     public ResponseEntity<HistoricalImportDtos.UnresolvedResponse> unresolved(
             @PathVariable Long id,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "50") int size) {
-        return ResponseEntity.ok(historicalImportService.unresolved(id, page, size));
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String state) {
+        return ResponseEntity.ok(historicalImportService.unresolved(id, page, size, search, category, state));
+    }
+
+    @PostMapping("/imports/{id}/rows/bulk-resolve")
+    public ResponseEntity<HistoricalImportDtos.BulkResolveResponse> bulkResolve(
+            @PathVariable Long id,
+            @RequestBody HistoricalImportDtos.BulkResolveRequest request) {
+        return ResponseEntity.ok(historicalImportService.bulkResolve(id, request, securityUtils.currentUserId()));
     }
 
     @PostMapping("/imports/{importId}/rows/{rowId}/correct")

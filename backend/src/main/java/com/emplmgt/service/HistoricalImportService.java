@@ -22,6 +22,7 @@ import com.emplmgt.util.HistoricalRosterParser;
 import com.emplmgt.util.ShiftTime;
 import com.emplmgt.util.WeekOffUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
@@ -100,6 +101,7 @@ public class HistoricalImportService {
     private final AuditService auditService;
     private final AppClock appClock;
     private final ObjectMapper objectMapper;
+    private final EntityManager entityManager;
 
     @Value("${application.import.upload-dir:./data/uploads}")
     private String uploadDir;
@@ -919,14 +921,120 @@ public class HistoricalImportService {
      */
     @Transactional(readOnly = true)
     public HistoricalImportDtos.UnresolvedResponse unresolved(Long importId, int page, int size) {
+        return unresolved(importId, page, size, null, null);
+    }
+
+    @Transactional(readOnly = true)
+    public HistoricalImportDtos.UnresolvedResponse unresolved(Long importId, int page, int size,
+                                                              String search, String category) {
+        return unresolved(importId, page, size, search, category, null);
+    }
+
+    /**
+     * Same worklist, additionally split by decision state so the Making step can
+     * show completed corrections and skips without losing the audit trail. The
+     * reason filter describes the original parse-time problem, so it only narrows
+     * pending (or all) rows; resolved buckets are never silently hidden behind a
+     * stale category selection.
+     */
+    @Transactional(readOnly = true)
+    public HistoricalImportDtos.UnresolvedResponse unresolved(Long importId, int page, int size,
+                                                              String search, String category, String state) {
         load(importId);
         int p = Math.max(page, 0);
         int s = Math.min(Math.max(size, 1), 200);
+        String bucket = normaliseState(state);
+        String cat = ("PENDING".equals(bucket) || "ALL".equals(bucket))
+                ? normaliseCategory(category) : null;
         Page<AttendanceImportRow> slice = rowRepository
-                .findByImportHistoryIdAndIssueIsNotNullAndCorrectedIsFalseAndSkippedIsFalseOrderByIdAsc(
-                        importId, PageRequest.of(p, s));
+                .findReviewFiltered(importId, bucket, likePattern(search), cat, PageRequest.of(p, s));
         return new HistoricalImportDtos.UnresolvedResponse(importId, resolutionSummary(importId),
                 p, s, slice.getTotalElements(), toUnresolvedEntries(slice.getContent()));
+    }
+
+    /**
+     * Applies one review decision (correct-to-status or skip) to many flagged cells
+     * at once. An explicit row-id list is authoritative; when it is empty the whole
+     * current filter is resolved, which is how an admin can clear thousands of
+     * entries of the same kind without clicking through every page.
+     */
+    @Transactional
+    public HistoricalImportDtos.BulkResolveResponse bulkResolve(Long importId,
+                                                                HistoricalImportDtos.BulkResolveRequest req,
+                                                                Long adminUserId) {
+        load(importId);
+        boolean skip = Boolean.TRUE.equals(req.skip());
+        List<AttendanceImportRow> rows;
+        if (req.rowIds() != null && !req.rowIds().isEmpty()) {
+            rows = rowRepository.findAllById(req.rowIds()).stream()
+                    .filter(r -> r.getImportHistory() != null && importId.equals(r.getImportHistory().getId()))
+                    .filter(HistoricalImportService::needsResolution)
+                    .toList();
+        } else {
+            rows = rowRepository.findReviewFilteredList(importId, "PENDING",
+                    likePattern(req.search()), normaliseCategory(req.category()));
+        }
+        if (rows.isEmpty()) {
+            return new HistoricalImportDtos.BulkResolveResponse(0, resolutionSummary(importId));
+        }
+        if (skip) {
+            String note = blankToNull(req.reason());
+            for (AttendanceImportRow row : rows) {
+                row.setSkipped(true);
+                row.setAction("SKIPPED");
+                if (note != null) {
+                    String base = row.getIssue() == null ? "Skipped by admin" : row.getIssue();
+                    row.setIssue(base + " — skipped: " + note);
+                }
+            }
+        } else {
+            String target = HistoricalImportCodes.normaliseRaw(req.status());
+            if (target == null || target.isBlank()) {
+                throw ApiException.badRequest("Pick a status to correct these entries to.");
+            }
+            AttendanceStatus st = statusRepository.findById(target).orElseThrow(() ->
+                    ApiException.badRequest(
+                            "Unknown status '" + req.status() + "'. Known statuses: " + knownCodes()));
+            for (AttendanceImportRow row : rows) {
+                row.setIncomingStatus(st.getCode());
+                row.setStatusName(st.getName());
+                row.setIsUnknown(false);
+                row.setCorrected(true);
+            }
+        }
+        rowRepository.saveAll(rows);
+        auditService.record(skip ? "HISTORICAL_ROWS_SKIPPED" : "HISTORICAL_ROWS_CORRECTED",
+                "AttendanceImportHistory", String.valueOf(importId), null,
+                Map.of("import", importId, "affected", rows.size(),
+                        "to", skip ? "SKIPPED" : HistoricalImportCodes.normaliseRaw(req.status())));
+        return new HistoricalImportDtos.BulkResolveResponse(rows.size(), resolutionSummary(importId));
+    }
+
+    /** Normalises the search box into a lowercase LIKE pattern, or {@code null} when empty. */
+    private static String likePattern(String search) {
+        if (search == null || search.isBlank()) {
+            return null;
+        }
+        return "%" + search.trim().toLowerCase() + "%";
+    }
+
+    private static String normaliseCategory(String category) {
+        if (category == null || category.isBlank() || "ALL".equalsIgnoreCase(category)) {
+            return null;
+        }
+        return category.trim().toUpperCase();
+    }
+
+    /** Maps the review-state filter onto one of the four buckets the query knows. */
+    private static String normaliseState(String state) {
+        if (state == null || state.isBlank()) {
+            return "PENDING";
+        }
+        String s = state.trim().toUpperCase();
+        return switch (s) {
+            case "PENDING", "CORRECTED", "SKIPPED", "ALL" -> s;
+            default -> "PENDING";
+        };
     }
 
     /**
@@ -992,12 +1100,18 @@ public class HistoricalImportService {
     }
 
     private HistoricalImportDtos.UnresolvedSummary resolutionSummary(Long importId) {
-        long total = rowRepository.countByImportHistoryIdAndIssueIsNotNull(importId);
+        long totalEntries = rowRepository.countByImportHistoryId(importId);
+        long flagged = rowRepository.countByImportHistoryIdAndIssueIsNotNull(importId);
         long corrected = rowRepository.countByImportHistoryIdAndIssueIsNotNullAndCorrectedIsTrue(importId);
         long skipped = rowRepository.countByImportHistoryIdAndSkippedIsTrue(importId);
         long remaining = rowRepository
                 .countByImportHistoryIdAndIssueIsNotNullAndCorrectedIsFalseAndSkippedIsFalse(importId);
-        return new HistoricalImportDtos.UnresolvedSummary(total, corrected, skipped, remaining);
+        // Entries that will actually reach the roster: everything except the ones
+        // still awaiting a decision and the ones explicitly skipped. Corrected
+        // entries count as valid because their status has now been supplied.
+        long validEntries = Math.max(totalEntries - remaining - skipped, 0);
+        return new HistoricalImportDtos.UnresolvedSummary(totalEntries, validEntries, flagged,
+                corrected, skipped, remaining);
     }
 
     private AttendanceImportRow loadRow(Long importId, Long rowId) {
@@ -1020,8 +1134,32 @@ public class HistoricalImportService {
                 r.getSourceColumn(), cellRef(r),
                 r.getEmployeeId(), r.getEmployeeName(), r.getAttendanceDate(),
                 r.getOriginalStatus(), r.getIncomingStatus(), r.getStatusName(),
-                r.getIssue(), r.getAction(),
+                r.getIssue(), categorise(r),
+                r.getDescription(), r.getDescriptionAuthor(),
+                r.getAction(),
                 Boolean.TRUE.equals(r.getCorrected()), Boolean.TRUE.equals(r.getSkipped()));
+    }
+
+    /**
+     * One reason bucket per flagged entry so the Making worklist can be filtered
+     * and bulk-reviewed: a duplicate of another staged cell, an unusable date, a
+     * cell with no value at all, an unrecognised code, or any other warning
+     * (e.g. a day that does not belong to the sheet's month).
+     */
+    static String categorise(AttendanceImportRow r) {
+        if ("DUPLICATE".equals(r.getAction())) {
+            return "DUPLICATE";
+        }
+        if (r.getAttendanceDate() == null || "INVALID".equals(r.getAction())) {
+            return "DATE_MISMATCH";
+        }
+        if (r.getIncomingStatus() == null || r.getIncomingStatus().isBlank()) {
+            return "MISSING_DATA";
+        }
+        if (Boolean.TRUE.equals(r.getIsUnknown())) {
+            return "UNMAPPED";
+        }
+        return "INVALID";
     }
 
     /** Human-readable A1-style pointer so the admin can find the cell in the workbook. */
@@ -1066,9 +1204,9 @@ public class HistoricalImportService {
         AttendanceImportHistory h = load(importId);
         if ("COMMITTED".equals(h.getStatus())) {
             return new HistoricalImportDtos.CommitResponse(h.getId(), h.getFileName(), h.getOriginalFileName(),
-                    h.getStatus(), toSummary(h, readSnapshot(h).analysis()),
+                    h.getStatus(), h.getImportedAt(), toSummary(h, readSnapshot(h).analysis()),
                     h.getInsertedRecords() + h.getUpdatedRecords(),
-                    resultOf(h));
+                    resultOf(h, reviewCounts(importId)));
         }
         if (!"PREVIEWED".equals(h.getStatus())) {
             throw ApiException.conflict("Import must be previewed before it can be committed");
@@ -1097,6 +1235,41 @@ public class HistoricalImportService {
         Map<String, AttendanceImportRow> weekOffRows = new LinkedHashMap<>();
         Instant now = appClock.now();
 
+        // Resolve every employee and existing attendance row once, up front. The
+        // old per-row lookups made the commit quadratic: each query auto-flushed a
+        // persistence context that grew by one entity per saved row, so a full-year
+        // workbook spent minutes inside Hibernate instead of seconds in Postgres.
+        Map<String, ImportEmployee> employeeCache = new HashMap<>();
+        Map<String, AttendanceRecord> recordCache = new HashMap<>();
+        {
+            Set<String> employeeIds = new LinkedHashSet<>();
+            LocalDate minDate = null;
+            LocalDate maxDate = null;
+            for (AttendanceImportRow r : rows) {
+                if (r.getAttendanceDate() == null || r.getIncomingStatus() == null) {
+                    continue;
+                }
+                employeeIds.add(r.getEmployeeId());
+                LocalDate d = r.getAttendanceDate();
+                if (minDate == null || d.isBefore(minDate)) {
+                    minDate = d;
+                }
+                if (maxDate == null || d.isAfter(maxDate)) {
+                    maxDate = d;
+                }
+            }
+            for (ImportEmployee e : importEmployeeRepository.findAllById(employeeIds)) {
+                employeeCache.put(e.getEmployeeId(), e);
+            }
+            if (minDate != null) {
+                for (AttendanceRecord existing : recordRepository
+                        .findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(
+                                minDate, maxDate, employeeIds)) {
+                    recordCache.put(recordKey(existing.getEmployeeId(), existing.getAttendanceDate()), existing);
+                }
+            }
+        }
+
         for (AttendanceImportRow r : rows) {
             if (r.getAttendanceDate() == null || r.getIncomingStatus() == null) {
                 failed++;
@@ -1106,7 +1279,7 @@ public class HistoricalImportService {
             if (Boolean.TRUE.equals(r.getIsUnknown())) {
                 unknown++;
             }
-            upsertEmployee(r, teamId, now);
+            upsertEmployee(r, teamId, now, employeeCache);
             if (r.getAttendanceDate() != null) {
                 String periodKey = r.getEmployeeId() + "|" + YearMonth.from(r.getAttendanceDate());
                 shiftRows.putIfAbsent(periodKey, r);
@@ -1117,12 +1290,12 @@ public class HistoricalImportService {
                     weekOffRows.putIfAbsent(periodKey, r);
                 }
             }
-            AttendanceRecord rec = recordRepository
-                    .findByEmployeeIdAndAttendanceDate(r.getEmployeeId(), r.getAttendanceDate())
-                    .orElse(null);
+            String rowKey = recordKey(r.getEmployeeId(), r.getAttendanceDate());
+            AttendanceRecord rec = recordCache.get(rowKey);
             boolean isNew = rec == null;
             if (rec == null) {
                 rec = new AttendanceRecord();
+                recordCache.put(rowKey, rec);
             }
             rec.setEmployeeId(r.getEmployeeId());
             rec.setAttendanceDate(r.getAttendanceDate());
@@ -1163,6 +1336,14 @@ public class HistoricalImportService {
             recordRepository.save(rec);
         }
 
+        // Persist and detach the day records before the per-period upserts. Those
+        // upserts issue a query per employee-month; without this flush each one
+        // would dirty-check every record written so far, which is the other half
+        // of the quadratic cost. The staged rows are read for scalar fields only,
+        // so detaching them here is safe.
+        entityManager.flush();
+        entityManager.clear();
+
         // Shift is a per-period property, so it is persisted per employee+month
         // rather than on the employee master. Each month this import touches is
         // written; every other month is left exactly as its own import left it.
@@ -1179,18 +1360,31 @@ public class HistoricalImportService {
                 null, Map.of("file", h.getOriginalFileName() == null ? h.getFileName() : h.getOriginalFileName(),
                         "inserted", inserted, "updated", updated));
 
+        ReviewCounts counts = reviewCounts(importId);
         return new HistoricalImportDtos.CommitResponse(h.getId(), h.getFileName(), h.getOriginalFileName(),
-                h.getStatus(), toSummary(h, readSnapshot(h).analysis()), inserted + updated,
+                h.getStatus(), h.getImportedAt(), toSummary(h, readSnapshot(h).analysis()), inserted + updated,
                 new HistoricalImportDtos.ImportResult(employees.size(), h.getRecordsDetected(), inserted,
-                        updated, h.getDuplicateRecords(), h.getWarnings(), unknown, failed + h.getInvalidRows()));
+                        updated, h.getDuplicateRecords(), h.getWarnings(), unknown, failed + h.getInvalidRows(),
+                        (int) counts.corrected(), (int) counts.skipped()));
     }
 
-    private static HistoricalImportDtos.ImportResult resultOf(AttendanceImportHistory h) {
+    /** Manual review decisions this import carries, kept immutable for the result step. */
+    private record ReviewCounts(long corrected, long skipped) {
+    }
+
+    private ReviewCounts reviewCounts(Long importId) {
+        return new ReviewCounts(
+                rowRepository.countByImportHistoryIdAndIssueIsNotNullAndCorrectedIsTrue(importId),
+                rowRepository.countByImportHistoryIdAndSkippedIsTrue(importId));
+    }
+
+    private static HistoricalImportDtos.ImportResult resultOf(AttendanceImportHistory h, ReviewCounts counts) {
         return new HistoricalImportDtos.ImportResult(
                 h.getEmployeesDetected(), h.getRecordsDetected(), h.getInsertedRecords(), h.getUpdatedRecords(),
                 h.getDuplicateRecords(), h.getWarnings(),
                 h.getUnknownCodes() == null ? 0 : h.getUnknownCodes(),
-                h.getInvalidRows() == null ? 0 : h.getInvalidRows());
+                h.getInvalidRows() == null ? 0 : h.getInvalidRows(),
+                (int) counts.corrected(), (int) counts.skipped());
     }
 
     /**
@@ -1357,11 +1551,13 @@ public class HistoricalImportService {
      * it belongs to the period (see {@link AttendanceShiftAssignment}). The
      * master's shift is refreshed separately to the latest imported period.
      */
-    private void upsertEmployee(AttendanceImportRow r, Long teamId, Instant now) {
-        ImportEmployee emp = importEmployeeRepository.findById(r.getEmployeeId()).orElse(null);
+    private void upsertEmployee(AttendanceImportRow r, Long teamId, Instant now,
+                                Map<String, ImportEmployee> employeeCache) {
+        ImportEmployee emp = employeeCache.get(r.getEmployeeId());
         boolean isNew = emp == null;
         if (emp == null) {
             emp = ImportEmployee.builder().employeeId(r.getEmployeeId()).build();
+            employeeCache.put(r.getEmployeeId(), emp);
         }
         boolean touched = false;
         if (isNew || isBlank(emp.getEmployeeName())) {
@@ -1408,6 +1604,11 @@ public class HistoricalImportService {
         if (isNew || touched) {
             importEmployeeRepository.save(emp);
         }
+    }
+
+    /** Cache/upsert key for a day record: one record per employee per date. */
+    private static String recordKey(String employeeId, LocalDate attendanceDate) {
+        return employeeId + "|" + attendanceDate;
     }
 
     private static String normaliseEmployeeValue(String v) {

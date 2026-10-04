@@ -27,6 +27,7 @@ public final class AttendanceRosterDtos {
     public record EmployeeRow(String employeeId, String employeeName, String email, String location,
                               String shift, String weekOff, Long teamId, String teamName,
                               Map<String, String> days,
+                              Map<String, String> descriptions,
                               boolean shiftChangesWithinMonth) {
     }
 

@@ -19,7 +19,7 @@ import { LoadingState } from '@/components/ui/LoadingState'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useAuth } from '@/hooks/useAuth'
 import { RosterLegend, monthLabel } from '@/components/roster/RosterLegend'
-import { ROSTER_STATUS_CODES, getAttendanceCellStyle, statusLabel } from '@/constants/rosterStatus'
+import { ROSTER_STATUS_CODES, getAttendanceCellStyle, statusLabel, normalizeStatus } from '@/constants/rosterStatus'
 
 const EMPTY_CODE = ''
 const PAGE_SIZE = 30
@@ -41,6 +41,7 @@ function weekdayOf(dateStr: string): number {
   const [y, m, d] = dateStr.split('-').map(Number)
   return new Date(y, m - 1, d).getDay()
 }
+
 
 function cellKey(employeeId: string, date: string): string {
   return `${employeeId}|${date}`
@@ -82,14 +83,33 @@ function normalizeShift(shift: string | null | undefined): string | null {
  * horizontal scroll, so the frozen area can never move or bleed through.
  * Widths sum to 45+90+190+75+150+90 = 640px (matches the old cumulative offset).
  */
-const FROZEN_COL = {
-  sno: 'w-[45px] text-center',
-  empId: 'w-[90px]',
-  employee: 'w-[190px]',
-  loc: 'w-[75px]',
-  shift: 'w-[150px]',
-  weekOff: 'w-[90px]',
+const FROZEN_WIDTH = {
+  sno: 45,
+  empId: 90,
+  employee: 190,
+  loc: 75,
+  shift: 150,
+  weekOff: 90,
 } as const
+
+/** Widths sum to 640px. They are emitted ONCE into the frozen table's colgroup,
+ *  so the header and body can never disagree and no cell needs a width class. */
+const FROZEN_COLS = Object.entries(FROZEN_WIDTH) as Array<[string, number]>
+
+/** Alignment only — widths come from the colgroup. */
+const FROZEN_COL = {
+  sno: 'text-center',
+  empId: '',
+  employee: '',
+  loc: '',
+  shift: '',
+  weekOff: '',
+} as const
+
+/** Calendar day columns: one fixed width, shared by the header, the body cells
+ *  and the table's own computed width. 40px keeps 3-letter weekdays and the
+ *  longest status codes ("SW OFF") legible without crowding. */
+const DAY_COL_WIDTH = 40
 
 const HEAD_TINT = 'top-0 z-30 border-r border-surface-200 px-3 py-2 text-left text-[11px] font-semibold text-surface-500 !bg-surface-50 dark:!bg-[#1E2228]'
 /** Employee-info (frozen) cell geometry + gridlines only. The horizontal
@@ -104,6 +124,28 @@ const ROW_HEIGHT = 'h-[44px]'
 /** Last frozen column (Week Off): drop its gridline border — the frozen panel's
  *  right-edge separator is drawn by the panel itself instead of a moving cell. */
 const FROZEN_LAST = 'frozen-col-last'
+
+/** Get a slightly darker shade of the attendance cell's own color family.
+ *  Uses the existing status color palette for visual consistency. */
+function getDescriptionIndicatorColor(code: string): string {
+  const c = normalizeStatus(code)
+  switch (c) {
+    case 'PL':
+      return 'bg-amber-500'
+    case 'SL':
+      return 'bg-rose-500'
+    case 'WO':
+      return 'bg-slate-500'
+    case 'WFO':
+      return 'bg-emerald-500'
+    case 'WFH':
+      return 'bg-orange-500'
+    case 'CO':
+      return 'bg-blue-500'
+    default:
+      return 'bg-slate-500'
+  }
+}
 
 interface PickerState {
   employeeId: string
@@ -536,15 +578,15 @@ function StatusDetailPopup({
                 <textarea
                   value={text}
                   onChange={(e) => setText(e.target.value)}
-                  rows={3}
+                  rows={4}
                   maxLength={2000}
                   placeholder={selectedCode ? 'No description added.' : 'Assign a status to add a description.'}
-                  className="input block w-full resize-none rounded-md border border-surface-200 bg-surface-50 px-2.5 py-2 text-[13px] leading-relaxed text-surface-700 placeholder:text-surface-400 focus:border-brand-500 focus:ring-brand-500/30 dark:bg-[#242833] dark:text-[#D5DBE3] dark:placeholder:text-[#7D8794]"
+                  className="input block w-full resize-y max-h-60 rounded-md border border-surface-200 bg-surface-50 px-2.5 py-2 text-[13px] leading-relaxed text-surface-700 placeholder:text-surface-400 focus:border-brand-500 focus:ring-brand-500/30 dark:bg-[#242833] dark:text-[#D5DBE3] dark:placeholder:text-[#7D8794]"
                 />
               ) : stored.trim() === '' ? (
                 <p className="text-[12px] text-surface-400">No description added.</p>
               ) : (
-                <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-surface-700 dark:text-[#D5DBE3]">{stored}</p>
+                <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-surface-700 dark:text-[#D5DBE3] max-h-60 overflow-y-auto">{stored}</p>
               )}
 
               {/* attribution: original Excel author + timestamp, or the manual audit trail */}
@@ -559,12 +601,12 @@ function StatusDetailPopup({
               {/* imported-source provenance: preserves the Excel original after edits */}
               {!loading && !error && importedBlock && (
                 <div className="mt-2.5 space-y-0.5 border-t border-surface-200/70 pt-2 text-[11px] text-surface-500 dark:border-white/[0.06] dark:text-[#8B95A3]">
-                  {importedBlock.original && (
-                    <>
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-surface-400">Imported original</p>
-                      <p className="whitespace-pre-wrap text-surface-600 dark:text-[#B6C0CC]">{importedBlock.original}</p>
-                    </>
-                  )}
+{importedBlock.original && (
+                      <>
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-surface-400">Imported original</p>
+                        <p className="whitespace-pre-wrap text-surface-600 dark:text-[#B6C0CC] max-h-40 overflow-y-auto">{importedBlock.original}</p>
+                      </>
+                    )}
                   <p className="truncate">{importedBlock.line}</p>
                   {importedBlock.rawValue && <p className="truncate">Original value: {importedBlock.rawValue}</p>}
                 </div>
@@ -932,33 +974,38 @@ export function AdminRosterPage() {
     <th
       key={date}
       className={cn(
-        'sticky top-0 z-10 w-11 border-l border-surface-200 px-0.5 py-1.5 text-center align-middle first:border-l-0',
+        'sticky top-0 z-10 w-10 min-w-[2.5rem] border-l border-surface-200 px-0.5 py-1.5 text-center align-middle first:border-l-0',
         weekend && 'bg-brand-50 dark:bg-[#1B2A29]',
         holiday && 'bg-amber-50 dark:bg-[#383020]',
         !weekend && !holiday && 'bg-surface-50 dark:bg-[#1E2228]',
       )}
       title={holiday ? statusLabel('HPEH') : undefined}
     >
-      <div className="text-xs font-semibold text-surface-700 dark:text-[#E5E7EB]">{weekdayOf(date) === 0 ? 'S' : date.slice(8)}</div>
-      <div className={cn('text-[9px] font-medium uppercase', weekend ? 'text-brand-400 dark:text-[#8FBDB7]' : 'text-surface-400 dark:text-[#8B95A3]')}>
+<div className="text-[11px] font-semibold leading-tight text-surface-700 dark:text-[#E5E7EB]">{weekdayOf(date) === 0 ? 'S' : date.slice(8)}</div>
+      {/* Weekday text is strictly the three-letter abbreviation, supplied verbatim by
+          the backend (`DayOfWeek.getDisplayName(SHORT)`). Holiday metadata must never be
+          concatenated into it — a holiday is already communicated by the amber fill on
+          the <th> above and by the `title` tooltip, both of which are preserved. */}
+      <div className={cn('text-[9px] font-medium uppercase leading-tight', weekend ? 'text-brand-400 dark:text-[#8FBDB7]' : 'text-surface-400 dark:text-[#8B95A3]')}>
         {weekday ?? ''}
-        {holiday ? ' · H' : ''}
       </div>
     </th>
   )
 
-  const statusCell = (employee: RosterEmployeeRow, date: string) => {
+const statusCell = (employee: RosterEmployeeRow, date: string) => {
     const key = cellKey(employee.employeeId, date)
     const edited = dirty.get(key)
     const code = edited !== undefined ? edited : (employee.days[date] ?? EMPTY_CODE)
     const display = code || '.'
+    const hasDescription = employee.descriptions?.[date] && employee.descriptions[date].trim() !== ''
     return (
-      <td key={date} className="min-w-[2.3rem] text-center align-middle">
+      <td key={date} className="w-10 min-w-[2.5rem] text-center align-middle">
         <button
           type="button"
           data-status={code}
           className={cn(
-            'attendance-cell',
+            'attendance-cell relative',
+            !code && 'attendance-cell-empty',
             !canEdit && 'cursor-default hover:shadow-none',
             // Deliberately no extra class for a pending edit: the cell keeps its
             // normal fill and gridline, with no coloured border or marker. The
@@ -966,7 +1013,11 @@ export function AdminRosterPage() {
             // the unsaved count.
           )}
           style={getAttendanceCellStyle(code)}
-          title={canEdit ? (code ? `${statusLabel(code)} — ${date}` : `Set status — ${date}`) : `${statusLabel(code)} — ${date}`}
+          title={
+            code
+              ? `${statusLabel(code)} — ${date}${hasDescription ? ' · has note' : ''}`
+              : `Set status — ${date}`
+          }
           aria-disabled={!canEdit}
           tabIndex={canEdit ? undefined : -1}
           onClick={(e) => {
@@ -978,12 +1029,19 @@ export function AdminRosterPage() {
           }}
         >
           <span className="attendance-status">{display}</span>
+          {hasDescription && (
+            <span
+              className={cn(
+                'attendance-note-bar absolute inset-x-[5px] bottom-[3px] h-[2px] rounded-full',
+                getDescriptionIndicatorColor(code),
+              )}
+              aria-hidden="true"
+            />
+          )}
         </button>
       </td>
     )
-  }
-
-  // ---------------------------------------------------------------- render
+}
 
   // Type guards to narrow the union type
   const isTodayView = viewMode === 'today'
@@ -996,20 +1054,20 @@ export function AdminRosterPage() {
   const counters = data?.counters ?? {}
 
   return (
-    <div className="space-y-5">
+    <div className="attendance-roster space-y-4">
       {/* ------------------------------------------------ title + summary */}
-      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
         <div className="min-w-0">
           <h1 className="text-[22px] font-semibold leading-tight tracking-tight text-surface-800">Attendance Roster</h1>
-          <p className="mt-1.5 text-[13px] text-surface-500">{canEdit ? 'Month-wise imported roster — editable by admin' : 'Month-wise imported roster — view only'}</p>
+          <p className="mt-1 text-[13px] text-surface-500">{canEdit ? 'Month-wise imported roster — editable by admin' : 'Month-wise imported roster — view only'}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {/* Month/Today Toggle */}
-          <div className="inline-flex items-center p-0.5 rounded-lg bg-surface-100 dark:bg-[#242833] border border-surface-200 dark:border-[#30363D]">
+          <div className="mr-1 inline-flex h-9 shrink-0 items-center rounded-lg border border-surface-200 bg-surface-100 p-0.5 dark:border-[#30363D] dark:bg-[#242833]">
             <button
               type="button"
               className={cn(
-                'px-2.5 py-1 text-[11px] font-medium rounded-[6px] transition-colors',
+                'inline-flex h-8 items-center rounded-md px-3 text-[11px] font-medium transition-colors',
                 viewMode === 'month'
                   ? 'bg-brand-500 text-white'
                   : 'text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-200'
@@ -1022,7 +1080,7 @@ export function AdminRosterPage() {
             <button
               type="button"
               className={cn(
-                'px-2.5 py-1 text-[11px] font-medium rounded-[6px] transition-colors',
+                'inline-flex h-8 items-center rounded-md px-3 text-[11px] font-medium transition-colors',
                 viewMode === 'today'
                   ? 'bg-brand-500 text-white'
                   : 'text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-200'
@@ -1036,24 +1094,24 @@ export function AdminRosterPage() {
           {COUNTER_CODES.map((c) => (
             <span
               key={c}
-              className="flex min-w-[4.75rem] flex-col gap-1 rounded-lg border border-surface-200 bg-surface-0 px-2.5 py-1.5 shadow-hpe-sm dark:border-[#20252E] dark:bg-[#1B1E23] dark:shadow-none"
+              className="roster-kpi flex h-[54px] w-[112px] shrink-0 flex-col justify-between rounded-lg border border-surface-200 bg-surface-0 px-2.5 py-2"
               title={statusLabel(c)}
             >
               <span className="flex items-center gap-1.5">
-                <span className="inline-flex h-4 min-w-[2rem] items-center justify-center rounded-[3px] px-1 text-[9px] font-bold" style={getAttendanceCellStyle(c)}>{c}</span>
-                <span className="text-sm font-semibold tabular-nums text-surface-800">{counters[c] ?? 0}</span>
+                <span className="inline-flex h-[18px] min-w-[28px] shrink-0 items-center justify-center rounded-[3px] px-1 text-[9px] font-bold" style={getAttendanceCellStyle(c)}>{c}</span>
+                <span className="roster-kpi-count text-[15px] font-semibold leading-none tabular-nums text-surface-800">{counters[c] ?? 0}</span>
               </span>
-              <span className="text-[10px] leading-none text-surface-400">{statusLabel(c)}</span>
+              <span className="roster-kpi-label truncate text-[10px] leading-none text-surface-400" title={statusLabel(c)}>{statusLabel(c)}</span>
             </span>
           ))}
         </div>
       </div>
 
       {/* ------------------------------------------------ filters */}
-      <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2 lg:grid-cols-6">
+      <div className="grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-2 lg:grid-cols-6">
         <div className="min-w-0">
-          <label className="mb-1.5 block text-[11px] font-medium text-surface-500">Team</label>
-          <select className="select h-[38px]" value={teamId ?? ''} onChange={(e) => updateTeam(e.target.value === '' ? null : Number(e.target.value))}>
+          <label className="mb-1 block text-[11px] font-medium text-surface-500">Team</label>
+          <select className="select h-9 py-0" value={teamId ?? ''} onChange={(e) => updateTeam(e.target.value === '' ? null : Number(e.target.value))}>
             <option value="">All Teams</option>
             {(meta?.teams ?? []).map((t) => (
               <option key={t.id} value={t.id}>{t.name}</option>
@@ -1061,35 +1119,35 @@ export function AdminRosterPage() {
           </select>
         </div>
         <div className="min-w-0">
-          <label className="mb-1.5 block text-[11px] font-medium text-surface-500">Month</label>
+          <label className="mb-1 block text-[11px] font-medium text-surface-500">Month</label>
           <div className="flex items-center gap-1.5">
-            <Button variant="secondary" size="sm" className="h-[38px] w-10 shrink-0 px-0" onClick={() => updateMonth(shiftMonth(month, -1))} aria-label="Previous month">
+            <Button variant="secondary" size="sm" className="h-9 w-9 shrink-0 px-0" onClick={() => updateMonth(shiftMonth(month, -1))} aria-label="Previous month">
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <Select
-              className="min-w-0 flex-1"
+              className="h-9 min-w-0 flex-1 py-0"
               placeholder="Pick a month"
               value={month}
               onChange={(e) => updateMonth(e.target.value)}
               options={months.map((ym) => ({ value: ym, label: monthLabel(ym) }))}
             />
-            <Button variant="secondary" size="sm" className="h-[38px] w-10 shrink-0 px-0" onClick={() => updateMonth(shiftMonth(month, 1))} aria-label="Next month">
+            <Button variant="secondary" size="sm" className="h-9 w-9 shrink-0 px-0" onClick={() => updateMonth(shiftMonth(month, 1))} aria-label="Next month">
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
           {metaLoading && <span className="mt-1 block text-[11px] text-surface-400">Loading months…</span>}
         </div>
         <div className="min-w-0">
-          <label className="mb-1.5 block text-[11px] font-medium text-surface-500">Employee</label>
+          <label className="mb-1 block text-[11px] font-medium text-surface-500">Employee</label>
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-400" />
-            <input className="input h-[38px] pl-8" placeholder="Search name / ID / email" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <input className="input h-9 py-0 pl-8" placeholder="Search name / ID / email" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
         </div>
         <div className="min-w-0">
-          <label className="mb-1.5 block text-[11px] font-medium text-surface-500">Status</label>
+          <label className="mb-1 block text-[11px] font-medium text-surface-500">Status</label>
           <Select
-            className="h-[38px]"
+            className="h-9 py-0"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             placeholder="Any status"
@@ -1097,9 +1155,9 @@ export function AdminRosterPage() {
           />
         </div>
         <div className="min-w-0">
-          <label className="mb-1.5 block text-[11px] font-medium text-surface-500">Location</label>
+          <label className="mb-1 block text-[11px] font-medium text-surface-500">Location</label>
           <Select
-            className="h-[38px]"
+            className="h-9 py-0"
             value={locationFilter}
             onChange={(e) => setLocationFilter(e.target.value)}
             placeholder="All locations"
@@ -1107,9 +1165,9 @@ export function AdminRosterPage() {
           />
         </div>
         <div className="min-w-0">
-          <label className="mb-1.5 block text-[11px] font-medium text-surface-500">Shift</label>
+          <label className="mb-1 block text-[11px] font-medium text-surface-500">Shift</label>
           <Select
-            className="h-[38px]"
+            className="h-9 py-0"
             value={shiftFilter}
             onChange={(e) => setShiftFilter(e.target.value)}
             placeholder="All shifts"
@@ -1187,6 +1245,11 @@ export function AdminRosterPage() {
                   own opaque surface + fixed right-edge separator form the "wall". */}
               <div className="roster-frozen-panel sticky left-0 z-20">
                 <table className="table-fixed border-separate border-spacing-0">
+                  <colgroup>
+                    {FROZEN_COLS.map(([name, width]) => (
+                      <col key={name} style={{ width }} />
+                    ))}
+                  </colgroup>
                   <thead>
                     <tr className="border-b border-surface-200">
                       <th className={`${FROZEN_COL.sno} ${HEAD_TINT}`}>SNO</th>
@@ -1235,7 +1298,16 @@ export function AdminRosterPage() {
                   padding-right in index.css), so the breathing space stays glued to
                   the frozen section while only these columns scroll. */}
               <div>
-                <table className="table-fixed border-separate border-spacing-0" style={{ width: `${(viewMode === 'today' ? 1 : monthlyDataTyped?.days.length ?? 0) * 44}px` }}>
+                <table
+                  className="table-fixed border-separate border-spacing-0"
+                  style={{ width: `${(viewMode === 'today' ? 1 : monthlyDataTyped?.days.length ?? 0) * DAY_COL_WIDTH}px` }}
+                >
+                  <colgroup>
+                    {Array.from(
+                      { length: viewMode === 'today' ? 1 : monthlyDataTyped?.days.length ?? 0 },
+                      (_v, i) => <col key={i} style={{ width: DAY_COL_WIDTH }} />,
+                    )}
+                  </colgroup>
                   <thead>
                     <tr className="border-b border-surface-200">
                       {viewMode === 'today'

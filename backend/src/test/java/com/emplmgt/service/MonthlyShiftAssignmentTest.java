@@ -88,6 +88,7 @@ class MonthlyShiftAssignmentTest {
     @Mock AttendanceImportRowRepository rowRepository;
     @Mock AuditService auditService;
     @Mock AppClock appClock;
+    @Mock jakarta.persistence.EntityManager entityManager;
 
     private WeekOffUtil weekOffUtil;
     private HistoricalImportService service;
@@ -118,7 +119,7 @@ class MonthlyShiftAssignmentTest {
                 .thenReturn(Optional.empty());
         service = new HistoricalImportService(statusRepository, importEmployeeRepository, recordRepository,
                 shiftAssignmentRepository, weekOffAssignmentRepository, weekOffUtil, historyRepository,
-                rowRepository, auditService, appClock, new ObjectMapper());
+                rowRepository, auditService, appClock, new ObjectMapper(), entityManager);
     }
 
     // ------------------------------------------------------------- fixture

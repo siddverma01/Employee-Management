@@ -139,6 +139,8 @@ public interface ImportEmployeeRepository extends JpaRepository<ImportEmployee, 
     @Query("select distinct e.defaultShift from ImportEmployee e where e.defaultShift is not null order by e.defaultShift asc")
     List<String> findDistinctShifts();
 
+    List<ImportEmployee> findByTeamId(Long teamId);
+
     /**
      * Keeps {@code default_shift} meaning "current shift" rather than "the shift
      * from whichever month happened to be imported first". Shift rotates, so the
@@ -193,4 +195,39 @@ public interface ImportEmployeeRepository extends JpaRepository<ImportEmployee, 
     List<ImportEmployee> findForMonthDropdown(@Param("from") java.time.LocalDate from,
                                               @Param("to") java.time.LocalDate to,
                                               @Param("q") String q);
+
+    /**
+     * Every employee matching a name/id fragment, current roster or not.
+     *
+     * <p>Backs the Analytics employee search, which must be able to reach someone who
+     * has left: such an employee is absent from the current roster but still owns
+     * historical attendance that has to stay reachable. Deliberately not filtered on
+     * {@code active} and not restricted to a month, so a former employee is as
+     * findable as a current one. An absent {@code q} returns everyone, which is how the
+     * caller learns the full employee universe it may be searching over.</p>
+     */
+    @Query(value = """
+            select e.* from import_employees e
+            where (:q is null or lower(e.employee_name) like lower(concat('%', :q, '%'))
+                   or lower(e.employee_id) like lower(concat('%', :q, '%')))
+            order by lower(e.employee_name) asc, lower(e.employee_id) asc
+            """, nativeQuery = true)
+    List<ImportEmployee> searchByNameOrId(@Param("q") String q);
+
+    /**
+     * Employee ids that only ever appear in historical attendance records, i.e. with no
+     * {@code import_employees} row at all.
+     *
+     * <p>Analytics unions these into its search results so an employee can never become
+     * unreachable just because their master row is missing. Normally empty; the union is
+     * a safety net, not a second employee list.</p>
+     */
+    @Query(value = """
+            select distinct r.employee_id from attendance_records r
+            where r.employee_id is not null and trim(r.employee_id) <> ''
+              and not exists (select e.employee_id from import_employees e
+                              where e.employee_id = r.employee_id)
+            order by 1
+            """, nativeQuery = true)
+    List<String> findAttendanceOnlyEmployeeIds();
 }

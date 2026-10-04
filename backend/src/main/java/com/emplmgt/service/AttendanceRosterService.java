@@ -136,6 +136,7 @@ public class AttendanceRosterService {
         List<AttendanceRecord> pageRecords = recordRepository
                 .findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(from, to, pageEmployeeIds);
         Map<String, Map<String, String>> cellMap = groupCells(pageRecords);
+        Map<String, Map<String, String>> descriptionMap = groupDescriptions(pageRecords);
 
         // Build exit date map for employees in their exit month
         Map<String, LocalDate> exitDateMap = new HashMap<>();
@@ -187,6 +188,7 @@ public class AttendanceRosterService {
                         e.getLocation(), rowShift, periodWeekOffs.get(e.getEmployeeId()),
                         e.getTeamId(), e.getTeamId() == null ? null : teamNames.get(e.getTeamId()),
                         cellMap.getOrDefault(e.getEmployeeId(), Map.of()),
+                        descriptionMap.getOrDefault(e.getEmployeeId(), Map.of()),
                         rostered != null && rostered.changesWithinPeriod());
                 })
                 .toList();
@@ -245,8 +247,10 @@ public class AttendanceRosterService {
                 .collect(Collectors.toMap(Employee::getEmployeeCode, Employee::getEmail, (a, b) -> a));
 
         // Get attendance records for today only
-        Map<String, Map<String, String>> cellMap = groupCells(recordRepository
-                .findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(today, today, pageEmployeeIds));
+        List<AttendanceRecord> todayRecords = recordRepository
+                .findByAttendanceDateBetweenAndEmployeeIdInOrderByAttendanceDateAsc(today, today, pageEmployeeIds);
+        Map<String, Map<String, String>> cellMap = groupCells(todayRecords);
+        Map<String, Map<String, String>> descriptionMap = groupDescriptions(todayRecords);
 
         Map<Long, String> teamNames = teamNames(sorted);
 
@@ -257,7 +261,8 @@ public class AttendanceRosterService {
                         e.getLocation(), periodShifts.get(e.getEmployeeId()),
                         periodWeekOffs.get(e.getEmployeeId()),
                         e.getTeamId(), e.getTeamId() == null ? null : teamNames.get(e.getTeamId()),
-                        cellMap.getOrDefault(e.getEmployeeId(), Map.of()), false))
+                        cellMap.getOrDefault(e.getEmployeeId(), Map.of()),
+                        descriptionMap.getOrDefault(e.getEmployeeId(), Map.of()), false))
                 .toList();
 
         Map<String, Long> counters = counters(sorted, code, today, today);
@@ -312,6 +317,101 @@ public class AttendanceRosterService {
                 .sorted()
                 .map(YearMonth::toString)
                 .toList();
+    }
+
+    // ------------------------------------------------------- SHARED EMPLOYEE LIST
+
+    /**
+     * One rostered employee, reduced to the identity columns the roster grid shows.
+     *
+     * <p>Shift and week off are the period-resolved values the grid displays, not the
+     * employee master, so consumers that must line up with the roster read them here.</p>
+     */
+    public record RosterEmployee(
+            String employeeCode,
+            String employeeName,
+            String location,
+            String shift,
+            String weekOff
+    ) {
+    }
+
+    /**
+     * The employees on the roster for one month, in roster order.
+     *
+     * <p>This is the single definition of "who is on the roster". Attendance Analytics
+     * lists the same people for the same month so the two screens cannot drift apart:
+     * same membership window, same shift/week-off resolution, same ordering. Membership
+     * deliberately ignores who happens to appear in attendance records — a rostered
+     * employee with no records for the period is still listed, and someone who left
+     * before this month is not.</p>
+     *
+     * @param location optional location filter (roster equality on the employee master)
+     * @param status   optional single status code; keeps only employees rostered on it
+     * @param q        optional name/id substring
+     */
+    @Transactional(readOnly = true)
+    public List<RosterEmployee> rosterEmployees(Long teamId, String month, String location, String status, String q) {
+        YearMonth ym = parseMonth(month);
+        LocalDate from = ym.atDay(1);
+        LocalDate to = ym.atEndOfMonth();
+
+        List<ImportEmployee> candidates = importEmployeeRepository
+                .findEmployeesForRosterWithExit(teamId, blankToNull(q), blankToNull(location), from, to,
+                        blankToNull(status));
+        candidates = candidates.stream()
+                .filter(e -> belongsInMonth(e, ym))
+                .toList();
+
+        Map<String, String> periodShifts = resolvePeriodShifts(candidates, from);
+        Map<String, String> periodWeekOffs = resolvePeriodWeekOffs(candidates, from);
+
+        List<String> ids = candidates.stream().map(ImportEmployee::getEmployeeId).toList();
+        Map<String, ShiftInPeriod> rosteredShifts = ids.isEmpty() ? Map.of()
+                : dominantShiftsFromViews(recordRepository.findShiftsInRange(ids, from, to));
+        Map<String, String> displayShifts = new HashMap<>();
+        for (ImportEmployee e : candidates) {
+            ShiftInPeriod rostered = rosteredShifts.get(e.getEmployeeId());
+            displayShifts.put(e.getEmployeeId(),
+                    rostered != null ? rostered.dominant() : periodShifts.get(e.getEmployeeId()));
+        }
+
+        return candidates.stream()
+                .sorted(rosterOrder(displayShifts))
+                .map(e -> new RosterEmployee(
+                        e.getEmployeeId(),
+                        e.getEmployeeName(),
+                        e.getLocation(),
+                        displayShifts.get(e.getEmployeeId()),
+                        periodWeekOffs.get(e.getEmployeeId())))
+                .toList();
+    }
+
+    /**
+     * The month the roster page would open on: this month when it holds data,
+     * otherwise the most recent month that does.
+     *
+     * <p>Mirrors the roster grid's own snap-to-latest rule so a consumer asking for
+     * "the current roster" lands on the same month the grid shows.</p>
+     */
+    @Transactional(readOnly = true)
+    public String resolveCurrentMonth() {
+        List<String> months = months();
+        String current = YearMonth.from(appClock.today()).toString();
+        if (months.contains(current)) {
+            return current;
+        }
+        return months.isEmpty() ? current : months.get(months.size() - 1);
+    }
+
+    /** Distinct roster locations for a month, matching the roster's location filter. */
+    @Transactional(readOnly = true)
+    public List<String> rosterLocations(Long teamId, String month) {
+        if (month == null || month.isBlank()) {
+            return List.of();
+        }
+        YearMonth ym = parseMonth(month);
+        return importEmployeeRepository.findDistinctLocationsInMonth(teamId, ym.atDay(1), ym.atEndOfMonth());
     }
 
     // ------------------------------------------------------------------ SAVE
@@ -485,6 +585,18 @@ public class AttendanceRosterService {
         for (AttendanceRecord r : records) {
             out.computeIfAbsent(r.getEmployeeId(), k -> new LinkedHashMap<>())
                     .put(r.getAttendanceDate().toString(), r.getStatusCode());
+        }
+        return out;
+    }
+
+    private static Map<String, Map<String, String>> groupDescriptions(List<AttendanceRecord> records) {
+        Map<String, Map<String, String>> out = new HashMap<>();
+        for (AttendanceRecord r : records) {
+            String desc = r.getDescription();
+            if (desc != null && !desc.isBlank()) {
+                out.computeIfAbsent(r.getEmployeeId(), k -> new LinkedHashMap<>())
+                        .put(r.getAttendanceDate().toString(), desc);
+            }
         }
         return out;
     }

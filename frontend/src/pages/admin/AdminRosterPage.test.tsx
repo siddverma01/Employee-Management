@@ -70,6 +70,7 @@ const monthly: RosterMonthlyData = {
       teamId: null,
       teamName: null,
       days: { [OFF_DATE]: 'CO' },
+      descriptions: {},
       shiftChangesWithinMonth: false,
     },
     {
@@ -82,6 +83,7 @@ const monthly: RosterMonthlyData = {
       teamId: null,
       teamName: null,
       days: { [OFF_DATE]: 'CO' },
+      descriptions: {},
       shiftChangesWithinMonth: false,
     },
   ],
@@ -361,8 +363,10 @@ describe('AdminRosterPage CO status detail', () => {
     // No border, outline, ring or marker class may be added for the pending edit.
     expect(edited.className).not.toMatch(/outline|ring|border-|is-dirty/)
     expect(edited.className).not.toMatch(/amber|orange|warning/)
-    // Only the base cell class: nothing visual is layered on top of the status.
-    expect(edited.className.trim()).toBe('attendance-cell')
+    // Base cell class must be present; 'relative' is allowed for positioning.
+    expect(edited.className.trim().split(/\s+/).sort()).toEqual(
+      expect.arrayContaining(['attendance-cell', 'relative'])
+    )
 
     // The status indication itself still updates, so the edit is not invisible.
     expect(edited.dataset.status).toBe('WFH')

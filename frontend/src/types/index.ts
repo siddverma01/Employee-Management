@@ -472,6 +472,7 @@ export interface RosterEmployeeRow {
   teamId: number | null
   teamName: string | null
   days: Record<string, string>
+  descriptions: Record<string, string>
   /**
    * True when the employee's shift moved part-way through the selected month.
    * The source workbooks roster in five-week blocks that straddle months, so
@@ -689,13 +690,16 @@ export interface HistoricalPreviewResponse {
 
 export interface HistoricalImportResult {
   employees: number
-  attendanceRecords: number
+  /** Serialized by the backend as `records` (see HistoricalImportDtos.ImportResult). */
+  records: number
   inserted: number
   updated: number
   duplicatesSkipped: number
   warnings: number
   unknownStatuses: number
   failedRows: number
+  corrected: number
+  skipped: number
 }
 
 export interface HistoricalCommitResponse {
@@ -703,6 +707,8 @@ export interface HistoricalCommitResponse {
   fileName: string
   originalFileName: string
   status: string
+  /** Server timestamp of the import (may be absent on older responses). */
+  importedAt?: string | null
   summary: HistoricalSummary
   committedRows: number
   result: HistoricalImportResult
@@ -734,16 +740,36 @@ export interface HistoricalUnresolvedEntry {
   incomingStatus: string | null
   statusName: string | null
   issue: string | null
+  category: HistoricalReviewCategory
+  description: string | null
+  descriptionAuthor: string | null
   action: string
   corrected: boolean
   skipped: boolean
 }
 
+export type HistoricalReviewCategory =
+  | 'INVALID'
+  | 'UNMAPPED'
+  | 'DUPLICATE'
+  | 'MISSING_DATA'
+  | 'DATE_MISMATCH'
+
+/** Which review bucket the Making worklist is showing. */
+export type HistoricalReviewState = 'PENDING' | 'CORRECTED' | 'SKIPPED' | 'ALL'
+
 export interface HistoricalUnresolvedSummary {
-  total: number
+  totalEntries: number
+  validEntries: number
+  flagged: number
   corrected: number
   skipped: number
   remaining: number
+}
+
+export interface HistoricalBulkResolveResponse {
+  affected: number
+  summary: HistoricalUnresolvedSummary
 }
 
 export interface HistoricalUnresolvedResponse {
@@ -996,4 +1022,155 @@ export interface CreateEventRequest {
   endTime?: string | null
   /** Optional room or platform, shown in the Customer Meetings card footer. */
   location?: string | null
+}
+
+/** Employee Attendance Analytics Types */
+export type AnalyticsReportMode = 'MONTHLY' | 'OVERALL'
+
+export interface AnalyticsQuery {
+  month?: number
+  year?: number
+  mode: AnalyticsReportMode
+  teamId?: number | null
+  location?: string | null
+  employeeId?: string | null
+  employeeName?: string | null
+  status?: string | null
+  page?: number
+  size?: number
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+}
+
+export interface EmployeeSummary {
+  sNo: number
+  employeeId: string
+  employeeName: string
+  /** False when the row is only reachable via search (former / historical-only employee). */
+  inCurrentRoster: boolean
+  location: string | null
+  shift: string | null
+  weekOff: string | null
+  employmentStatus: string
+  wfo: number
+  wfh: number
+  wo: number
+  pl: number
+  co: number
+  sl: number
+  hd: number
+  wkWrk: number
+  shrinkage: number
+  atr: string
+  totalWorkingDays: number
+  totalLeaves: number
+  attendancePercentage: number
+  attendanceRecorded: number
+}
+
+export interface EmployeeDetail {
+  employeeId: string
+  employeeEmail: string
+  employeeName: string
+  teamName: string | null
+  location: string | null
+  shift: string | null
+  weekOff: string | null
+  joiningDate: string | null
+  employmentStatus: string
+  totalWorkingDays: number
+  wfo: number
+  wfh: number
+  wo: number
+  pl: number
+  co: number
+  sl: number
+  hd: number
+  wkWrk: number
+  shrinkage: number
+  atr: string
+  totalLeaves: number
+  attendancePercentage: number
+  attendanceRecorded: number
+  monthlyBreakdown: MonthStat[]
+  attendanceHistory: AttendanceDayView[]
+}
+
+export interface MonthStat {
+  month: string
+  workingDays: number
+  wfo: number
+  wfh: number
+  wo: number
+  pl: number
+  co: number
+  sl: number
+  hd: number
+  wkWrk: number
+  shrinkage: number
+  totalLeaves: number
+}
+
+export interface AttendanceDayView {
+  date: string
+  day: string
+  status: string
+  description: string | null
+  originalAuthor: string | null
+  lastUpdated: string | null
+}
+
+export interface TeamOption {
+  id: number
+  name: string
+}
+
+export interface LocationOption {
+  value: string
+}
+
+export interface StatusOption {
+  code: string
+  name: string
+}
+
+export interface AnalyticsMeta {
+  teams: TeamOption[]
+  months: string[]
+  years: string[]
+  locations: LocationOption[]
+  statuses: StatusOption[]
+}
+
+export interface EmployeeStatsResponse {
+  employees: EmployeeSummary[]
+  overallSummary: EmployeeSummary
+  totalElements: number
+  page: number
+  size: number
+  totalPages: number
+}
+
+export interface EmployeeDetailResponse {
+  detail: EmployeeDetail
+}
+
+export interface AnalyticsMetaResponse {
+  meta: {
+    teams: TeamOption[]
+    months: string[]
+    years: string[]
+    locations: LocationOption[]
+    statuses: StatusOption[]
+  }
+}
+
+export interface AnalyticsExportRequest {
+  mode: AnalyticsReportMode
+  month?: number
+  year?: number
+  teamId?: number | null
+  location?: string | null
+  employeeId?: string | null
+  status?: string | null
 }

@@ -60,4 +60,29 @@ public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
                             @Param("departmentId") Long departmentId,
                             @Param("type") AttendanceType type,
                             Pageable pageable);
+
+    @Query("select distinct a.employee.id from Attendance a")
+    List<Long> findDistinctEmployeeIds();
+
+    @Query("select distinct a.employee.id from Attendance a where a.attendanceDate between :from and :to")
+    List<Long> findDistinctEmployeeIdsByDateRange(@Param("from") LocalDate from, @Param("to") LocalDate to);
+
+    @Query("select distinct a.employee.employeeCode from Attendance a where a.attendanceDate between :from and :to")
+    List<String> findDistinctEmployeeCodesByDateRange(@Param("from") LocalDate from, @Param("to") LocalDate to);
+
+    @Query("select distinct a.employee.employeeCode from Attendance a where a.employee.location = :location")
+    List<String> findDistinctEmployeeCodesByLocation(@Param("location") String location);
+
+    @Query("select distinct a.employee.employeeCode from Attendance a")
+    List<String> findDistinctEmployeeCodes();
+
+    @Query("select distinct a.attendanceDate from Attendance a order by a.attendanceDate asc")
+    List<LocalDate> findDistinctAttendanceDatesAsc();
+
+    @Query("select distinct a.employee.location from Attendance a where a.employee.location is not null order by a.employee.location asc")
+    List<String> findDistinctLocations();
+
+    List<Attendance> findByEmployeeIdOrderByAttendanceDateAsc(Long employeeId);
+
+    List<Attendance> findByEmployeeIdAndAttendanceDateBetweenOrderByAttendanceDateAsc(Long employeeId, LocalDate from, LocalDate to);
 }

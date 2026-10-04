@@ -131,6 +131,30 @@ class HistoricalRosterLeaveTracker2025Test {
         assertThat(june.employeeIds()).noneMatch(id -> id.equalsIgnoreCase("Sun"));
     }
 
+    /**
+     * The 1,970-entry review gate was caused by blank grid cells and layout
+     * tables (names, ratios, shift-slot labels) being staged as attendance.
+     * No real attendance record may ever be staged without a status: a blank
+     * cell is a gap, not a record.
+     */
+    @Test
+    void noBlankOrLayoutCellsAreStagedAsAttendanceRecords() {
+        parsed.sheets().stream()
+                .filter(s -> !s.skipped())
+                .flatMap(s -> s.records().stream())
+                .forEach(r -> {
+                    assertThat(r.statusCode())
+                            .as("blank status at row %d col %d", r.sourceRow(), r.sourceColumn())
+                            .isNotBlank();
+                    assertThat(r.attendanceDate())
+                            .as("undated record at row %d col %d", r.sourceRow(), r.sourceColumn())
+                            .isNotNull();
+                    assertThat(r.employeeId())
+                            .as("missing employee id at row %d col %d", r.sourceRow(), r.sourceColumn())
+                            .isNotBlank();
+                });
+    }
+
     // -------------------------------------------------- requested regression set
 
     @Test
@@ -166,9 +190,11 @@ class HistoricalRosterLeaveTracker2025Test {
         assertThat(oct.skipped()).isFalse();
         assertThat(oct.headerRow()).isEqualTo(4);
         assertThat(oct.employeeCount()).isEqualTo(29);
-        // 808 filled cells plus the 4 grid cells this sheet leaves empty, which are
-        // staged for review rather than dropped.
-        assertThat(oct.cellCount()).isEqualTo(812);
+        // 808 filled attendance cells. The 4 empty grid cells are gaps in the
+        // source, not attendance entries, so they are counted as empty cells and
+        // never staged as records that would have to be reviewed before commit.
+        assertThat(oct.cellCount()).isEqualTo(808);
+        assertThat(oct.emptyCellCount()).isEqualTo(4);
     }
 
     /** Spanning several calendar months is reported, never truncated. */

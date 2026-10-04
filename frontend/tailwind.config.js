@@ -32,7 +32,7 @@ export default {
           hover: 'rgb(var(--hpe-brand-600) / <alpha-value>)',
           xstrong: 'rgb(var(--hpe-brand-800) / <alpha-value>)',
         },
-        surface: {
+surface: {
           0: 'rgb(var(--hpe-surface-0) / <alpha-value>)',
           50: 'rgb(var(--hpe-surface-50) / <alpha-value>)',
           100: 'rgb(var(--hpe-surface-100) / <alpha-value>)',
@@ -44,6 +44,42 @@ export default {
           700: 'rgb(var(--hpe-surface-700) / <alpha-value>)',
           800: 'rgb(var(--hpe-surface-800) / <alpha-value>)',
           900: 'rgb(var(--hpe-surface-900) / <alpha-value>)',
+          950: 'rgb(var(--hpe-surface-950) / <alpha-value>)',
+        },
+        /*
+         * Employee Attendance Analytics — its OWN palette, deliberately NOT part of
+         * the shared `surface` ramp.
+         *
+         * These keys used to live under `surface`, which was the root cause of the
+         * broken Dark Mode: Tailwind flattens a nested colour object to
+         * `<parent>-<key>`, so `surface.analytics-surface` can only ever be reached
+         * as `bg-surface-analytics-surface`. The page asked for `bg-analytics-*`,
+         * which matches no generated rule, so every dark background silently fell
+         * back to the ungated `bg-white` and only `hover:bg-surface-50` — a valid
+         * rule that dereferences the dark page background — ever produced a dark
+         * colour. Hence "white at rest, dark on hover".
+         *
+         * Declaring the palette at the top level makes the emitted class names
+         * identical to the key names (`bg-analytics-surface`, `dark:bg-analytics-hover`,
+         * `border-analytics-border`, …) so a typo is impossible to hide.
+         */
+        analytics: {
+          bg: 'rgb(var(--hpe-analytics-bg) / <alpha-value>)',
+          surface: 'rgb(var(--hpe-analytics-surface) / <alpha-value>)',
+          row: 'rgb(var(--hpe-analytics-row) / <alpha-value>)',
+          'row-alt': 'rgb(var(--hpe-analytics-row-alt) / <alpha-value>)',
+          header: 'rgb(var(--hpe-analytics-header) / <alpha-value>)',
+          tablehead: 'rgb(var(--hpe-analytics-tablehead) / <alpha-value>)',
+          border: 'rgb(var(--hpe-analytics-border) / <alpha-value>)',
+          hover: 'rgb(var(--hpe-analytics-hover) / <alpha-value>)',
+          selected: 'rgb(var(--hpe-analytics-selected) / <alpha-value>)',
+          sticky: 'rgb(var(--hpe-analytics-sticky) / <alpha-value>)',
+          heading: 'rgb(var(--hpe-analytics-heading) / <alpha-value>)',
+          subtitle: 'rgb(var(--hpe-analytics-subtitle) / <alpha-value>)',
+          name: 'rgb(var(--hpe-analytics-name) / <alpha-value>)',
+          'header-text': 'rgb(var(--hpe-analytics-header-text) / <alpha-value>)',
+          'text-secondary': 'rgb(var(--hpe-analytics-text-secondary) / <alpha-value>)',
+          'text-muted': 'rgb(var(--hpe-analytics-text-muted) / <alpha-value>)',
         },
         // Distinct layered surfaces — sidebar, top bar, inputs and table rows
         // each get their own depth so dark mode reads as layered planes.
