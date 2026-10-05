@@ -1408,6 +1408,7 @@ public class HistoricalImportService {
                             .employeeId(r.getEmployeeId())
                             .periodStart(period.atDay(1))
                             .createdAt(now)
+                            .updatedAt(now)
                             .build());
             String shift = normaliseEmployeeValue(r.getEmployeeShift());
             if (shift == null) {
@@ -1491,6 +1492,7 @@ public class HistoricalImportService {
                                     .employeeId(r.getEmployeeId())
                                     .periodStart(period.atDay(1))
                                     .createdAt(now)
+                                    .updatedAt(now)
                                     .build());
             a.setWeekOffValue(weekOff);
             a.setWeekOffKey(WeekOffUtil.comparisonKey(weekOff));

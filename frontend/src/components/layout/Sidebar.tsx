@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 import {
   Home, Users, LogOut,
   LayoutDashboard, FileSpreadsheet, ClipboardList, Table2, History, Search,
-  CalendarDays, CalendarClock, FileText,
+  CalendarDays, CalendarClock, FileText, ClipboardCheck,
 } from 'lucide-react'
 import { cn } from '@/utils'
 import { useAuth } from '@/hooks/useAuth'
@@ -32,8 +32,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/events', label: 'Events & Schedule', icon: <CalendarClock className="h-[18px] w-[18px] shrink-0" />, group: 'workspace' },
   { to: '/admin/dashboard', label: 'Admin dashboard', icon: <LayoutDashboard className="h-[18px] w-[18px] shrink-0" />, group: 'administration', adminOnly: true },
   { to: '/admin/employees', label: 'Employees', icon: <Users className="h-[18px] w-[18px] shrink-0" />, group: 'administration', adminOnly: true },
-  { to: '/admin/leaves', label: 'Leave approvals', icon: <FileText className="h-[18px] w-[18px] shrink-0" />, group: 'administration', adminOnly: true, badge: '3' },
-  { to: '/admin/swap-offs', label: 'Swap off approvals', icon: <FileText className="h-[18px] w-[18px] shrink-0" />, group: 'administration', adminOnly: true },
+  { to: '/admin/approvals', label: 'Approvals', icon: <ClipboardCheck className="h-[18px] w-[18px] shrink-0" />, group: 'administration', adminOnly: true, badge: '3' },
   { to: '/admin/holidays', label: 'Manage holidays', icon: <CalendarDays className="h-[18px] w-[18px] shrink-0" />, group: 'administration', adminOnly: true },
   { to: '/admin/imports', label: 'Excel import', icon: <FileSpreadsheet className="h-[18px] w-[18px] shrink-0" />, group: 'attendance', adminOnly: true },
   { to: '/admin/historical-import', label: 'Historical attendance', icon: <History className="h-[18px] w-[18px] shrink-0" />, group: 'attendance', adminOnly: true },

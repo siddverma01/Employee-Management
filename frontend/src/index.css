@@ -199,6 +199,9 @@
     box-sizing: border-box;
     overflow: hidden;
     transition: box-shadow 120ms ease;
+    height: 32px;
+    min-height: 32px;
+    max-height: 32px;
   }
   /* Status text inside an attendance cell — constrained to its own box and
      clipped if it would ever exceed the cell width. Centered by the parent. */

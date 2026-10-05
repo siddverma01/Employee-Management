@@ -20,8 +20,7 @@ import { AttendancePage } from '@/pages/employee/AttendancePage'
 import { AdminDashboardPage } from '@/pages/admin/AdminDashboardPage'
 import { AdminEmployeesPage } from '@/pages/admin/AdminEmployeesPage'
 import { AdminEmployeeDetailPage } from '@/pages/admin/AdminEmployeeDetailPage'
-import { AdminLeavesPage } from '@/pages/admin/AdminLeavesPage'
-import { AdminSwapOffsPage } from '@/pages/admin/AdminSwapOffsPage'
+import { ApprovalsPage } from '@/pages/admin/ApprovalsPage'
 import { AdminHolidaysPage } from '@/pages/admin/AdminHolidaysPage'
 import { AdminImportPage } from '@/pages/admin/AdminImportPage'
 import AdminHistoricalImportPage from '@/pages/admin/AdminHistoricalImportPage'
@@ -83,8 +82,7 @@ export default function App() {
               <Route path="/admin/employees" element={<AdminEmployeesPage />} />
               <Route path="/admin/employees/new" element={<AdminEmployeeDetailPage />} />
               <Route path="/admin/employees/:id" element={<AdminEmployeeDetailPage />} />
-              <Route path="/admin/leaves" element={<AdminLeavesPage />} />
-              <Route path="/admin/swap-offs" element={<AdminSwapOffsPage />} />
+              <Route path="/admin/approvals" element={<ApprovalsPage />} />
               <Route path="/admin/holidays" element={<AdminHolidaysPage />} />
               <Route path="/admin/imports" element={<AdminImportPage />} />
               <Route path="/admin/historical-import" element={<AdminHistoricalImportPage />} />

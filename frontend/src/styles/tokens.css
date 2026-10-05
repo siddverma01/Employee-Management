@@ -477,13 +477,47 @@
   --attendance-atr-bg: rgb(84 26 26); --attendance-atr-text: rgb(248 113 113);
   --attendance-empty-bg: rgb(26 30 36); --attendance-empty-text: rgb(141 153 171);
 
-  /* Attendance Roster — DARK chrome tokens. Match the card plane already in use
-     (.roster-frozen-panel #1B1E23) so the whole page reads as one surface. */
-  --roster-card: 27 30 35;           /* #1B1E23 */
-  --roster-card-border: 32 37 46;    /* #20252E */
-  --roster-kpi-border: 32 37 46;     /* #20252E */
-  --roster-panel: 30 33 40;          /* #1E2128 — legend disclosure panel */
-  --roster-empty-border: 44 50 60;   /* #2C323C — dashed empty-cell outline */
+  /* Attendance Roster — DARK chrome tokens (refined palette). */
+  --roster-card: 22 23 28;           /* #16171c — KPI card / legend panel */
+  --roster-card-border: 38 40 51;    /* #262833 */
+  --roster-kpi-border: 38 40 51;     /* #262833 */
+  --roster-panel: 22 23 28;          /* #16171c — legend disclosure panel */
+  --roster-empty-border: 44 50 60;   /* #2C323C */
+
+  /* Attendance Roster — DARK refined palette (additional tokens). */
+  --roster-page-bg: 15 16 19;              /* #0f1013 — page background */
+  --roster-table-bg: 20 21 26;             /* #14151a — table card / body rows */
+  --roster-table-border: 35 37 46;         /* #23252e — table borders */
+  --roster-header-bg: 24 25 32;            /* #181920 — table header */
+  --roster-header-text: 148 163 184;       /* slate-400 */
+  --roster-frozen-bg: 20 21 26;            /* #14151a — frozen columns */
+  --roster-frozen-border: 35 37 46;        /* #23252e — frozen column borders */
+  --roster-row-hover: 28 29 37;            /* #1c1d25 — row hover */
+  --roster-cell-divider: 30 32 41;         /* #1e2029 — cell dividers */
+  --roster-weekend-bg: 17 18 22;           /* #111216 — weekend column tint */
+  --roster-weekend-header-text: 52 211 153; /* emerald-400 */
+  --roster-weekend-header-bg: 2 61 40;     /* emerald-950/40 */
+  --roster-weekend-header-border: 0 110 78; /* emerald-800/40 */
+
+  /* Status badges — DARK refined palette */
+  --attendance-wfo-bg-dark: rgb(6 74 52 / 0.6); --attendance-wfo-text-dark: rgb(52 211 153); --attendance-wfo-border-dark: rgb(0 199 133 / 0.6);
+  --attendance-wfh-bg-dark: rgb(69 46 8 / 0.6); --attendance-wfh-text-dark: rgb(250 204 21); --attendance-wfh-border-dark: rgb(245 158 11 / 0.6);
+  --attendance-pl-bg-dark: rgb(80 52 5 / 0.7); --attendance-pl-text-dark: rgb(253 224 71); --attendance-pl-border-dark: rgb(217 119 6 / 0.7);
+  --attendance-wo-bg-dark: rgb(32 34 42); --attendance-wo-text-dark: rgb(148 163 184); --attendance-wo-border-dark: rgb(45 48 59);
+  --attendance-co-bg-dark: rgb(10 65 84 / 0.6); --attendance-co-text-dark: rgb(56 189 248); --attendance-co-border-dark: rgb(3 105 161 / 0.6);
+  --attendance-hpeh-bg-dark: rgb(4 81 66 / 0.7); --attendance-hpeh-text-dark: rgb(94 234 212); --attendance-hpeh-border-dark: rgb(15 181 162 / 0.6);
+  --attendance-sl-bg-dark: rgb(61 20 18 / 0.7); --attendance-sl-text-dark: rgb(253 164 175); --attendance-sl-border-dark: rgb(225 29 72 / 0.7);
+  --attendance-fl-bg-dark: rgb(55 23 12 / 0.7); --attendance-fl-text-dark: rgb(251 146 60); --attendance-fl-border-dark: rgb(194 65 12 / 0.7);
+  --attendance-sw-off-bg-dark: rgb(69 46 8 / 0.6); --attendance-sw-off-text-dark: rgb(250 204 21); --attendance-sw-off-border-dark: rgb(245 158 11 / 0.6);
+  --attendance-sw-wk-bg-dark: rgb(7 62 62 / 0.6); --attendance-sw-wk-text-dark: rgb(45 212 191); --attendance-sw-wk-border-dark: rgb(0 199 133 / 0.6);
+  --attendance-wk-wrk-bg-dark: rgb(6 74 52 / 0.6); --attendance-wk-wrk-text-dark: rgb(52 211 153); --attendance-wk-wrk-border-dark: rgb(0 199 133 / 0.6);
+  --attendance-hd-bg-dark: rgb(55 23 12 / 0.7); --attendance-hd-text-dark: rgb(251 146 60); --attendance-hd-border-dark: rgb(194 65 12 / 0.7);
+  --attendance-wx-bg-dark: rgb(38 38 67 / 0.6); --attendance-wx-text-dark: rgb(196 181 253); --attendance-wx-border-dark: rgb(124 58 237 / 0.6);
+  --attendance-tr-bg-dark: rgb(10 65 84 / 0.6); --attendance-tr-text-dark: rgb(96 165 250); --attendance-tr-border-dark: rgb(3 105 161 / 0.6);
+  --attendance-its-bg-dark: rgb(61 20 18 / 0.7); --attendance-its-text-dark: rgb(253 164 175); --attendance-its-border-dark: rgb(225 29 72 / 0.7);
+  --attendance-wdt-bg-dark: rgb(28 28 58 / 0.6); --attendance-wdt-text-dark: rgb(165 180 252); --attendance-wdt-border-dark: rgb(124 58 237 / 0.6);
+  --attendance-atr-bg-dark: rgb(60 16 16 / 0.7); --attendance-atr-text-dark: rgb(248 113 113); --attendance-atr-border-dark: rgb(239 68 68 / 0.7);
+  --attendance-empty-text-dark: rgb(71 85 105);  /* slate-600 */
 
   /* Holiday type colors (Dark mode) — Stitch charcoal with green/blue accents */
   --holiday-hpe-bg: #0c2a4a; --holiday-hpe-text: #38bdf8; --holiday-hpe-border: #164e63;

@@ -1,0 +1,418 @@
+import { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Check, X } from 'lucide-react'
+import toast from 'react-hot-toast'
+import type { Leave, SwapOff } from '@/types'
+import { adminApi } from '@/api'
+import { rejectSchema, type RejectForm } from '@/validations/schemas'
+import { extractMessage } from '@/api/client'
+import { formatDate, formatDateTime } from '@/utils'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { Button } from '@/components/ui/Button'
+import { Modal } from '@/components/ui/Modal'
+import { Textarea } from '@/components/ui/Textarea'
+import { StatusBadge } from '@/components/ui/StatusBadge'
+import { Pagination } from '@/components/ui/Pagination'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { Spinner } from '@/components/ui/Spinner'
+
+export function ApprovalsPage() {
+  const queryClient = useQueryClient()
+  const [activeTab, setActiveTab] = useState<'leaves' | 'swaps'>('leaves')
+  const [page, setPage] = useState(0)
+  const [status, setStatus] = useState('PENDING')
+  const [leaveType, setLeaveType] = useState('')
+  const [rejectingLeave, setRejectingLeave] = useState<Leave | null>(null)
+  const [rejectingSwap, setRejectingSwap] = useState<SwapOff | null>(null)
+
+  const { data: leavesData, isLoading: leavesLoading } = useQuery({
+    queryKey: ['admin', 'leaves', { page, status, leaveType }],
+    queryFn: () => adminApi.leaves({ page, size: 10, status: status || undefined, leaveType: leaveType || undefined }),
+    enabled: activeTab === 'leaves',
+  })
+
+  const { data: swapsData, isLoading: swapsLoading } = useQuery({
+    queryKey: ['admin', 'swap-offs', { page, status }],
+    queryFn: () => adminApi.swapOffs({ page, size: 10, status: status || undefined }),
+    enabled: activeTab === 'swaps',
+  })
+
+  const pendingLeavesCount = leavesData?.content.filter(l => l.status === 'PENDING').length ?? 0
+  const pendingSwapsCount = swapsData?.content.filter(r => r.status === 'PENDING').length ?? 0
+
+  const approveLeaveMutation = useMutation({
+    mutationFn: adminApi.approveLeave,
+    onSuccess: () => {
+      toast.success('Leave approved')
+      queryClient.invalidateQueries({ queryKey: ['admin', 'leaves'] })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'roster'] })
+    },
+    onError: (err) => toast.error(extractMessage(err)),
+  })
+
+  const rejectLeaveMutation = useMutation({
+    mutationFn: (args: { id: number; reason: string }) => adminApi.rejectLeave(args.id, args.reason),
+    onSuccess: () => {
+      toast.success('Leave rejected')
+      setRejectingLeave(null)
+      queryClient.invalidateQueries({ queryKey: ['admin', 'leaves'] })
+    },
+    onError: (err) => toast.error(extractMessage(err)),
+  })
+
+  const approveSwapMutation = useMutation({
+    mutationFn: adminApi.approveSwapOff,
+    onSuccess: () => {
+      toast.success('Swap off approved')
+      queryClient.invalidateQueries({ queryKey: ['admin', 'swap-offs'] })
+    },
+    onError: (err) => toast.error(extractMessage(err)),
+  })
+
+  const rejectSwapMutation = useMutation({
+    mutationFn: (args: { id: number; reason: string }) => adminApi.rejectSwapOff(args.id, args.reason),
+    onSuccess: () => {
+      toast.success('Swap off rejected')
+      setRejectingSwap(null)
+      queryClient.invalidateQueries({ queryKey: ['admin', 'swap-offs'] })
+    },
+    onError: (err) => toast.error(extractMessage(err)),
+  })
+
+  const { register: registerLeave, handleSubmit: handleSubmitLeave, reset: resetLeave } = useForm<RejectForm>({ resolver: zodResolver(rejectSchema) })
+  const { register: registerSwap, handleSubmit: handleSubmitSwap, reset: resetSwap } = useForm<RejectForm>({ resolver: zodResolver(rejectSchema) })
+
+  const isLoading = activeTab === 'leaves' ? leavesLoading : swapsLoading
+  const data = activeTab === 'leaves' ? leavesData : swapsData
+  const currentContent = data?.content ?? []
+
+  return (
+    <div>
+      <PageHeader title="Approvals" subtitle="Review and manage employee leave and swap off requests" />
+
+      <div className="flex items-center gap-2 border-b border-surface-200 dark:border-[#23252b] mb-6">
+        <button
+          onClick={() => { setActiveTab('leaves'); setPage(0); }}
+          className={`pb-3 px-1 text-sm font-semibold flex items-center gap-2 border-b-2 transition ${
+            activeTab === 'leaves'
+              ? 'border-[#00B388] text-[#00B388]'
+              : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+          }`}
+        >
+          <span>Leave Approvals</span>
+          {pendingLeavesCount > 0 && (
+            <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+              {pendingLeavesCount}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => { setActiveTab('swaps'); setPage(0); }}
+          className={`pb-3 px-1 text-sm font-semibold flex items-center gap-2 border-b-2 transition ${
+            activeTab === 'swaps'
+              ? 'border-[#00B388] text-[#00B388]'
+              : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+          }`}
+        >
+          <span>Swap Off Approvals</span>
+          {pendingSwapsCount > 0 && (
+            <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+              {pendingSwapsCount}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {activeTab === 'leaves' && (
+        <LeaveApprovalsTab
+          data={leavesData}
+          isLoading={leavesLoading}
+          page={page}
+          setPage={setPage}
+          status={status}
+          setStatus={setStatus}
+          leaveType={leaveType}
+          setLeaveType={setLeaveType}
+          rejectingLeave={rejectingLeave}
+          setRejectingLeave={setRejectingLeave}
+          approveMutation={approveLeaveMutation}
+          rejectMutation={rejectLeaveMutation}
+          register={registerLeave}
+          handleSubmit={handleSubmitLeave}
+          reset={resetLeave}
+          queryClient={queryClient}
+        />
+      )}
+
+      {activeTab === 'swaps' && (
+        <SwapOffApprovalsTab
+          data={swapsData}
+          isLoading={swapsLoading}
+          page={page}
+          setPage={setPage}
+          status={status}
+          setStatus={setStatus}
+          rejectingSwap={rejectingSwap}
+          setRejectingSwap={setRejectingSwap}
+          approveMutation={approveSwapMutation}
+          rejectMutation={rejectSwapMutation}
+          register={registerSwap}
+          handleSubmit={handleSubmitSwap}
+          reset={resetSwap}
+          queryClient={queryClient}
+        />
+      )}
+    </div>
+  )
+}
+
+function LeaveApprovalsTab({
+  data,
+  isLoading,
+  page,
+  setPage,
+  status,
+  setStatus,
+  leaveType,
+  setLeaveType,
+  rejectingLeave,
+  setRejectingLeave,
+  approveMutation,
+  rejectMutation,
+  register,
+  handleSubmit,
+  reset,
+  queryClient,
+}: {
+  data: any
+  isLoading: boolean
+  page: number
+  setPage: (p: number) => void
+  status: string
+  setStatus: (s: string) => void
+  leaveType: string
+  setLeaveType: (s: string) => void
+  rejectingLeave: Leave | null
+  setRejectingLeave: (l: Leave | null) => void
+  approveMutation: any
+  rejectMutation: any
+  register: any
+  handleSubmit: any
+  reset: any
+  queryClient: any
+}) {
+  return (
+    <div>
+      <div className="mb-4 flex gap-3">
+        <select className="select w-44" value={status} onChange={(e) => { setStatus(e.target.value); setPage(0); }}>
+          <option value="PENDING">Pending</option>
+          <option value="">All statuses</option>
+          <option value="APPROVED">Approved</option>
+          <option value="REJECTED">Rejected</option>
+        </select>
+        <select className="select w-44" value={leaveType} onChange={(e) => { setLeaveType(e.target.value); setPage(0); }}>
+          <option value="">All types</option>
+          <option value="PRIVILEGE_LEAVE">PL</option>
+          <option value="SICK_LEAVE">SL</option>
+          <option value="COMP_OFF">CO</option>
+        </select>
+      </div>
+
+      <div className="card overflow-hidden">
+        {isLoading ? (
+          <div className="grid place-items-center py-20"><Spinner /></div>
+        ) : !data?.content.length ? (
+          <EmptyState title="No leave requests" description="No requests match the selected filters." />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[860px]">
+              <thead className="border-b border-surface-200 bg-surface-50">
+                <tr>
+                  <th className="th">Employee</th>
+                  <th className="th">Type</th>
+                  <th className="th">Dates</th>
+                  <th className="th">Days</th>
+                  <th className="th">Reason</th>
+                  <th className="th">Applied</th>
+                  <th className="th">Status</th>
+                  <th className="th">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-surface-200">
+                {data.content.map((l: any) => (
+                  <tr key={l.id} className="transition-colors duration-150 hover:bg-rowhover">
+                    <td className="td">
+                      <p className="font-medium text-surface-800">{l.employeeName}</p>
+                      <p className="text-xs text-surface-400">{l.employeeCode}</p>
+                    </td>
+                    <td className="td">
+                      <span className="text-xs font-semibold text-surface-700">{l.leaveTypeCode}</span>
+                      {l.hpeEntitlementId && l.hpeHolidayName && (
+                        <p className="text-xs text-surface-400" title={`Entitlement expires ${formatDate(l.hpeEntitlementExpiryDate)}`}>
+                          {l.hpeHolidayName} · {formatDate(l.hpeHolidayDate)}
+                        </p>
+                      )}
+                    </td>
+                    <td className="td text-xs">
+                      {formatDate(l.startDate)} → {formatDate(l.endDate)}
+                    </td>
+                    <td className="td">{l.days}</td>
+                    <td className="td max-w-[200px] truncate" title={l.reason ?? ''}>{l.reason}</td>
+                    <td className="td text-xs text-surface-500">{formatDateTime(l.appliedOn)}</td>
+                    <td className="td"><StatusBadge status={l.status} /></td>
+                    <td className="td">
+                      {l.status === 'PENDING' ? (
+                        <div className="flex gap-1">
+                          <button title="Approve" className="icon-btn text-emerald-600" onClick={() => approveMutation.mutate(l.id)} disabled={approveMutation.isPending}>
+                            <Check className="h-4 w-4" />
+                          </button>
+                          <button title="Reject" className="icon-btn text-red-600" onClick={() => { setRejectingLeave(l); reset({ rejectionReason: '' }); }}>
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : l.status === 'REJECTED' && l.rejectionReason ? (
+                        <span className="text-xs text-red-600" title={l.rejectionReason}>{l.rejectionReason}</span>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {(data?.totalPages ?? 0) > 1 && (
+          <Pagination page={data!.page} size={data!.size} totalPages={data!.totalPages} totalElements={data!.totalElements} onPageChange={(p) => setPage(p)} />
+        )}
+      </div>
+
+      <Modal open={Boolean(rejectingLeave)} onClose={() => setRejectingLeave(null)} title={`Reject leave · ${rejectingLeave?.employeeName}`}>
+        <form onSubmit={handleSubmit((v: { rejectionReason: string }) => rejectMutation.mutate({ id: rejectingLeave!.id, reason: v.rejectionReason }))} className="space-y-4">
+          <Textarea label="Rejection reason" rows={3} placeholder="Explain why this leave is being rejected…" {...register('rejectionReason')} />
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={() => setRejectingLeave(null)}>Cancel</Button>
+            <Button type="submit" variant="danger" loading={rejectMutation.isPending}>Reject leave</Button>
+          </div>
+        </form>
+      </Modal>
+    </div>
+  )
+}
+
+function SwapOffApprovalsTab({
+  data,
+  isLoading,
+  page,
+  setPage,
+  status,
+  setStatus,
+  rejectingSwap,
+  setRejectingSwap,
+  approveMutation,
+  rejectMutation,
+  register,
+  handleSubmit,
+  reset,
+  queryClient,
+}: {
+  data: any
+  isLoading: boolean
+  page: number
+  setPage: (p: number) => void
+  status: string
+  setStatus: (s: string) => void
+  rejectingSwap: SwapOff | null
+  setRejectingSwap: (s: SwapOff | null) => void
+  approveMutation: any
+  rejectMutation: any
+  register: any
+  handleSubmit: any
+  reset: any
+  queryClient: any
+}) {
+  return (
+    <div>
+      <div className="mb-4 flex gap-3">
+        <select className="select w-44" value={status} onChange={(e) => { setStatus(e.target.value); setPage(0); }}>
+          <option value="PENDING">Pending</option>
+          <option value="">All statuses</option>
+          <option value="APPROVED">Approved</option>
+          <option value="REJECTED">Rejected</option>
+        </select>
+      </div>
+
+      <div className="card overflow-hidden">
+        {isLoading ? (
+          <div className="grid place-items-center py-20"><Spinner /></div>
+        ) : !data?.content.length ? (
+          <EmptyState title="No swap off requests" description="No requests match the selected filters." />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[860px]">
+              <thead className="border-b border-surface-200 bg-surface-50">
+                <tr>
+                  <th className="th">Requester</th>
+                  <th className="th">Worked For</th>
+                  <th className="th">Worked Date</th>
+                  <th className="th">Requested Off</th>
+                  <th className="th">Reason</th>
+                  <th className="th">Applied</th>
+                  <th className="th">Status</th>
+                  <th className="th">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-surface-200">
+                {data.content.map((r: any) => (
+                  <tr key={r.id} className="transition-colors duration-150 hover:bg-rowhover">
+                    <td className="td">
+                      <p className="font-medium text-surface-800">{r.employeeName}</p>
+                      <p className="text-xs text-surface-400">{r.employeeCode} · {r.department}</p>
+                    </td>
+                    <td className="td">
+                      <p className="font-medium text-surface-800">{r.workedForEmployeeName}</p>
+                      <p className="text-xs text-surface-400">{r.workedForEmployeeCode}</p>
+                    </td>
+                    <td className="td text-xs">{formatDate(r.workedDate)}</td>
+                    <td className="td text-xs">{formatDate(r.requestedOffDate)}</td>
+                    <td className="td max-w-[200px] truncate" title={r.reason ?? ''}>{r.reason}</td>
+                    <td className="td text-xs text-surface-500">{formatDateTime(r.appliedOn)}</td>
+                    <td className="td"><StatusBadge status={r.status} /></td>
+                    <td className="td">
+                      {r.status === 'PENDING' ? (
+                        <div className="flex gap-1">
+                          <button title="Approve" className="icon-btn text-emerald-600" onClick={() => approveMutation.mutate(r.id)} disabled={approveMutation.isPending}>
+                            <Check className="h-4 w-4" />
+                          </button>
+                          <button title="Reject" className="icon-btn text-red-600" onClick={() => { setRejectingSwap(r); reset({ rejectionReason: '' }); }}>
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : r.status === 'REJECTED' && r.rejectionReason ? (
+                        <span className="text-xs text-red-600" title={r.rejectionReason}>{r.rejectionReason}</span>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {(data?.totalPages ?? 0) > 1 && (
+          <Pagination page={data!.page} size={data!.size} totalPages={data!.totalPages} totalElements={data!.totalElements} onPageChange={(p) => setPage(p)} />
+        )}
+      </div>
+
+      <Modal open={Boolean(rejectingSwap)} onClose={() => setRejectingSwap(null)} title={`Reject swap off · ${rejectingSwap?.employeeName}`}>
+        <form onSubmit={handleSubmit((v: { rejectionReason: string }) => rejectMutation.mutate({ id: rejectingSwap!.id, reason: v.rejectionReason }))} className="space-y-4">
+          <Textarea label="Rejection reason" rows={3} placeholder="Explain why this swap off is being rejected…" {...register('rejectionReason')} />
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={() => setRejectingSwap(null)}>Cancel</Button>
+            <Button type="submit" variant="danger" loading={rejectMutation.isPending}>Reject request</Button>
+          </div>
+        </form>
+      </Modal>
+    </div>
+  )
+}

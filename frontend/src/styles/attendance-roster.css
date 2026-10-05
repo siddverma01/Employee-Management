@@ -14,7 +14,7 @@
  */
 
 .dark .attendance-roster {
-  background-color: rgb(var(--roster-card));
+  background-color: rgb(var(--roster-page-bg));
 }
 
 /* KPI summary cards and the legend disclosure panel share one card treatment:
@@ -22,7 +22,7 @@
 .dark .attendance-roster .roster-kpi,
 .dark .attendance-roster .roster-legend-panel {
   background-color: rgb(var(--roster-card));
-  border-color: rgb(var(--roster-kpi-border));
+  border-color: rgb(var(--roster-card-border));
 }
 
 /* KPI label + count are theme-aware text, never a hardcoded hex. */
@@ -39,15 +39,106 @@
   color: rgb(var(--hpe-surface-500));
 }
 
-/* Empty attendance cells: quiet dashed outline so an unpopulated day never reads
-   as a populated status, while remaining clearly a cell. */
+/* Empty attendance cells: seamless in dark mode - no inner boxes/borders */
 .dark .attendance-roster .attendance-cell-empty {
-  border-style: dashed;
-  border-color: rgb(var(--roster-empty-border));
+  border: none;
+  background: transparent;
+  box-shadow: none;
 }
 
 /* The "has a note" marker sits inside the cell as an underline, so it can never
    obscure the status text and never floats over a neighbouring column. */
 .attendance-roster .attendance-note-bar {
   pointer-events: none;
+}
+
+/* ============================================================================
+ * REFINED DARK MODE PALETTE
+ * ============================================================================ */
+
+/* Filter / control inputs */
+.dark .attendance-roster select,
+.dark .attendance-roster input[type="text"],
+.dark .attendance-roster .input {
+  background-color: rgb(var(--roster-card));
+  border-color: rgb(var(--roster-card-border));
+  color: rgb(var(--hpe-surface-200));
+}
+.dark .attendance-roster select:hover,
+.dark .attendance-roster input[type="text"]:hover,
+.dark .attendance-roster .input:hover {
+  border-color: rgb(52 56 70); /* #343746 */
+}
+
+/* Main attendance table card */
+.dark .attendance-roster .card {
+  background-color: rgb(var(--roster-table-bg));
+  border-color: rgb(var(--roster-table-border));
+}
+
+/* Table header row */
+.dark .attendance-roster thead th {
+  background-color: rgb(var(--roster-header-bg));
+  color: rgb(var(--roster-header-text));
+  border-color: rgb(var(--roster-table-border));
+}
+
+/* Frozen / sticky employee columns */
+.dark .attendance-roster .roster-frozen-panel {
+  background-color: rgb(var(--roster-frozen-bg));
+}
+.dark .attendance-roster .roster-frozen-panel::after {
+  background-color: rgba(148, 163, 184, 0.15);
+}
+.dark .attendance-roster .roster-info-cell {
+  background-color: rgb(var(--roster-frozen-bg));
+  border-color: rgb(var(--roster-frozen-border));
+}
+
+/* Body rows */
+.dark .attendance-roster tbody tr {
+  background-color: rgb(var(--roster-table-bg));
+}
+.dark .attendance-roster tbody tr:hover {
+  background-color: rgb(var(--roster-row-hover));
+}
+
+/* Grid cell dividers - clean solid borders */
+.dark .attendance-roster .attendance-cell,
+.dark .attendance-roster tbody td {
+  border-color: rgb(var(--roster-cell-divider)) !important;
+}
+
+/* Weekend columns */
+.dark .attendance-roster th[data-weekend="true"],
+.dark .attendance-roster td[data-weekend="true"] {
+  background-color: rgb(var(--roster-weekend-bg) / 0.7);
+}
+
+/* Weekend headers */
+.dark .attendance-roster th[data-weekend="true"] {
+  color: rgb(var(--roster-weekend-header-text));
+  background-color: rgb(var(--roster-weekend-header-bg) / 0.4);
+  border-color: rgb(var(--roster-weekend-header-border) / 0.4);
+  border-style: solid;
+  border-width: 1px;
+}
+
+/* Empty attendance cells */
+.dark .attendance-roster .attendance-cell-empty .attendance-status,
+.dark .attendance-roster .attendance-cell:empty {
+  color: rgb(var(--attendance-empty-text-dark));
+}
+
+/* Description/comment indicator - ensure it doesn't affect row height */
+.dark .attendance-roster .attendance-note-bar {
+  /* Already absolutely positioned, no layout impact */
+}
+
+/* Ensure no dashed/dotted borders anywhere in dark mode */
+.dark .attendance-roster * {
+  border-style: solid !important;
+}
+.dark .attendance-roster .attendance-cell-empty {
+  border: none !important;
 }

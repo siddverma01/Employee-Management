@@ -215,7 +215,7 @@ function StatusPicker({
           <button
             type="button"
             className={cn(
-              'col-span-full flex items-center justify-center gap-1.5 rounded-md border border-dashed border-surface-300/80 px-2 py-1.5 text-[11px] font-medium text-surface-500 transition-colors hover:bg-surface-100 hover:text-surface-700',
+              'col-span-full flex items-center justify-center gap-1.5 rounded-md border border-surface-300/80 px-2 py-1.5 text-[11px] font-medium text-surface-500 transition-colors hover:bg-surface-100 hover:text-surface-700',
               state.currentCode === EMPTY_CODE && 'border-brand-400/60 text-brand-600 dark:text-brand-400',
             )}
             onClick={() => onPick(EMPTY_CODE)}
@@ -501,7 +501,7 @@ function StatusDetailPopup({
               <button
                 type="button"
                 className={cn(
-                  'col-span-full flex items-center justify-center gap-1.5 rounded-md border border-dashed border-surface-300/80 px-2 py-1.5 text-[11px] font-medium text-surface-500 transition-colors hover:bg-surface-100 hover:text-surface-700',
+                  'col-span-full flex items-center justify-center gap-1.5 rounded-md border border-surface-300/80 px-2 py-1.5 text-[11px] font-medium text-surface-500 transition-colors hover:bg-surface-100 hover:text-surface-700',
                   selectedCode === EMPTY_CODE && 'border-brand-400/60 text-brand-600 dark:text-brand-400',
                 )}
                 onClick={() => onPickStatus(EMPTY_CODE)}
@@ -975,31 +975,32 @@ export function AdminRosterPage() {
       key={date}
       className={cn(
         'sticky top-0 z-10 w-10 min-w-[2.5rem] border-l border-surface-200 px-0.5 py-1.5 text-center align-middle first:border-l-0',
-        weekend && 'bg-brand-50 dark:bg-[#1B2A29]',
-        holiday && 'bg-amber-50 dark:bg-[#383020]',
-        !weekend && !holiday && 'bg-surface-50 dark:bg-[#1E2228]',
+        weekend && 'bg-brand-50',
+        holiday && 'bg-amber-50',
+        !weekend && !holiday && 'bg-surface-50',
       )}
       title={holiday ? statusLabel('HPEH') : undefined}
+      data-weekend={weekend ? 'true' : 'false'}
     >
-<div className="text-[11px] font-semibold leading-tight text-surface-700 dark:text-[#E5E7EB]">{weekdayOf(date) === 0 ? 'S' : date.slice(8)}</div>
+<div className="text-[11px] font-semibold leading-tight text-surface-700">{weekdayOf(date) === 0 ? 'S' : date.slice(8)}</div>
       {/* Weekday text is strictly the three-letter abbreviation, supplied verbatim by
           the backend (`DayOfWeek.getDisplayName(SHORT)`). Holiday metadata must never be
           concatenated into it — a holiday is already communicated by the amber fill on
           the <th> above and by the `title` tooltip, both of which are preserved. */}
-      <div className={cn('text-[9px] font-medium uppercase leading-tight', weekend ? 'text-brand-400 dark:text-[#8FBDB7]' : 'text-surface-400 dark:text-[#8B95A3]')}>
+      <div className={cn('text-[9px] font-medium uppercase leading-tight', weekend ? 'text-brand-400' : 'text-surface-400')}>
         {weekday ?? ''}
       </div>
     </th>
   )
 
-const statusCell = (employee: RosterEmployeeRow, date: string) => {
+const statusCell = (employee: RosterEmployeeRow, date: string, weekend: boolean = false) => {
     const key = cellKey(employee.employeeId, date)
     const edited = dirty.get(key)
     const code = edited !== undefined ? edited : (employee.days[date] ?? EMPTY_CODE)
     const display = code || '.'
     const hasDescription = employee.descriptions?.[date] && employee.descriptions[date].trim() !== ''
     return (
-      <td key={date} className="w-10 min-w-[2.5rem] text-center align-middle">
+      <td key={date} className="w-10 min-w-[2.5rem] text-center align-middle" data-weekend={weekend ? 'true' : 'false'}>
         <button
           type="button"
           data-status={code}
@@ -1028,7 +1029,13 @@ const statusCell = (employee: RosterEmployeeRow, date: string) => {
             openDetail(employee, date, e.currentTarget)
           }}
         >
-          <span className="attendance-status">{display}</span>
+{code ? (
+            <span className="attendance-status">{display}</span>
+          ) : (
+            <div className="w-full h-full min-h-[38px] flex items-center justify-center">
+              <span className="text-slate-400 dark:text-slate-700 text-xs font-semibold select-none">•</span>
+            </div>
+          )}
           {hasDescription && (
             <span
               className={cn(
@@ -1176,7 +1183,7 @@ const statusCell = (employee: RosterEmployeeRow, date: string) => {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
         <RosterLegend className="min-w-0 flex-1" />
         <div className="flex shrink-0 items-center gap-1.5 text-xs text-surface-500">
           {canEdit && (
@@ -1188,7 +1195,7 @@ const statusCell = (employee: RosterEmployeeRow, date: string) => {
           )}
           {dirtyCount > 0 ? (
             <>
-              <span className="flex items-center gap-1.5 rounded-md bg-amber-50 px-2 py-1 text-amber-700 dark:border dark:border-[#4E4524] dark:bg-[#38301E] dark:text-[#E4C76A]">
+              <span className="flex items-center gap-1.5 rounded-md bg-amber-50 px-2 py-1 text-amber-700">
                 <AlertTriangle className="h-3.5 w-3.5" /> {dirtyCount} unsaved change{dirtyCount === 1 ? '' : 's'}
               </span>
               <Button size="sm" variant="secondary" onClick={() => setDirty(new Map())}>Cancel Changes</Button>
@@ -1215,7 +1222,7 @@ const statusCell = (employee: RosterEmployeeRow, date: string) => {
           </div>
         </div>
       ) : (
-        <div className="card overflow-hidden dark:border-[#20252E] dark:bg-[#1B1E23]">
+          <div className="card overflow-hidden">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-surface-200 px-4 py-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-surface-700">
               <CalendarRange className="h-4 w-4 text-brand-500" />
@@ -1320,10 +1327,10 @@ const statusCell = (employee: RosterEmployeeRow, date: string) => {
                     {data.employees.map((employee: RosterEmployeeRow, index: number) => {
                       const groupEnd = index === rowGroups.length - 1 || rowGroups[index] !== rowGroups[index + 1]
                       return (
-                        <tr key={employee.employeeId} className={cn('group', ROW_HEIGHT, 'hover:bg-surface-50/60 dark:hover:bg-white/[0.02]', groupEnd && 'shift-group-end')}>
+                        <tr key={employee.employeeId} className={cn('group', ROW_HEIGHT, 'bg-white hover:bg-slate-50/70 dark:bg-[#141518] hover:dark:bg-[#1a1b20]', groupEnd && 'shift-group-end')}>
                           {viewMode === 'today'
-                            ? statusCell(employee, todayDataTyped!.date)
-                            : monthlyDataTyped!.days.map((d: RosterDayInfo) => statusCell(employee, d.date))
+                            ? statusCell(employee, todayDataTyped!.date, todayDataTyped!.weekend)
+                            : monthlyDataTyped!.days.map((d: RosterDayInfo) => statusCell(employee, d.date, d.weekend))
                           }
                         </tr>
                       )
