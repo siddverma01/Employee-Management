@@ -1,161 +1,161 @@
-/app/src/main/java/com/emplmgt/EmployeeManagementApplication.java
-/app/src/main/java/com/emplmgt/config/DataSeeder.java
-/app/src/main/java/com/emplmgt/config/OpenApiConfig.java
-/app/src/main/java/com/emplmgt/config/SecurityConfig.java
-/app/src/main/java/com/emplmgt/config/WebConfig.java
-/app/src/main/java/com/emplmgt/controller/AdminAttendanceController.java
-/app/src/main/java/com/emplmgt/controller/AdminDashboardController.java
-/app/src/main/java/com/emplmgt/controller/AdminDepartmentController.java
-/app/src/main/java/com/emplmgt/controller/AdminEmployeeController.java
-/app/src/main/java/com/emplmgt/controller/AdminEventController.java
-/app/src/main/java/com/emplmgt/controller/AdminHPEHolidayController.java
-/app/src/main/java/com/emplmgt/controller/AdminHolidayController.java
-/app/src/main/java/com/emplmgt/controller/AdminLeaveController.java
-/app/src/main/java/com/emplmgt/controller/AdminNotificationController.java
-/app/src/main/java/com/emplmgt/controller/AdminSwapOffController.java
-/app/src/main/java/com/emplmgt/controller/AttendanceAnalyticsController.java
-/app/src/main/java/com/emplmgt/controller/AttendanceController.java
-/app/src/main/java/com/emplmgt/controller/AttendanceHistoryController.java
-/app/src/main/java/com/emplmgt/controller/AttendanceRosterController.java
-/app/src/main/java/com/emplmgt/controller/AttendanceStatusDetailController.java
-/app/src/main/java/com/emplmgt/controller/AuditLogController.java
-/app/src/main/java/com/emplmgt/controller/AuthController.java
-/app/src/main/java/com/emplmgt/controller/CalendarController.java
-/app/src/main/java/com/emplmgt/controller/DashboardController.java
-/app/src/main/java/com/emplmgt/controller/DepartmentController.java
-/app/src/main/java/com/emplmgt/controller/EmployeeController.java
-/app/src/main/java/com/emplmgt/controller/EmployeeHistoricalAttendanceController.java
-/app/src/main/java/com/emplmgt/controller/EventController.java
-/app/src/main/java/com/emplmgt/controller/ExcelImportController.java
-/app/src/main/java/com/emplmgt/controller/HPEHolidayController.java
-/app/src/main/java/com/emplmgt/controller/HistoricalImportController.java
-/app/src/main/java/com/emplmgt/controller/HolidayController.java
-/app/src/main/java/com/emplmgt/controller/LeaveController.java
-/app/src/main/java/com/emplmgt/controller/NotificationController.java
-/app/src/main/java/com/emplmgt/controller/RosterController.java
-/app/src/main/java/com/emplmgt/controller/RosterReadController.java
-/app/src/main/java/com/emplmgt/controller/SwapOffController.java
-/app/src/main/java/com/emplmgt/controller/TodayController.java
-/app/src/main/java/com/emplmgt/dto/AttendanceAnalyticsDtos.java
-/app/src/main/java/com/emplmgt/dto/AttendanceDtos.java
-/app/src/main/java/com/emplmgt/dto/AttendanceHistoryDtos.java
-/app/src/main/java/com/emplmgt/dto/AttendanceRosterDtos.java
-/app/src/main/java/com/emplmgt/dto/AuditDtos.java
-/app/src/main/java/com/emplmgt/dto/AuthDtos.java
-/app/src/main/java/com/emplmgt/dto/CalendarDtos.java
-/app/src/main/java/com/emplmgt/dto/DashboardDtos.java
-/app/src/main/java/com/emplmgt/dto/EmployeeDtos.java
-/app/src/main/java/com/emplmgt/dto/EmployeeHistoricalAttendanceDtos.java
-/app/src/main/java/com/emplmgt/dto/HistoricalImportDtos.java
-/app/src/main/java/com/emplmgt/dto/HolidayDtos.java
-/app/src/main/java/com/emplmgt/dto/ImportDtos.java
-/app/src/main/java/com/emplmgt/dto/LeaveDtos.java
-/app/src/main/java/com/emplmgt/dto/NotificationDtos.java
-/app/src/main/java/com/emplmgt/dto/PageResponse.java
-/app/src/main/java/com/emplmgt/dto/RosterDtos.java
-/app/src/main/java/com/emplmgt/dto/SwapOffDtos.java
-/app/src/main/java/com/emplmgt/dto/TeamDtos.java
-/app/src/main/java/com/emplmgt/entity/ApplicableLocation.java
-/app/src/main/java/com/emplmgt/entity/Attendance.java
-/app/src/main/java/com/emplmgt/entity/AttendanceImportHistory.java
-/app/src/main/java/com/emplmgt/entity/AttendanceImportRow.java
-/app/src/main/java/com/emplmgt/entity/AttendanceRecord.java
-/app/src/main/java/com/emplmgt/entity/AttendanceRoster.java
-/app/src/main/java/com/emplmgt/entity/AttendanceShiftAssignment.java
-/app/src/main/java/com/emplmgt/entity/AttendanceSource.java
-/app/src/main/java/com/emplmgt/entity/AttendanceStatus.java
-/app/src/main/java/com/emplmgt/entity/AttendanceType.java
-/app/src/main/java/com/emplmgt/entity/AttendanceWeekOffAssignment.java
-/app/src/main/java/com/emplmgt/entity/AuditLog.java
-/app/src/main/java/com/emplmgt/entity/BaseEntity.java
-/app/src/main/java/com/emplmgt/entity/Department.java
-/app/src/main/java/com/emplmgt/entity/Employee.java
-/app/src/main/java/com/emplmgt/entity/EmploymentStatus.java
-/app/src/main/java/com/emplmgt/entity/Event.java
-/app/src/main/java/com/emplmgt/entity/EventType.java
-/app/src/main/java/com/emplmgt/entity/ExcelImport.java
-/app/src/main/java/com/emplmgt/entity/ExcelImportRow.java
-/app/src/main/java/com/emplmgt/entity/ExcelImportStatus.java
-/app/src/main/java/com/emplmgt/entity/ExcelRowStatus.java
-/app/src/main/java/com/emplmgt/entity/HPEEntitlement.java
-/app/src/main/java/com/emplmgt/entity/HPEEntitlementStatus.java
-/app/src/main/java/com/emplmgt/entity/Holiday.java
-/app/src/main/java/com/emplmgt/entity/HolidayType.java
-/app/src/main/java/com/emplmgt/entity/ImportEmployee.java
-/app/src/main/java/com/emplmgt/entity/LeaveBalance.java
-/app/src/main/java/com/emplmgt/entity/LeaveRequest.java
-/app/src/main/java/com/emplmgt/entity/LeaveStatus.java
-/app/src/main/java/com/emplmgt/entity/LeaveType.java
-/app/src/main/java/com/emplmgt/entity/Notification.java
-/app/src/main/java/com/emplmgt/entity/NotificationType.java
-/app/src/main/java/com/emplmgt/entity/Role.java
-/app/src/main/java/com/emplmgt/entity/ScopeType.java
-/app/src/main/java/com/emplmgt/entity/SwapOffRequest.java
-/app/src/main/java/com/emplmgt/entity/User.java
-/app/src/main/java/com/emplmgt/exception/ApiError.java
-/app/src/main/java/com/emplmgt/exception/ApiException.java
-/app/src/main/java/com/emplmgt/exception/GlobalExceptionHandler.java
-/app/src/main/java/com/emplmgt/repository/AttendanceImportHistoryRepository.java
-/app/src/main/java/com/emplmgt/repository/AttendanceImportRowRepository.java
-/app/src/main/java/com/emplmgt/repository/AttendanceRecordRepository.java
-/app/src/main/java/com/emplmgt/repository/AttendanceRepository.java
-/app/src/main/java/com/emplmgt/repository/AttendanceRosterRepository.java
-/app/src/main/java/com/emplmgt/repository/AttendanceShiftAssignmentRepository.java
-/app/src/main/java/com/emplmgt/repository/AttendanceStatusRepository.java
-/app/src/main/java/com/emplmgt/repository/AttendanceWeekOffAssignmentRepository.java
-/app/src/main/java/com/emplmgt/repository/AuditLogRepository.java
-/app/src/main/java/com/emplmgt/repository/DepartmentRepository.java
-/app/src/main/java/com/emplmgt/repository/EmployeeRepository.java
-/app/src/main/java/com/emplmgt/repository/EventRepository.java
-/app/src/main/java/com/emplmgt/repository/ExcelImportRepository.java
-/app/src/main/java/com/emplmgt/repository/ExcelImportRowRepository.java
-/app/src/main/java/com/emplmgt/repository/HPEEntitlementRepository.java
-/app/src/main/java/com/emplmgt/repository/HolidayRepository.java
-/app/src/main/java/com/emplmgt/repository/ImportEmployeeRepository.java
-/app/src/main/java/com/emplmgt/repository/LeaveBalanceRepository.java
-/app/src/main/java/com/emplmgt/repository/LeaveRequestRepository.java
-/app/src/main/java/com/emplmgt/repository/NotificationRepository.java
-/app/src/main/java/com/emplmgt/repository/SwapOffRequestRepository.java
-/app/src/main/java/com/emplmgt/repository/UserRepository.java
-/app/src/main/java/com/emplmgt/security/AppUserDetailsService.java
-/app/src/main/java/com/emplmgt/security/AppUserPrincipal.java
-/app/src/main/java/com/emplmgt/security/JwtAuthenticationFilter.java
-/app/src/main/java/com/emplmgt/security/JwtService.java
-/app/src/main/java/com/emplmgt/security/SecurityUtils.java
-/app/src/main/java/com/emplmgt/service/AttendanceAnalyticsService.java
-/app/src/main/java/com/emplmgt/service/AttendanceHistoryService.java
-/app/src/main/java/com/emplmgt/service/AttendanceRequestIntegrationService.java
-/app/src/main/java/com/emplmgt/service/AttendanceRosterService.java
-/app/src/main/java/com/emplmgt/service/AttendanceService.java
-/app/src/main/java/com/emplmgt/service/AttendanceStatusDetailService.java
-/app/src/main/java/com/emplmgt/service/AuditLogService.java
-/app/src/main/java/com/emplmgt/service/AuditService.java
-/app/src/main/java/com/emplmgt/service/AuthService.java
-/app/src/main/java/com/emplmgt/service/CalendarService.java
-/app/src/main/java/com/emplmgt/service/DashboardService.java
-/app/src/main/java/com/emplmgt/service/DepartmentService.java
-/app/src/main/java/com/emplmgt/service/EmployeeHistoricalAttendanceService.java
-/app/src/main/java/com/emplmgt/service/EmployeeService.java
-/app/src/main/java/com/emplmgt/service/EventService.java
-/app/src/main/java/com/emplmgt/service/ExcelImportService.java
-/app/src/main/java/com/emplmgt/service/HPEEntitlementService.java
-/app/src/main/java/com/emplmgt/service/HistoricalImportService.java
-/app/src/main/java/com/emplmgt/service/HolidayService.java
-/app/src/main/java/com/emplmgt/service/LeaveService.java
-/app/src/main/java/com/emplmgt/service/NotificationService.java
-/app/src/main/java/com/emplmgt/service/RosterExportService.java
-/app/src/main/java/com/emplmgt/service/RosterService.java
-/app/src/main/java/com/emplmgt/service/RosterWorkStatusService.java
-/app/src/main/java/com/emplmgt/service/SwapOffService.java
-/app/src/main/java/com/emplmgt/service/TeamAccessService.java
-/app/src/main/java/com/emplmgt/service/UpcomingEventsService.java
-/app/src/main/java/com/emplmgt/util/AppClock.java
-/app/src/main/java/com/emplmgt/util/ExcelCommentExtractor.java
-/app/src/main/java/com/emplmgt/util/HistoricalImportCodes.java
-/app/src/main/java/com/emplmgt/util/HistoricalRosterParser.java
-/app/src/main/java/com/emplmgt/util/HolidayLocationUtil.java
-/app/src/main/java/com/emplmgt/util/JsonUtil.java
-/app/src/main/java/com/emplmgt/util/LeaveDaysCalculator.java
-/app/src/main/java/com/emplmgt/util/RosterStatusCodes.java
-/app/src/main/java/com/emplmgt/util/ShiftTime.java
-/app/src/main/java/com/emplmgt/util/WeekOffUtil.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/EmployeeManagementApplication.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/config/DataSeeder.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/config/OpenApiConfig.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/config/SecurityConfig.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/config/WebConfig.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/controller/AdminAttendanceController.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/controller/AdminDashboardController.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/controller/AdminDepartmentController.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/controller/AdminEmployeeController.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/controller/AdminEventController.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/controller/AdminHPEHolidayController.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/controller/AdminHolidayController.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/controller/AdminLeaveController.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/controller/AdminNotificationController.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/controller/AdminSwapOffController.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/controller/AttendanceAnalyticsController.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/controller/AttendanceController.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/controller/AttendanceHistoryController.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/controller/AttendanceRosterController.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/controller/AttendanceStatusDetailController.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/controller/AuditLogController.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/controller/AuthController.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/controller/CalendarController.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/controller/DashboardController.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/controller/DepartmentController.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/controller/EmployeeController.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/controller/EmployeeHistoricalAttendanceController.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/controller/EventController.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/controller/ExcelImportController.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/controller/HPEHolidayController.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/controller/HistoricalImportController.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/controller/HolidayController.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/controller/LeaveController.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/controller/NotificationController.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/controller/RosterController.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/controller/RosterReadController.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/controller/SwapOffController.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/controller/TodayController.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/dto/AttendanceAnalyticsDtos.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/dto/AttendanceDtos.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/dto/AttendanceHistoryDtos.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/dto/AttendanceRosterDtos.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/dto/AuditDtos.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/dto/AuthDtos.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/dto/CalendarDtos.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/dto/DashboardDtos.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/dto/EmployeeDtos.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/dto/EmployeeHistoricalAttendanceDtos.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/dto/HistoricalImportDtos.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/dto/HolidayDtos.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/dto/ImportDtos.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/dto/LeaveDtos.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/dto/NotificationDtos.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/dto/PageResponse.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/dto/RosterDtos.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/dto/SwapOffDtos.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/dto/TeamDtos.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/ApplicableLocation.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/Attendance.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/AttendanceImportHistory.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/AttendanceImportRow.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/AttendanceRecord.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/AttendanceRoster.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/AttendanceShiftAssignment.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/AttendanceSource.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/AttendanceStatus.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/AttendanceType.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/AttendanceWeekOffAssignment.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/AuditLog.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/BaseEntity.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/Department.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/Employee.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/EmploymentStatus.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/Event.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/EventType.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/ExcelImport.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/ExcelImportRow.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/ExcelImportStatus.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/ExcelRowStatus.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/HPEEntitlement.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/HPEEntitlementStatus.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/Holiday.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/HolidayType.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/ImportEmployee.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/LeaveBalance.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/LeaveRequest.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/LeaveStatus.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/LeaveType.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/Notification.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/NotificationType.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/Role.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/ScopeType.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/SwapOffRequest.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/entity/User.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/exception/ApiError.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/exception/ApiException.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/exception/GlobalExceptionHandler.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/repository/AttendanceImportHistoryRepository.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/repository/AttendanceImportRowRepository.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/repository/AttendanceRecordRepository.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/repository/AttendanceRepository.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/repository/AttendanceRosterRepository.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/repository/AttendanceShiftAssignmentRepository.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/repository/AttendanceStatusRepository.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/repository/AttendanceWeekOffAssignmentRepository.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/repository/AuditLogRepository.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/repository/DepartmentRepository.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/repository/EmployeeRepository.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/repository/EventRepository.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/repository/ExcelImportRepository.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/repository/ExcelImportRowRepository.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/repository/HPEEntitlementRepository.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/repository/HolidayRepository.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/repository/ImportEmployeeRepository.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/repository/LeaveBalanceRepository.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/repository/LeaveRequestRepository.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/repository/NotificationRepository.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/repository/SwapOffRequestRepository.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/repository/UserRepository.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/security/AppUserDetailsService.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/security/AppUserPrincipal.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/security/JwtAuthenticationFilter.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/security/JwtService.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/security/SecurityUtils.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/service/AttendanceAnalyticsService.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/service/AttendanceHistoryService.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/service/AttendanceRequestIntegrationService.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/service/AttendanceRosterService.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/service/AttendanceService.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/service/AttendanceStatusDetailService.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/service/AuditLogService.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/service/AuditService.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/service/AuthService.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/service/CalendarService.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/service/DashboardService.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/service/DepartmentService.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/service/EmployeeHistoricalAttendanceService.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/service/EmployeeService.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/service/EventService.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/service/ExcelImportService.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/service/HPEEntitlementService.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/service/HistoricalImportService.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/service/HolidayService.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/service/LeaveService.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/service/NotificationService.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/service/RosterExportService.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/service/RosterService.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/service/RosterWorkStatusService.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/service/SwapOffService.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/service/TeamAccessService.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/service/UpcomingEventsService.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/util/AppClock.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/util/ExcelCommentExtractor.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/util/HistoricalImportCodes.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/util/HistoricalRosterParser.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/util/HolidayLocationUtil.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/util/JsonUtil.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/util/LeaveDaysCalculator.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/util/RosterStatusCodes.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/util/ShiftTime.java
+/home/kamikaze/Documents/Coding/Projects/Employee Management/backend/src/main/java/com/emplmgt/util/WeekOffUtil.java
